@@ -1,0 +1,256 @@
+@import "tailwindcss";
+
+/*
+ * Design tokens. Roles:
+ *   background  page          surface   card (raised), paper (sunken)   wells  well, well-strong, track (segmented controls)
+ *   text        ink (primary), ink-soft, muted (secondary), subtle (tertiary)
+ *   primary     brand, brand-hover, on-brand (text on primary), brand-soft, brand-text
+ *   secondary   card + line (quiet buttons)    accent  violet-* (model suggestions)
+ *   controls    field-line (input borders), focus (focus ring)
+ *   status      ok-*, warn-*, danger-*        board   slot-m/a/n (cell per shift), chip (assigned person), shift-* dots
+ * src/app/contrast.test.ts checks every text and control pair against WCAG AA.
+ */
+:root {
+  color-scheme: light;
+  --page: #f8fafc;
+  --paper: #f1f5f9;
+  --card: #ffffff;
+  --ink: #0f172a;
+  --ink-soft: #334155;
+  --muted: #475569;
+  --subtle: #536175;
+  --line: #e2e8f0;
+  --field-line: #7a8699;
+  --well: #f1f5f9;
+  --well-strong: #e2e8f0;
+  --track: #e8edf4;
+  --brand: #4f46e5;
+  --brand-hover: #4338ca;
+  --on-brand: #ffffff;
+  --brand-soft: #eef2ff;
+  --brand-text: #3730a3;
+  --focus: #4f46e5;
+  --ok-soft: #dcfce7;
+  --ok-softer: #f0fdf4;
+  --ok-text: #166534;
+  --danger-soft: #ffe4e6;
+  --danger-softer: #fff1f2;
+  --danger-line: #fda4af;
+  --danger-text: #9f1239;
+  --warn-soft: #fef3c7;
+  --warn-softer: #fffbeb;
+  --warn-softest: #fff7ed;
+  --warn-line: #f59e0b;
+  --warn-text: #92400e;
+  --slot-m: #fff7e8;
+  --slot-a: #ebf3ff;
+  --slot-n: #f2eeff;
+  --chip: #ffffff;
+  --shift-m: #d97706;
+  --shift-a: #2563eb;
+  --shift-n: #7c3aed;
+  --violet-soft: #ede9fe;
+  --violet-softer: #f5f3ff;
+  --violet-text: #5b21b6;
+  --violet-strong: #4c1d95;
+  --elev-1: 0 1px 2px rgb(15 23 42 / 0.04), 0 1px 3px rgb(15 23 42 / 0.06);
+  --elev-2: 0 4px 6px -1px rgb(15 23 42 / 0.06), 0 12px 24px -6px rgb(15 23 42 / 0.12);
+  --scroll-track: #f3f6f9;
+  --scroll-thumb: #e7eef4;
+}
+
+:root.dark {
+  color-scheme: dark;
+  --page: #0f172a;
+  --paper: #131c2e;
+  --card: #1e293b;
+  --ink: #f8fafc;
+  --ink-soft: #e2e8f0;
+  --muted: #cbd5e1;
+  --subtle: #a8b4c6;
+  --line: #334155;
+  --field-line: #6b7a90;
+  --well: #253247;
+  --well-strong: #334155;
+  --track: #0b1222;
+  --brand: #818cf8;
+  --brand-hover: #a5b4fc;
+  --on-brand: #0f172a;
+  --brand-soft: #272d5a;
+  --brand-text: #c7d2fe;
+  --focus: #a5b4fc;
+  --ok-soft: #12372a;
+  --ok-softer: #0f2c22;
+  --ok-text: #86efac;
+  --danger-soft: #4a1d2a;
+  --danger-softer: #3a1820;
+  --danger-line: #be4a5e;
+  --danger-text: #fda4af;
+  --warn-soft: #3b2f12;
+  --warn-softer: #30270f;
+  --warn-softest: #33241a;
+  --warn-line: #b7861f;
+  --warn-text: #fcd34d;
+  --slot-m: #33302a;
+  --slot-a: #1f3049;
+  --slot-n: #2a2a4a;
+  --chip: #314059;
+  --shift-m: #f59e0b;
+  --shift-a: #60a5fa;
+  --shift-n: #a78bfa;
+  --violet-soft: #2e2650;
+  --violet-softer: #241e3e;
+  --violet-text: #c4b5fd;
+  --violet-strong: #ddd6fe;
+  --elev-1: 0 1px 2px rgb(0 0 0 / 0.3), inset 0 1px 0 rgb(255 255 255 / 0.03);
+  --elev-2: 0 8px 24px -4px rgb(0 0 0 / 0.5), inset 0 1px 0 rgb(255 255 255 / 0.04);
+  --scroll-track: #12192e;
+  --scroll-thumb: #1a2438;
+}
+
+@theme inline {
+  --color-page: var(--page);
+  --color-paper: var(--paper);
+  --color-card: var(--card);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-muted: var(--muted);
+  --color-subtle: var(--subtle);
+  --color-line: var(--line);
+  --color-field-line: var(--field-line);
+  --color-well: var(--well);
+  --color-well-strong: var(--well-strong);
+  --color-track: var(--track);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-on-brand: var(--on-brand);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-text: var(--brand-text);
+  --color-focus: var(--focus);
+  --color-ok-soft: var(--ok-soft);
+  --color-ok-softer: var(--ok-softer);
+  --color-ok-text: var(--ok-text);
+  --color-danger-soft: var(--danger-soft);
+  --color-danger-softer: var(--danger-softer);
+  --color-danger-line: var(--danger-line);
+  --color-danger-text: var(--danger-text);
+  --color-warn-soft: var(--warn-soft);
+  --color-warn-softer: var(--warn-softer);
+  --color-warn-softest: var(--warn-softest);
+  --color-warn-line: var(--warn-line);
+  --color-warn-text: var(--warn-text);
+  --color-slot-m: var(--slot-m);
+  --color-slot-a: var(--slot-a);
+  --color-slot-n: var(--slot-n);
+  --color-chip: var(--chip);
+  --color-shift-m: var(--shift-m);
+  --color-shift-a: var(--shift-a);
+  --color-shift-n: var(--shift-n);
+  --color-violet-soft: var(--violet-soft);
+  --color-violet-softer: var(--violet-softer);
+  --color-violet-text: var(--violet-text);
+  --color-violet-strong: var(--violet-strong);
+  --shadow-card: var(--elev-1);
+  --shadow-pop: var(--elev-2);
+}
+
+@layer base {
+  /* One scrollbar for the whole app. Rounded, and inset so it ends inside a rounded frame. */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--scroll-thumb) var(--scroll-track);
+  }
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  ::-webkit-scrollbar-track {
+    background: var(--scroll-track);
+    border-radius: 999px;
+    margin: 6px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--scroll-thumb);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--font-heebo), "Avenir Next", "Segoe UI", sans-serif;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  button,
+  select,
+  input,
+  textarea {
+    font: inherit;
+    color: inherit;
+  }
+
+  button,
+  select,
+  input,
+  textarea,
+  a,
+  [role="tab"] {
+    transition-property: color, background-color, border-color, box-shadow, opacity, transform;
+    transition-duration: 150ms;
+    transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  }
+
+  :where(button, a, select, input, textarea, summary, [tabindex]):focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 2px;
+  }
+
+  :where(input:not([type="checkbox"]), select, textarea):focus-visible {
+    outline-offset: 0;
+    border-color: var(--focus);
+  }
+
+  button:not(:disabled) {
+    cursor: pointer;
+  }
+
+  button:not(:disabled):active {
+    transform: translateY(1px);
+  }
+
+  input[type="checkbox"] {
+    accent-color: var(--brand);
+  }
+
+  [dir="rtl"] input[type="number"] {
+    text-align: right;
+  }
+
+  ::selection {
+    background: var(--brand-soft);
+    color: var(--brand-text);
+  }
+
+  .theme-switching *,
+  .theme-switching *::before,
+  .theme-switching *::after {
+    transition: none !important;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+}

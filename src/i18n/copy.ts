@@ -1,0 +1,636 @@
+import type { Lang } from "../domain";
+import type { ConstraintReason } from "../parser";
+
+export interface Copy {
+  demo: string;
+  manager: string;
+  previousWeek: string;
+  nextWeek: string;
+  generate: string;
+  regenerate: string;
+  publish: string;
+  revert: string;
+  undo: string;
+  redo: string;
+  publishedLock: string;
+  createBeforePublish: string;
+  allClear: string;
+  publishedClear: string;
+  noSchedule: string;
+  issues: string;
+  violations: string;
+  openShifts: string;
+  underQuota: string;
+  summaryTitle: string;
+  summaryHint: string;
+  summaryEmployee: string;
+  summaryShifts: string;
+  summaryHours: string;
+  summaryStatus: string;
+  withinQuota: string;
+  noQuota: string;
+  summaryTotal: string;
+  approve: string;
+  addEmployee: string;
+  remove: string;
+  covered: string;
+  cancelSelection: string;
+  scrollHint: string;
+  closed: string;
+  overQuota: string;
+  hebrew: string;
+  english: string;
+  navSchedule: string;
+  navTeam: string;
+  employeeName: string;
+  contact: string;
+  role: string;
+  qualifications: string;
+  quota: string;
+  hourCap: string;
+  hourCapHint: string;
+  hourCapNone: string;
+  active: string;
+  inactive: string;
+  agreement: string;
+  agreementForbids: string;
+  unavailableWeek: string;
+  availableWeek: string;
+  siteClosed: string;
+  copyPrevious: string;
+  notSubmitted: string;
+  submitted: string;
+  availabilityLocked: string;
+  agreementReadOnly: string;
+  addPerson: string;
+  pickEmployee: string;
+  scheduleReadOnly: string;
+  callOff: string;
+  calledOff: string;
+  replacements: string;
+  noReplacement: string;
+  rejectedTitle: string;
+  emergency: string;
+  publishedOpen: string;
+  assignReplacement: string;
+  pasteTitle: string;
+  pasteHint: string;
+  pastePlaceholder: string;
+  approvePaste: string;
+  lineRecognized: string;
+  lineAmbiguous: string;
+  lineUnparsed: string;
+  draftTitle: string;
+  beforeAfter: string;
+  noCellChange: string;
+  nothingToWrite: string;
+  polarityOff: string;
+  polarityOn: string;
+  polarityOnly: string;
+  allShifts: string;
+  employeeMatched: string;
+  askModel: string;
+  modelWorking: string;
+  modelOff: string;
+  modelFailed: string;
+  modelNothing: string;
+  modelSuggestion: string;
+  acceptSuggestion: string;
+  rejectSuggestion: string;
+  explain: string;
+  versionsTitle: string;
+  noVersions: string;
+  versionPublish: string;
+  versionCalloff: string;
+  restoreVersion: string;
+  diffAdded: string;
+  diffRemoved: string;
+  diffExtended: string;
+  diffCalledOff: string;
+  noDiff: string;
+  firstVersion: string;
+  exportPng: string;
+  exportJson: string;
+  exportPublishedOnly: string;
+  exportOpen: string;
+  exportClosed: string;
+  exportLegend: string;
+  navBusiness: string;
+  navConstraints: string;
+  submittedCount: string;
+  submittedShort: string;
+  notSubmittedShort: string;
+  themeDark: string;
+  themeLight: string;
+  exportMenu: string;
+  businessTitle: string;
+  businessReadOnly: string;
+  bizName: string;
+  bizType: string;
+  minRest: string;
+  maxHours: string;
+  maxShift: string;
+  maxDayHours: string;
+  lawHint: string;
+  shiftsTitle: string;
+  shiftName: string;
+  shiftStart: string;
+  shiftEnd: string;
+  requiredRole: string;
+  anyRole: string;
+  staffingHint: string;
+  addShift: string;
+  deleteShift: string;
+  newShift: string;
+  signInTitle: string;
+  signInHint: string;
+  email: string;
+  password: string;
+  signIn: string;
+  signOut: string;
+  signInFailed: string;
+  demoAccounts: string;
+  accessOwner: string;
+  accessWrite: string;
+  accessRead: string;
+  readOnlyBanner: string;
+  site: string;
+  sitesTitle: string;
+  siteSettings: string;
+  siteName: string;
+  orgName: string;
+  orgReadOnly: string;
+  addSite: string;
+  deleteSite: string;
+  newSiteName: string;
+  siteNameTaken: string;
+  usersTitle: string;
+  usersHint: string;
+  addUser: string;
+  removeUser: string;
+  you: string;
+  deleteEmployee: string;
+  noEmployees: string;
+  settings: string;
+  appearance: string;
+  lightShort: string;
+  darkShort: string;
+  language: string;
+  selectAll: string;
+  clearAll: string;
+  navInsights: string;
+}
+
+export const copy: Record<Lang, Copy> = {
+  he: {
+    demo: "דמו מקומי",
+    manager: "מנהל",
+    previousWeek: "השבוע הקודם",
+    nextWeek: "השבוע הבא",
+    generate: "יצירת סידור",
+    regenerate: "יצירה מחדש",
+    publish: "פרסום",
+    revert: "החזרה לטיוטה",
+    undo: "ביטול",
+    redo: "שחזר",
+    publishedLock: "השבוע פורסם. העריכה נעולה עד החזרה לטיוטה.",
+    createBeforePublish: "צרו סידור לפני פרסום.",
+    allClear: "אין הפרות ואין חורים. אפשר לפרסם.",
+    publishedClear: "אין הפרות ואין חורים.",
+    noSchedule: "אין עדיין שיבוץ. יצירת הסידור תמלא את המושבים לפי המנוע.",
+    issues: "בעיות",
+    violations: "הפרות",
+    openShifts: "משמרות פתוחות",
+    underQuota: "מתחת למכסה",
+    summaryTitle: "סיכום שבועי",
+    summaryHint: "כמה משמרות קיבל כל עובד ביחס למכסה שלו.",
+    summaryEmployee: "עובד",
+    summaryShifts: "משמרות / מכסה",
+    summaryHours: "שעות",
+    summaryStatus: "מצב",
+    withinQuota: "במכסה",
+    noQuota: "ללא מכסה",
+    summaryTotal: "סה״כ",
+    approve: "אישור",
+    addEmployee: "הוספת עובד",
+    remove: "הסרה",
+    covered: "מכוסה בהארכה",
+    cancelSelection: "ביטול בחירה",
+    scrollHint: "גלול לצדדים כדי לראות את כל השבוע.",
+    closed: "סגור",
+    overQuota: "מעל המכסה",
+    hebrew: "עברית",
+    english: "English",
+    navSchedule: "סידור שבועי",
+    navTeam: "ניהול עובדים",
+    employeeName: "שם",
+    contact: "פרטי קשר",
+    role: "תפקיד",
+    qualifications: "הסמכות",
+    quota: "משמרות בשבוע",
+    hourCap: "תקרת שעות",
+    hourCapHint: "ללא: תקרת האתר",
+    hourCapNone: "ללא",
+    active: "פעיל",
+    inactive: "לא פעיל",
+    agreement: "הסכם",
+    agreementForbids: "ההסכם אוסר",
+    unavailableWeek: "לא זמין השבוע",
+    availableWeek: "זמין השבוע",
+    siteClosed: "האתר סגור",
+    copyPrevious: "העתקה מהשבוע הקודם",
+    notSubmitted: "לא הוגשה זמינות. המנוע מתייחס לזמינות לפי ההסכם.",
+    submitted: "הזמינות הוגשה לשבוע הזה.",
+    availabilityLocked: "אי אפשר לפתוח כאן משמרת שההסכם סוגר.",
+    agreementReadOnly: "ההסכם לקריאה בלבד.",
+    addPerson: "הוספת עובד",
+    pickEmployee: "בחרו עובד מהרשימה.",
+    scheduleReadOnly: "הסידור לקריאה בלבד.",
+    callOff: "הברזה",
+    calledOff: "הברזה",
+    replacements: "מחליפים חוקיים",
+    noReplacement: "אין מחליף שעבר את כל הכללים. המושב נשאר פתוח.",
+    rejectedTitle: "נפסלו",
+    emergency: "חלופות חירום",
+    publishedOpen: "השבוע נשאר פורסם. יש מושב פתוח אחרי הברזה.",
+    assignReplacement: "שיבוץ",
+    pasteTitle: "הודעה מהעובד",
+    pasteHint: "הדביקו הודעה. הזמינות נכתבת רק אחרי אישור, וההסכם לא משתנה.",
+    pastePlaceholder: "לדוגמה:\nשם עובד\nראשון - לא עובד בוקר\nשלישי - לא עובד לילה\nמיום רביעי עד יום שישי - לא זמין",
+    approvePaste: "אישור הזמינות",
+    lineRecognized: "זוהתה",
+    lineAmbiguous: "לא חד-משמעית",
+    lineUnparsed: "לא הובנה",
+    draftTitle: "טיוטה",
+    beforeAfter: "לפני ואחרי",
+    noCellChange: "אין שינוי בתאים. ההסכם כבר קובע את הזמינות הזו.",
+    nothingToWrite: "אין שורה שזוהתה לכתיבה.",
+    polarityOff: "לא זמין",
+    polarityOn: "זמין",
+    polarityOnly: "רק",
+    allShifts: "כל המשמרות",
+    employeeMatched: "עובד",
+    askModel: "הצעה מהמודל לשורות הפתוחות",
+    modelWorking: "המודל קורא את השורות…",
+    modelOff: "הצעות מודל כבויות בסביבה הזו. המפרש והאישור ממשיכים לעבוד.",
+    modelFailed: "המודל לא ענה. השורות נשארות לתיקון ידני.",
+    modelNothing: "המודל לא הציע קריאה בטוחה. השורות נשארות לתיקון ידני.",
+    modelSuggestion: "הצעת מודל",
+    acceptSuggestion: "קבלה",
+    rejectSuggestion: "דחייה",
+    explain: "הסבר",
+    versionsTitle: "גרסאות",
+    noVersions: "עדיין אין גרסאות. פרסום יוצר את הראשונה.",
+    versionPublish: "פרסום",
+    versionCalloff: "כיסוי הברזה",
+    restoreVersion: "שחזור כטיוטה",
+    diffAdded: "נוסף",
+    diffRemoved: "הוסר",
+    diffExtended: "שעות שונו",
+    diffCalledOff: "הברזה",
+    noDiff: "אין שינוי בשיבוץ.",
+    firstVersion: "הגרסה הראשונה של השבוע.",
+    exportPng: "ייצוא PNG",
+    exportJson: "גיבוי JSON",
+    exportPublishedOnly: "ייצוא PNG זמין אחרי פרסום.",
+    exportOpen: "חסר",
+    exportClosed: "סגור",
+    exportLegend: "אדום: הארכה או מושב חסר",
+    navBusiness: "הגדרות עסק",
+    navConstraints: "אילוצים שבועיים",
+    submittedCount: "הגישו זמינות לשבוע",
+    submittedShort: "הוגש",
+    notSubmittedShort: "לא הוגש, לפי ההסכם",
+    themeDark: "מצב כהה",
+    themeLight: "מצב בהיר",
+    exportMenu: "ייצוא הסידור",
+    businessTitle: "פרטי העסק",
+    businessReadOnly: "רק משתמש עם הרשאת כתיבה יכול לשנות את הגדרות האתר.",
+    bizName: "שם",
+    bizType: "סוג",
+    minRest: "מנוחה מינימלית בין משמרות (שעות)",
+    maxHours: "תקרת שעות שבועית",
+    maxShift: "אורך משמרת מקסימלי בכיסוי חור (שעות)",
+    maxDayHours: "תקרת שעות ביום (0 = בלי תקרה)",
+    lawHint: "מגבלות המנוחה והשעות תלויות בחוק המקומי. קבעו אותן לפי החוק והמדיניות שלכם.",
+    shiftsTitle: "משמרות ותקן",
+    shiftName: "משמרת",
+    shiftStart: "התחלה",
+    shiftEnd: "סיום",
+    requiredRole: "תפקיד נדרש",
+    anyRole: "כל תפקיד",
+    staffingHint: "המספרים הם עובדים נדרשים בכל יום (0 = סגור). משמרת שמסתיימת לפני שעת ההתחלה שלה חוצה חצות.",
+    addShift: "הוספת משמרת",
+    deleteShift: "מחיקה",
+    newShift: "משמרת חדשה",
+    signInTitle: "כניסה ל-Rota",
+    signInHint: "כניסה לניהול הסידור, הצוות והאתרים.",
+    email: "אימייל",
+    password: "סיסמה",
+    signIn: "כניסה",
+    signOut: "יציאה",
+    signInFailed: "האימייל או הסיסמה לא נכונים.",
+    demoAccounts: "חשבון הדמו",
+    accessOwner: "בעלים",
+    accessWrite: "כתיבה",
+    accessRead: "קריאה",
+    readOnlyBanner: "יש לך הרשאת קריאה: אפשר לראות הכול, ושינויים נעולים.",
+    site: "אתר",
+    sitesTitle: "אתרים",
+    siteSettings: "הגדרות האתר",
+    siteName: "שם האתר",
+    orgName: "שם העסק",
+    orgReadOnly: "רק בעל העסק יכול לשנות את שם העסק ואת הסוג.",
+    addSite: "הוספת אתר",
+    deleteSite: "מחיקת האתר",
+    newSiteName: "שם האתר החדש",
+    siteNameTaken: "כבר יש אתר בשם הזה.",
+    usersTitle: "משתמשים והרשאות",
+    usersHint: "קריאה: רואה הכול ולא משנה. כתיבה: עורך את כל המסכים. רק בעל העסק מנהל משתמשים.",
+    addUser: "הוספת משתמש",
+    removeUser: "הסרה",
+    you: "(את/ה)",
+    deleteEmployee: "מחיקת העובד",
+    noEmployees: "אין עדיין עובדים באתר הזה.",
+    settings: "הגדרות",
+    appearance: "מצב תצוגה",
+    lightShort: "בהיר",
+    darkShort: "כהה",
+    language: "שפה",
+    selectAll: "בחר הכל",
+    clearAll: "נקה",
+    navInsights: "תובנות AI",
+  },
+  en: {
+    demo: "Local demo",
+    manager: "Manager",
+    previousWeek: "Previous week",
+    nextWeek: "Next week",
+    generate: "Generate",
+    regenerate: "Regenerate",
+    publish: "Publish",
+    revert: "Back to draft",
+    undo: "Undo",
+    redo: "Redo",
+    publishedLock: "This week is published. Editing stays locked until it returns to draft.",
+    createBeforePublish: "Generate a schedule before publishing.",
+    allClear: "No violations and no open shifts. Ready to publish.",
+    publishedClear: "No violations and no open shifts.",
+    noSchedule: "Nothing is assigned yet. Generate fills the seats through the engine.",
+    issues: "Issues",
+    violations: "Violations",
+    openShifts: "Open shifts",
+    underQuota: "Under the agreement",
+    summaryTitle: "Week summary",
+    summaryHint: "Shifts each person got against their agreed count.",
+    summaryEmployee: "Employee",
+    summaryShifts: "Shifts / quota",
+    summaryHours: "Hours",
+    summaryStatus: "Status",
+    withinQuota: "On quota",
+    noQuota: "No quota",
+    summaryTotal: "Total",
+    approve: "Approve",
+    addEmployee: "Add employee",
+    remove: "Remove",
+    covered: "Covered by an extension",
+    cancelSelection: "Cancel selection",
+    scrollHint: "Scroll sideways to see the whole week.",
+    closed: "Closed",
+    overQuota: "Over the agreement",
+    hebrew: "עברית",
+    english: "English",
+    navSchedule: "Weekly schedule",
+    navTeam: "Employees",
+    employeeName: "Name",
+    contact: "Contact",
+    role: "Role",
+    qualifications: "Qualifications",
+    quota: "Shifts per week",
+    hourCap: "Weekly hour cap",
+    hourCapHint: "None: the site cap",
+    hourCapNone: "None",
+    active: "Active",
+    inactive: "Inactive",
+    agreement: "Agreement",
+    agreementForbids: "Agreement excludes this",
+    unavailableWeek: "Unavailable this week",
+    availableWeek: "Available this week",
+    siteClosed: "Site closed",
+    copyPrevious: "Copy previous week",
+    notSubmitted: "No availability submitted. The engine treats them as available within the agreement.",
+    submitted: "Availability is submitted for this week.",
+    availabilityLocked: "A shift the agreement closes stays closed here.",
+    agreementReadOnly: "The agreement is read-only.",
+    addPerson: "Add employee",
+    pickEmployee: "Choose an employee from the list.",
+    scheduleReadOnly: "The schedule is read-only.",
+    callOff: "Call off",
+    calledOff: "Called off",
+    replacements: "Legal replacements",
+    noReplacement: "Nobody passed every rule. The seat stays open.",
+    rejectedTitle: "Ruled out",
+    emergency: "Emergency options",
+    publishedOpen: "This week stays published. A seat is open after a call-off.",
+    assignReplacement: "Assign",
+    pasteTitle: "Message from the team",
+    pasteHint: "Paste a message. Availability is written only after approval, and the agreement stays as it is.",
+    pastePlaceholder: "For example:\nEmployee name\nSunday - not working morning\nTuesday - not working night\nWednesday to Friday - not available",
+    approvePaste: "Approve availability",
+    lineRecognized: "Recognized",
+    lineAmbiguous: "Ambiguous",
+    lineUnparsed: "Not understood",
+    draftTitle: "Draft",
+    beforeAfter: "Before and after",
+    noCellChange: "No cells change. The agreement already decides this.",
+    nothingToWrite: "No recognized line to write.",
+    polarityOff: "unavailable",
+    polarityOn: "available",
+    polarityOnly: "only",
+    allShifts: "every shift",
+    employeeMatched: "Employee",
+    askModel: "Ask the model about open lines",
+    modelWorking: "The model is reading the lines…",
+    modelOff: "Model suggestions are off here. The parser and approval keep working.",
+    modelFailed: "The model did not answer. The lines stay for manual fixing.",
+    modelNothing: "The model had no confident reading. The lines stay for manual fixing.",
+    modelSuggestion: "Model suggestion",
+    acceptSuggestion: "Accept",
+    rejectSuggestion: "Reject",
+    explain: "Explain",
+    versionsTitle: "Versions",
+    noVersions: "No versions yet. Publishing creates the first one.",
+    versionPublish: "Published",
+    versionCalloff: "Call-off cover",
+    restoreVersion: "Restore as draft",
+    diffAdded: "Added",
+    diffRemoved: "Removed",
+    diffExtended: "Hours changed",
+    diffCalledOff: "Call-off",
+    noDiff: "No assignment changed.",
+    firstVersion: "First version of the week.",
+    exportPng: "Export PNG",
+    exportJson: "JSON backup",
+    exportPublishedOnly: "PNG export is available after publishing.",
+    exportOpen: "Open",
+    exportClosed: "Closed",
+    exportLegend: "Red: extension or open seat",
+    navBusiness: "Business settings",
+    navConstraints: "Weekly constraints",
+    submittedCount: "submitted availability this week",
+    submittedShort: "Submitted",
+    notSubmittedShort: "Not submitted, using the agreement",
+    themeDark: "Dark mode",
+    themeLight: "Light mode",
+    exportMenu: "Export schedule",
+    businessTitle: "Business",
+    businessReadOnly: "Only a user with write access can change site settings.",
+    bizName: "Name",
+    bizType: "Type",
+    minRest: "Minimum rest between shifts (h)",
+    maxHours: "Max weekly hours",
+    maxShift: "Max shift length when covering a gap (h)",
+    maxDayHours: "Max hours per day (0 = no cap)",
+    lawHint: "Rest and hour limits depend on your jurisdiction. Set them to match local law and your policies.",
+    shiftsTitle: "Shifts & staffing",
+    shiftName: "Shift",
+    shiftStart: "Start",
+    shiftEnd: "End",
+    requiredRole: "Required role",
+    anyRole: "Any role",
+    staffingHint: "Numbers are employees required per day (0 = closed). A shift ending at or before its start crosses midnight.",
+    addShift: "Add shift",
+    deleteShift: "Delete",
+    newShift: "New shift",
+    signInTitle: "Sign in to Rota",
+    signInHint: "Sign in to manage the schedule, team and sites.",
+    email: "Email",
+    password: "Password",
+    signIn: "Sign in",
+    signOut: "Sign out",
+    signInFailed: "The email or password is wrong.",
+    demoAccounts: "Demo account",
+    accessOwner: "Owner",
+    accessWrite: "Write",
+    accessRead: "Read",
+    readOnlyBanner: "You have read access: you can see everything, and changes are locked.",
+    site: "Site",
+    sitesTitle: "Sites",
+    siteSettings: "Site settings",
+    siteName: "Site name",
+    orgName: "Business name",
+    orgReadOnly: "Only the business owner can change the business name and type.",
+    addSite: "Add site",
+    deleteSite: "Delete site",
+    newSiteName: "New site name",
+    siteNameTaken: "A site with this name already exists.",
+    usersTitle: "Users & permissions",
+    usersHint: "Read: sees everything, changes nothing. Write: edits every screen. Only the owner manages users.",
+    addUser: "Add user",
+    removeUser: "Remove",
+    you: "(you)",
+    deleteEmployee: "Delete employee",
+    noEmployees: "No employees at this site yet.",
+    settings: "Settings",
+    appearance: "Appearance",
+    lightShort: "Light",
+    darkShort: "Dark",
+    language: "Language",
+    selectAll: "Select all",
+    clearAll: "Clear",
+    navInsights: "AI insights",
+  },
+};
+
+export function publishBlocked(lang: Lang, violations: number, unfilled: number): string {
+  if (lang === "en") {
+    const holes = unfilled === 1 ? "1 open shift" : `${unfilled} open shifts`;
+    const breaks = violations === 1 ? "1 violation" : `${violations} violations`;
+    return `Publish is blocked: ${holes}, ${breaks}.`;
+  }
+  const holes = unfilled === 1 ? "משמרת פתוחה אחת" : `${unfilled} משמרות פתוחות`;
+  const breaks = violations === 1 ? "הפרה אחת" : `${violations} הפרות`;
+  return `פרסום חסום: ${holes}, ${breaks}.`;
+}
+
+export function selectionHint(lang: Lang, name: string): string {
+  return lang === "he"
+    ? `${name} נבחר. לחצו על משמרת יעד, או גררו במחשב.`
+    : `${name} is selected. Tap a destination shift, or drag on desktop.`;
+}
+
+export function removeLabel(lang: Lang, name: string): string {
+  return lang === "he" ? `הסרת ${name}` : `Remove ${name}`;
+}
+
+export function confirmDeleteEmployee(lang: Lang, name: string): string {
+  return lang === "he"
+    ? `למחוק את ${name}? ההסכם, הזמינות והשיבוצים בטיוטות יימחקו. סידורים שפורסמו וגרסאות יישארו כמו שהם.`
+    : `Delete ${name}? Their agreement, availability and draft seats are removed. Published weeks and versions stay as they are.`;
+}
+
+export function deleteEmployeeBlocked(lang: Lang, weeks: string): string {
+  return lang === "he"
+    ? `אי אפשר למחוק עכשיו: העובד משובץ בסידור שפורסם (${weeks}). החזירו את השבוע לטיוטה או דווחו הברזה, ואז מחקו.`
+    : `Can't delete yet: they're seated in a published week (${weeks}). Return it to draft or report a call-off first.`;
+}
+
+export function confirmDeleteSite(lang: Lang, name: string): string {
+  return lang === "he"
+    ? `למחוק את האתר ${name}? המשמרות, העובדים, הזמינות, הסידורים והגרסאות שלו יימחקו.`
+    : `Delete the site ${name}? Its shifts, employees, availability, schedules and versions are removed.`;
+}
+
+export function userErrorText(lang: Lang, error: "name" | "email" | "duplicate" | "password"): string {
+  const he = { name: "חסר שם.", email: "האימייל לא תקין.", duplicate: "כבר יש משתמש עם האימייל הזה.", password: "סיסמה של 6 תווים לפחות." };
+  const en = { name: "Name is missing.", email: "The email is not valid.", duplicate: "A user with this email exists.", password: "Password needs at least 6 characters." };
+  return (lang === "he" ? he : en)[error];
+}
+
+export function versionLabel(lang: Lang, number: number): string {
+  return lang === "he" ? `גרסה ${number}` : `Version ${number}`;
+}
+
+export function restoredFromText(lang: Lang, number: number): string {
+  return lang === "he" ? `שוחזרה מגרסה ${number}` : `Restored from version ${number}`;
+}
+
+export function restoredDraftText(lang: Lang, number: number): string {
+  return lang === "he"
+    ? `הטיוטה שוחזרה מגרסה ${number}. פרסום יבדוק אותה שוב ויהפוך אותה לגרסה הבאה.`
+    : `This draft was restored from version ${number}. Publishing checks it again and makes it the next version.`;
+}
+
+export function sinceVersionText(lang: Lang, number: number): string {
+  return lang === "he" ? `שינויים מאז גרסה ${number}` : `Changes since version ${number}`;
+}
+
+export function callOffLabel(lang: Lang, name: string): string {
+  return lang === "he" ? `הברזה: ${name}` : `Call off ${name}`;
+}
+
+export function constraintReasonText(lang: Lang, reason: ConstraintReason): string {
+  const he: Record<ConstraintReason, string> = {
+    unknown_employee: "השם לא נמצא בצוות.",
+    ambiguous_employee: "השם מתאים ליותר מעובד אחד.",
+    ambiguous_shift: "המשמרת מתאימה ליותר מאפשרות אחת.",
+    ambiguous_day: "היום לא חד-משמעי.",
+    no_employee: "אין עובד ברור לשורה הזו.",
+    missing_day: "אין יום ברור.",
+    missing_shift: "אין משמרת ברורה.",
+    missing_polarity: "לא ברור אם העובד זמין או לא.",
+    conflict: "השורה סותרת את עצמה.",
+  };
+  const en: Record<ConstraintReason, string> = {
+    unknown_employee: "That name is not on the team.",
+    ambiguous_employee: "That name matches more than one person.",
+    ambiguous_shift: "That shift word matches more than one shift.",
+    ambiguous_day: "The day is ambiguous.",
+    no_employee: "This line has no clear employee.",
+    missing_day: "No clear day.",
+    missing_shift: "No clear shift.",
+    missing_polarity: "It is unclear whether they can work.",
+    conflict: "The line contradicts itself.",
+  };
+  return (lang === "he" ? he : en)[reason];
+}
