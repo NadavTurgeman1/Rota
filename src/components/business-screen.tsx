@@ -99,7 +99,7 @@ export function BusinessScreen({
   onAddShift: (name: string) => void;
   onRemoveShift: (shiftId: string) => void;
   siteUsers?: { id: string; name: string; email: string; access: "owner" | "write" | "read" }[];
-  onInvite?: (input: { fullName: string; email: string; siteId: string }) => Promise<boolean>;
+  onInvite?: (input: { fullName: string; email: string; siteIds: string[] }) => Promise<boolean>;
 }) {
   const t = copy[lang];
   const biz = state.biz;
@@ -108,9 +108,8 @@ export function BusinessScreen({
   const [siteError, setSiteError] = useState(false);
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteSiteId, setInviteSiteId] = useState(activeSiteId);
+  const [inviteSites, setInviteSites] = useState<string[]>(activeSiteId ? [activeSiteId] : []);
   const [inviteNote, setInviteNote] = useState<"saved" | "failed" | null>(null);
-  useEffect(() => setInviteSiteId(activeSiteId), [activeSiteId]);
   const numbers: { key: "minRest" | "maxHours" | "maxShift" | "maxDayHours"; label: string }[] = [
     { key: "minRest", label: t.minRest },
     { key: "maxHours", label: t.maxHours },
@@ -163,7 +162,7 @@ export function BusinessScreen({
             </li>
           ))}
         </ul>
-        {canWrite ? (
+        {canEditOrg ? (
           <form
             className="mt-4 flex flex-wrap items-center gap-2"
             onSubmit={(event) => {
@@ -225,7 +224,7 @@ export function BusinessScreen({
               event.preventDefault();
               if (!onInvite) return;
               void (async () => {
-                const ok = await onInvite({ fullName: inviteName, email: inviteEmail, siteId: inviteSiteId });
+                const ok = await onInvite({ fullName: inviteName, email: inviteEmail, siteIds: inviteSites });
                 setInviteNote(ok ? "saved" : "failed");
                 if (ok) {
                   setInviteName("");
@@ -242,18 +241,27 @@ export function BusinessScreen({
               <span className={labelText}>{t.email}</span>
               <input dir="ltr" type="email" className={field} value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} />
             </label>
-            <label className={label}>
-              <span className={labelText}>{t.siteName}</span>
-              <select className={field} value={inviteSiteId} onChange={(event) => setInviteSiteId(event.target.value)}>
+            <fieldset className={`${label} sm:col-span-2`}>
+              <legend className={labelText}>{t.sitesTitle}</legend>
+              <div className="mt-2 flex flex-col gap-2">
                 {sites.map((site) => (
-                  <option key={site.id} value={site.id}>
-                    {siteLabel(site.name, lang)}
-                  </option>
+                  <label key={site.id} className="flex items-center gap-3 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={inviteSites.includes(site.id)}
+                      onChange={() =>
+                        setInviteSites((current) =>
+                          current.includes(site.id) ? current.filter((id) => id !== site.id) : [...current, site.id],
+                        )
+                      }
+                    />
+                    <span>{siteLabel(site.name, lang)}</span>
+                  </label>
                 ))}
-              </select>
-            </label>
+              </div>
+            </fieldset>
             <div className="flex items-end">
-              <button type="submit" className={`${button.primary} h-10`} disabled={!inviteName.trim() || !inviteEmail.trim() || !inviteSiteId}>
+              <button type="submit" className={`${button.primary} h-10`} disabled={!inviteName.trim() || !inviteEmail.trim() || inviteSites.length === 0}>
                 {t.inviteUser}
               </button>
             </div>
@@ -272,7 +280,7 @@ export function BusinessScreen({
           <h2 className={cardTitle}>
             {t.siteSettings} · {siteLabel(activeName, lang)}
           </h2>
-          {canWrite ? (
+          {canEditOrg ? (
             <button
               type="button"
               data-testid="delete-site"

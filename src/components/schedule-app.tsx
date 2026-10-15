@@ -84,6 +84,7 @@ import { downloadBlob, downloadWeekPng } from "./week-png";
 
 const EMPTY: Analysis = { violations: [], overQuota: [], unfilled: [], under: [], hours: {}, counts: {} };
 const THEME_KEY = "rota.theme";
+const SUPPORT_KEY = "rota.supportOrg";
 
 function persistable(workspace: Workspace) {
   return { org: workspace.org, sites: workspace.sites, activeSiteId: workspace.activeSiteId };
@@ -166,6 +167,9 @@ export function ScheduleApp() {
   const [userId, setUserId] = useState<string | null>(null);
   const [operator, setOperator] = useState(false);
   const [canCreate, setCanCreate] = useState(false);
+  const [supportOrg, setSupportOrg] = useState<string | null>(null);
+  const supportRef = useRef<string | null>(null);
+  const emailRef = useRef("");
   const [suspended, setSuspended] = useState<string | null>(null);
   const [authScreen, setAuthScreen] = useState<"login" | "signup">("login");
   const [remoteError, setRemoteError] = useState<string | null>(null);
@@ -187,9 +191,26 @@ export function ScheduleApp() {
   const writer = Boolean(user && hasWrite(user));
   const owner = Boolean(user && isOwner(user));
 
+  function rememberSupport(orgId: string | null) {
+    supportRef.current = orgId;
+    setSupportOrg(orgId);
+    if (orgId) window.sessionStorage.setItem(SUPPORT_KEY, orgId);
+    else window.sessionStorage.removeItem(SUPPORT_KEY);
+  }
+
+  function authHeaders(json = false): HeadersInit {
+    const headers: Record<string, string> = {};
+    const token = tokenRef.current;
+    if (token) headers.authorization = `Bearer ${token}`;
+    if (supportRef.current) headers["x-rota-support-org"] = supportRef.current;
+    if (json) headers["content-type"] = "application/json";
+    return headers;
+  }
+
   async function adopt(token: string, signedInId: string, email: string) {
     tokenRef.current = token;
-    const response = await fetch("/api/workspace", { headers: { authorization: `Bearer ${token}` } });
+    emailRef.current = email;
+    const response = await fetch("/api/workspace", { headers: authHeaders() });
     if (response.status === 401) {
       setUserId(null);
       setHydrated(true);
@@ -207,6 +228,7 @@ export function ScheduleApp() {
     setCanCreate(body.canCreateBusiness === true);
     setSuspended(body.suspended ?? null);
     const next = body.workspace ?? blankWorkspace(signedInId, email);
+    if (supportRef.current && next.org.id !== supportRef.current) rememberSupport(null);
     setWorkspace(next);
     const opened = activeSite(next);
     if (opened) setHistory({ present: opened.state, past: [], future: [] });
@@ -241,6 +263,8 @@ export function ScheduleApp() {
         setHydrated(true);
         return;
       }
+      supportRef.current = window.sessionStorage.getItem(SUPPORT_KEY);
+      setSupportOrg(supportRef.current);
       void adopt(session.access_token, session.user.id, session.user.email ?? "");
     });
     return () => data.subscription.unsubscribe();
@@ -263,7 +287,7 @@ export function ScheduleApp() {
     const handle = window.setTimeout(() => {
       void fetch("/api/workspace", {
         method: "PUT",
-        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        headers: authHeaders(true),
         body: json,
       }).then((response) => {
         if (response.ok) {
@@ -383,7 +407,7 @@ export function ScheduleApp() {
     if (!token) return false;
     const response = await fetch("/api/workspace", {
       method: "POST",
-      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      headers: authHeaders(true),
       body: JSON.stringify(body),
     });
     if (!response.ok) {
@@ -440,15 +464,30 @@ export function ScheduleApp() {
     return response.ok;
   }
 
-  async function inviteManager(input: { fullName: string; email: string; siteId: string }): Promise<boolean> {
+  async function inviteManager(input: { fullName: string; email: string; siteIds: string[] }): Promise<boolean> {
     const token = tokenRef.current;
     if (!token || !live.org.id) return false;
     const response = await fetch("/api/invitations", {
       method: "POST",
-      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      headers: authHeaders(true),
       body: JSON.stringify({ ...input, orgId: live.org.id }),
     });
     return response.ok;
+  }
+
+  async function enterCompany(orgId: string) {
+    const token = tokenRef.current;
+    if (!token || !userId) return;
+    rememberSupport(orgId);
+    await adopt(token, userId, emailRef.current);
+    setScreen("schedule");
+  }
+
+  async function leaveSupport() {
+    const token = tokenRef.current;
+    rememberSupport(null);
+    if (token && userId) await adopt(token, userId, emailRef.current);
+    setScreen("approvals");
   }
 
   function signOut() {
@@ -457,6 +496,7 @@ export function ScheduleApp() {
     setUserId(null);
     setOperator(false);
     setCanCreate(false);
+    rememberSupport(null);
     setSuspended(null);
     setAuthScreen("login");
     setSelection(null);
@@ -535,9 +575,24 @@ export function ScheduleApp() {
     return (
       <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang}>
         {live.org.id ? (
-          <CreateSiteScreen lang={lang} toolbar={settings} onCreate={createSite} />
+          <CreateSiteScreen
+            lang={lang}
+            toolbar={
+              supportOrg ? (
+                <>
+                  <button type="button" className={button.quiet} onClick={() => void leaveSupport()}>
+                    {t.leaveSupport}
+                  </button>
+                  {settings}
+                </>
+              ) : (
+                settings
+              )
+            }
+            onCreate={createSite}
+          />
         ) : operator ? (
-          <ApprovalsScreen lang={lang} toolbar={settings} load={loadCompanies} onApprove={approveEmail} onStatus={setCompanyStatus} />
+          <ApprovalsScreen lang={lang} toolbar={settings} load={loadCompanies} onApprove={approveEmail} onStatus={setCompanyStatus} onEnter={(orgId) => void enterCompany(orgId)} />
         ) : canCreate ? (
           <CreateOrgScreen lang={lang} toolbar={settings} onCreate={createOrg} />
         ) : (
@@ -636,7 +691,11 @@ export function ScheduleApp() {
                 ))}
               </select>
             </label>
-            {operator ? (
+            {supportOrg ? (
+              <button type="button" className={button.quiet} onClick={() => void leaveSupport()}>
+                {t.leaveSupport}
+              </button>
+            ) : operator ? (
               <button
                 type="button"
                 className={button.quiet}
@@ -648,6 +707,9 @@ export function ScheduleApp() {
             {settings}
           </div>
         </div>
+        {supportOrg ? (
+          <p className="mx-auto max-w-[1440px] px-4 pb-2 text-sm text-muted sm:px-6">{t.supportBanner}</p>
+        ) : null}
         <div className="mx-auto max-w-[1440px] px-4 pb-3 sm:px-6">
         <nav role="tablist" aria-label="Rota" className="grid grid-cols-5 gap-1 rounded-xl border border-line bg-track p-1 sm:inline-flex">
           {tabs.map((tab) => (
@@ -843,7 +905,7 @@ export function ScheduleApp() {
           />
         ) : null}
         {screen === "approvals" && operator ? (
-          <ApprovalsScreen bare lang={lang} toolbar={null} load={loadCompanies} onApprove={approveEmail} onStatus={setCompanyStatus} />
+          <ApprovalsScreen bare lang={lang} toolbar={null} load={loadCompanies} onApprove={approveEmail} onStatus={setCompanyStatus} onEnter={(orgId) => void enterCompany(orgId)} />
         ) : null}
         {screen === "business" ? (
           <BusinessScreen

@@ -10,7 +10,7 @@ import {
 } from "../../../db/workspace-store";
 import { SaveError } from "../../../db/save";
 import type { Workspace } from "../../../workspace/workspace";
-import { withUserDb } from "../../../supabase/database";
+import { supportOrgFrom, withUserDb } from "../../../supabase/database";
 import { userIdFromAuthorization } from "../../../supabase/user";
 
 export const dynamic = "force-dynamic";
@@ -27,7 +27,7 @@ export async function GET(request: Request) {
         canCreateBusiness: workspace ? false : await canCreateBusiness(sql),
         suspended: workspace ? null : await suspendedTenantName(sql),
       };
-    });
+    }, supportOrgFrom(request));
     return Response.json(access);
   } catch (error) {
     return databaseError(error);
@@ -40,7 +40,7 @@ export async function PUT(request: Request) {
   const workspace = readWorkspace(await readJson(request));
   if (!workspace) return Response.json({ error: "bad_request" }, { status: 400 });
   try {
-    await withUserDb(userId, (sql) => saveStoredWorkspace(sql, workspace));
+    await withUserDb(userId, (sql) => saveStoredWorkspace(sql, workspace), supportOrgFrom(request));
     return Response.json({ ok: true });
   } catch (error) {
     return databaseError(error);
@@ -59,7 +59,7 @@ export async function POST(request: Request) {
       if (siteName.trim() && !name.trim()) return createFirstSite(sql, { name: siteName });
       if (name.trim() && !siteName.trim()) return createFirstOrganization(sql, { name, type });
       throw new SaveError("bad_request");
-    });
+    }, supportOrgFrom(request));
     return Response.json({ workspace });
   } catch (error) {
     return databaseError(error);

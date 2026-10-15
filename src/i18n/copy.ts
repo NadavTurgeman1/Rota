@@ -161,6 +161,11 @@ export interface Copy {
   fullName: string;
   accountNotApproved: string;
   approvalsTitle: string;
+  adminTabApprove: string;
+  adminTabEnter: string;
+  enterCompany: string;
+  supportBanner: string;
+  leaveSupport: string;
   approvalsHint: string;
   approveFounder: string;
   approvalOpen: string;
@@ -371,14 +376,19 @@ export const copy: Record<Lang, Copy> = {
     fullName: "שם מלא",
     accountNotApproved: "המייל הזה לא מאושר. אפשר ליצור חשבון רק אחרי שמנהל המערכת פותח את העסק.",
     approvalsTitle: "אישור מייל",
+    adminTabApprove: "הוספת הרשאה",
+    adminTabEnter: "כניסה לעסקים",
+    enterCompany: "כניסה",
+    supportBanner: "נכנסת לעסק הזה כמנהל המערכת, עם הממשק של מנהל העסק.",
+    leaveSupport: "חזרה לניהול",
     approvalsHint: "מאשרים כאן מייל בלבד. בעל המייל נרשם עם שם מלא, ואז יוצר את העסק בעצמו.",
     approveFounder: "אישור",
     approvalOpen: "ממתין להרשמה",
     approvalUsed: "העסק נפתח",
     notApprovedTitle: "אין אישור למייל הזה. מנהל המערכת פותח את העסק ומאשר את המייל.",
     inviteUser: "הוספת מנהל משמרות",
-    inviteHint: "מנהל המשמרות נכנס רק לאתר שנבחר לו.",
-    inviteSaved: "המייל אושר. מנהל המשמרות יוצר חשבון עם השם המלא והמייל.",
+    inviteHint: "מנהל המשמרות נכנס לאתרים שמסומנים. אפשר לסמן כמה אתרים.",
+    inviteSaved: "האתרים נשמרו. בלי חשבון הוא נרשם עם המייל ובוחר סיסמה. עם חשבון קיים האתרים נפתחים בכניסה הבאה.",
     suspendCompany: "השעיה",
     activateCompany: "הפעלה",
     tenantSuspended: "העסק מושעה. פונים למנהל המערכת.",
@@ -579,14 +589,19 @@ export const copy: Record<Lang, Copy> = {
     fullName: "Full name",
     accountNotApproved: "This email is not approved. An account can be created only after the system owner opens the company.",
     approvalsTitle: "Approve an email",
+    adminTabApprove: "New approval",
+    adminTabEnter: "Open a business",
+    enterCompany: "Open",
+    supportBanner: "You are inside this business as the platform admin, with the company admin interface.",
+    leaveSupport: "Back to admin",
     approvalsHint: "Approve an email only. That person signs up with a full name, then creates the business.",
     approveFounder: "Approve",
     approvalOpen: "Waiting for sign-up",
     approvalUsed: "Business created",
     notApprovedTitle: "This email is not approved. The system owner opens the company and approves the email.",
     inviteUser: "Add a shift manager",
-    inviteHint: "The shift manager signs in only to the site chosen here.",
-    inviteSaved: "The email is approved. The shift manager creates an account with this full name and email.",
+    inviteHint: "The shift manager signs in to the checked sites. Any number of sites can be checked.",
+    inviteSaved: "The sites are saved. Without an account they sign up with this email and choose a password. An existing account sees the sites on the next sign-in.",
     suspendCompany: "Suspend",
     activateCompany: "Activate",
     tenantSuspended: "This company is suspended. Contact the system owner.",

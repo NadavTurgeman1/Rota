@@ -1,6 +1,6 @@
 import { inviteShiftManager } from "../../../db/workspace-store";
 import { SaveError } from "../../../db/save";
-import { withUserDb } from "../../../supabase/database";
+import { supportOrgFrom, withUserDb } from "../../../supabase/database";
 import { userIdFromAuthorization } from "../../../supabase/user";
 
 export const dynamic = "force-dynamic";
@@ -10,16 +10,16 @@ export async function POST(request: Request) {
   if (!userId) return Response.json({ error: "unauthorized" }, { status: 401 });
   const body = (await request.json().catch(() => null)) as {
     orgId?: unknown;
-    siteId?: unknown;
+    siteIds?: unknown;
     fullName?: unknown;
     email?: unknown;
   } | null;
   const orgId = typeof body?.orgId === "string" ? body.orgId : "";
-  const siteId = typeof body?.siteId === "string" ? body.siteId : "";
+  const siteIds = Array.isArray(body?.siteIds) ? body.siteIds.filter((siteId): siteId is string => typeof siteId === "string") : [];
   const fullName = typeof body?.fullName === "string" ? body.fullName : "";
   const email = typeof body?.email === "string" ? body.email : "";
   try {
-    await withUserDb(userId, (sql) => inviteShiftManager(sql, { orgId, siteId, fullName, email }));
+    await withUserDb(userId, (sql) => inviteShiftManager(sql, { orgId, siteIds, fullName, email }), supportOrgFrom(request));
     return Response.json({ ok: true });
   } catch (error) {
     if (error instanceof SaveError && error.message === "forbidden") {

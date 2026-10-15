@@ -156,4 +156,51 @@ describe("saving a site", () => {
     expect(loaded?.sites.map((site) => site.id)).toEqual([siteId]);
     expect(loaded?.org.name).toBe("צוות 3");
   });
+
+  it("assigns every checked site, including to a manager who already has an account", async () => {
+    const db = await openTestDatabase();
+    const invited = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    await db.exec(
+      `insert into auth.users (id, email, raw_user_meta_data) values ('${founder}', 'ari@example.com', '{"name":"Ari Cohen"}');
+       insert into public.founder_approvals (email, full_name) values ('ari@example.com', 'Ari Cohen');`,
+    );
+    await asRole(db, "authenticated", founder);
+    await createFirstOrganization(client(db), { name: "צוות 3", type: "אבטחה" });
+    const withSite = await createFirstSite(client(db), { name: "ברן" });
+    const first = withSite.sites[0]?.id;
+    if (!first) throw new Error("site");
+    const second = await client(db).query<{ id: string }>(
+      `insert into public.sites (org_id, name, min_rest_hours, max_weekly_hours) values ($1, 'דרום', 8, 72) returning id`,
+      [withSite.org.id],
+    );
+    const south = second[0]?.id;
+    if (!south) throw new Error("site");
+    await db.exec("reset role");
+    await db.exec(`insert into auth.users (id, email, raw_user_meta_data) values ('${invited}', 'dana@example.com', '{"name":"Dana Levy"}')`);
+    await asRole(db, "authenticated", founder);
+    await client(db).query(`select public.assign_shift_manager($1, $2, $3, $4::uuid[])`, [
+      withSite.org.id,
+      "Dana Levy",
+      "dana@example.com",
+      [first, south],
+    ]);
+    await asRole(db, "authenticated", invited);
+    const loaded = await loadStoredWorkspace(client(db), week);
+    expect(loaded?.sites.map((site) => site.id).sort()).toEqual([first, south].sort());
+  });
+
+  it("opens an existing business for a platform admin who is not a member", async () => {
+    const db = await openTestDatabase();
+    const admin = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
+    await db.exec(
+      `insert into auth.users (id, email, raw_user_meta_data) values ('${admin}', 'admin@example.com', '{"name":"Admin"}');
+       insert into public.platform_admin_emails (email) values ('admin@example.com');`,
+    );
+    await asRole(db, "authenticated", admin);
+    await db.query(`select set_config('app.support_org', $1, false)`, [sentinel]);
+    const loaded = await loadStoredWorkspace(client(db), week);
+    expect(loaded?.org.id).toBe(sentinel);
+    expect(loaded?.users.some((user) => user.id === admin && user.access === "owner")).toBe(true);
+    expect(loaded?.sites.map((site) => site.id)).toContain(headquarters);
+  });
 });

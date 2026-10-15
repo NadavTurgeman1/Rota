@@ -1,5 +1,5 @@
 import { NEW_SITE_MAX_HOURS, NEW_SITE_MIN_REST, type Workspace, type WorkspaceUser } from "../workspace/workspace";
-import { listMemberships, resolveActiveOrg, type OrgRole } from "../auth/session";
+import { listMemberships, resolveActiveOrg, type Membership, type OrgRole } from "../auth/session";
 import { orgSlug } from "./slug";
 import { deleteOrphanEmployees, SaveError, saveSite } from "./save";
 import { loadSiteWeek } from "./load";
@@ -12,9 +12,25 @@ const accessFor: Record<OrgRole, WorkspaceUser["access"]> = {
 };
 
 /** The signed-in user's organization, or null when they have not created one. */
-export async function loadStoredWorkspace(sql: SqlClient, week: string): Promise<Workspace | null> {
+async function supportMembership(sql: SqlClient): Promise<Membership | null> {
+  const rows = await sql.query<{ org_id: string; org_name: string; role: OrgRole }>(
+    `select org_id, org_name, role from private.support_membership()`,
+  );
+  const row = rows[0];
+  return row ? { orgId: row.org_id, orgName: row.org_name, role: row.role } : null;
+}
+
+async function actingMembership(sql: SqlClient, orgId?: string): Promise<Membership | null> {
+  const support = await supportMembership(sql);
+  if (support && (!orgId || support.orgId === orgId)) return support;
   const memberships = await listMemberships(sql);
-  const active = resolveActiveOrg(memberships, null);
+  if (orgId) return memberships.find((membership) => membership.orgId === orgId) ?? null;
+  return resolveActiveOrg(memberships, null);
+}
+
+export async function loadStoredWorkspace(sql: SqlClient, week: string): Promise<Workspace | null> {
+  const support = await supportMembership(sql);
+  const active = support ?? resolveActiveOrg(await listMemberships(sql), null);
   if (!active) return null;
   const orgs = await sql.query<{ id: string; name: string; kind: string }>(
     `select id, name, kind from public.organizations where id = $1`,
@@ -34,7 +50,25 @@ export async function loadStoredWorkspace(sql: SqlClient, week: string): Promise
   );
   const loaded = [];
   for (const site of sites) loaded.push({ id: site.id, state: await loadSiteWeek(sql, site.id, week) });
-  const users = await loadMembers(sql, org.id);
+  let users = await loadMembers(sql, org.id);
+  if (support) {
+    const self = await sql.query<{ user_id: string; email: string; name: string }>(
+      `select user_id, email, name from public.profiles where user_id = (select auth.uid())`,
+    );
+    const actor = self[0];
+    if (actor && !users.some((user) => user.id === actor.user_id)) {
+      users = [
+        {
+          id: actor.user_id,
+          name: actor.name.trim() || actor.email.split("@")[0] || "Rota",
+          email: actor.email,
+          password: "",
+          access: "owner",
+        },
+        ...users,
+      ];
+    }
+  }
   return {
     org: { id: org.id, name: org.name, type: org.kind },
     sites: loaded,
@@ -45,8 +79,7 @@ export async function loadStoredWorkspace(sql: SqlClient, week: string): Promise
 
 /** Owners can rename the business. Managers can write sites. Employees cannot. */
 export async function saveStoredWorkspace(sql: SqlClient, workspace: Workspace): Promise<void> {
-  const memberships = await listMemberships(sql);
-  const active = memberships.find((membership) => membership.orgId === workspace.org.id);
+  const active = await actingMembership(sql, workspace.org.id);
   if (!active || active.role === "employee") throw new SaveError("forbidden");
   if (workspace.sites.length === 0) throw new SaveError("sites");
   if (active.role === "owner") {
@@ -106,7 +139,7 @@ export async function createFirstOrganization(sql: SqlClient, input: { name: str
 export async function createFirstSite(sql: SqlClient, input: { name: string }): Promise<Workspace> {
   const name = input.name.trim();
   if (!name) throw new SaveError("site name");
-  const active = resolveActiveOrg(await listMemberships(sql), null);
+  const active = await actingMembership(sql);
   if (!active) throw new SaveError("organization");
   if (active.role !== "owner") throw new SaveError("forbidden");
   const existing = await sql.query<{ id: string }>(`select id from public.sites where org_id = $1 limit 1`, [active.orgId]);
@@ -300,9 +333,9 @@ export async function approveFounder(sql: SqlClient, input: { fullName: string; 
   }
 }
 
-export async function inviteShiftManager(sql: SqlClient, input: { orgId: string; siteId: string; fullName: string; email: string }): Promise<void> {
+export async function inviteShiftManager(sql: SqlClient, input: { orgId: string; siteIds: string[]; fullName: string; email: string }): Promise<void> {
   try {
-    await sql.query(`select public.invite_shift_manager($1, $2, $3, $4)`, [input.orgId, input.siteId, input.fullName, input.email]);
+    await sql.query(`select public.assign_shift_manager($1, $2, $3, $4::uuid[])`, [input.orgId, input.fullName, input.email, input.siteIds]);
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     if (/not allowed|42501/i.test(message)) throw new SaveError("forbidden");
