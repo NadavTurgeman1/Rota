@@ -69,8 +69,8 @@ import { BusinessScreen } from "./business-screen";
 import { ConstraintsScreen } from "./constraints-screen";
 import { InsightsScreen } from "./insights-screen";
 import { IssuesPanel } from "./issues-panel";
-import { ApprovalsScreen, type TenantRow } from "./approvals-screen";
-import { BrandMark, CreateSiteScreen, LoginScreen, SignupScreen, Wordmark } from "./login-screen";
+import { ApprovalsScreen, type SignupApproval, type TenantRow } from "./approvals-screen";
+import { BrandMark, CreateOrgScreen, CreateSiteScreen, LoginScreen, SignupScreen, Wordmark } from "./login-screen";
 import { browserClient } from "../supabase/browser";
 import { remoteConfigured } from "../supabase/public-env";
 import { WeekBoard } from "./schedule-board";
@@ -165,6 +165,7 @@ export function ScheduleApp() {
   const [hydrated, setHydrated] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [operator, setOperator] = useState(false);
+  const [canCreate, setCanCreate] = useState(false);
   const [suspended, setSuspended] = useState<string | null>(null);
   const [authScreen, setAuthScreen] = useState<"login" | "signup">("login");
   const [remoteError, setRemoteError] = useState<string | null>(null);
@@ -201,8 +202,9 @@ export function ScheduleApp() {
       setHydrated(true);
       return;
     }
-    const body = (await response.json()) as { workspace: Workspace | null; admin?: boolean; suspended?: string | null };
+    const body = (await response.json()) as { workspace: Workspace | null; admin?: boolean; canCreateBusiness?: boolean; suspended?: string | null };
     setOperator(body.admin === true);
+    setCanCreate(body.canCreateBusiness === true);
     setSuspended(body.suspended ?? null);
     const next = body.workspace ?? blankWorkspace(signedInId, email);
     setWorkspace(next);
@@ -399,26 +401,30 @@ export function ScheduleApp() {
     return true;
   }
 
+  function createOrg(name: string, type: string): Promise<boolean> {
+    return postWorkspace({ name, type });
+  }
+
   function createSite(name: string): Promise<boolean> {
     return postWorkspace({ siteName: name });
   }
 
-  const loadCompanies = useCallback(async (): Promise<TenantRow[]> => {
+  const loadCompanies = useCallback(async (): Promise<{ companies: TenantRow[]; approvals: SignupApproval[] }> => {
     const token = tokenRef.current;
-    if (!token) return [];
+    if (!token) return { companies: [], approvals: [] };
     const response = await fetch("/api/companies", { headers: { authorization: `Bearer ${token}` } });
-    if (!response.ok) return [];
-    const body = (await response.json()) as { companies?: TenantRow[] };
-    return body.companies ?? [];
+    if (!response.ok) return { companies: [], approvals: [] };
+    const body = (await response.json()) as { companies?: TenantRow[]; approvals?: SignupApproval[] };
+    return { companies: body.companies ?? [], approvals: body.approvals ?? [] };
   }, []);
 
-  async function provisionCompany(input: { name: string; type: string; fullName: string; email: string }): Promise<boolean> {
+  async function approveEmail(email: string): Promise<boolean> {
     const token = tokenRef.current;
     if (!token) return false;
     const response = await fetch("/api/companies", {
       method: "POST",
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify(input),
+      body: JSON.stringify({ email }),
     });
     return response.ok;
   }
@@ -434,7 +440,7 @@ export function ScheduleApp() {
     return response.ok;
   }
 
-  async function inviteManager(input: { fullName: string; email: string }): Promise<boolean> {
+  async function inviteManager(input: { fullName: string; email: string; siteId: string }): Promise<boolean> {
     const token = tokenRef.current;
     if (!token || !live.org.id) return false;
     const response = await fetch("/api/invitations", {
@@ -450,6 +456,7 @@ export function ScheduleApp() {
     else window.localStorage.removeItem(SESSION_STORAGE_KEY);
     setUserId(null);
     setOperator(false);
+    setCanCreate(false);
     setSuspended(null);
     setAuthScreen("login");
     setSelection(null);
@@ -530,7 +537,9 @@ export function ScheduleApp() {
         {live.org.id ? (
           <CreateSiteScreen lang={lang} toolbar={settings} onCreate={createSite} />
         ) : operator ? (
-          <ApprovalsScreen lang={lang} toolbar={settings} load={loadCompanies} onProvision={provisionCompany} onStatus={setCompanyStatus} />
+          <ApprovalsScreen lang={lang} toolbar={settings} load={loadCompanies} onApprove={approveEmail} onStatus={setCompanyStatus} />
+        ) : canCreate ? (
+          <CreateOrgScreen lang={lang} toolbar={settings} onCreate={createOrg} />
         ) : (
           <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 px-4">
             <p className="text-sm leading-6 text-ink">{suspended ? t.tenantSuspended : t.notApprovedTitle}</p>
@@ -834,7 +843,7 @@ export function ScheduleApp() {
           />
         ) : null}
         {screen === "approvals" && operator ? (
-          <ApprovalsScreen bare lang={lang} toolbar={null} load={loadCompanies} onProvision={provisionCompany} onStatus={setCompanyStatus} />
+          <ApprovalsScreen bare lang={lang} toolbar={null} load={loadCompanies} onApprove={approveEmail} onStatus={setCompanyStatus} />
         ) : null}
         {screen === "business" ? (
           <BusinessScreen

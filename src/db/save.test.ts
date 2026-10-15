@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { loadSiteWeek } from "./load";
 import { orgSlug } from "./slug";
-import { createFirstOrganization, createFirstSite, saveStoredWorkspace } from "./workspace-store";
+import { createFirstOrganization, createFirstSite, loadStoredWorkspace, saveStoredWorkspace } from "./workspace-store";
 import { SaveError, saveSite } from "./save";
 import { asRole, client, openTestDatabase } from "./test-db";
 import type { RotaState } from "../domain/types";
@@ -119,5 +119,41 @@ describe("saving a site", () => {
     expect(withSite.sites[0]?.state.biz.shifts.every((shift) => shift.req.every((count) => count === 1))).toBe(true);
     expect(withSite.sites[0]?.state.biz.shifts.map((shift) => shift.start)).toEqual(["06:00", "14:00", "22:00"]);
     await expect(saveStoredWorkspace(client(db), { ...withSite, org: { ...withSite.org, name: "צוות 4" } })).resolves.toBeUndefined();
+  });
+
+  it("assigns a shift manager to one site without opening a site for the business", async () => {
+    const db = await openTestDatabase();
+    const invited = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
+    await db.exec(
+      `insert into auth.users (id, email, raw_user_meta_data) values ('${founder}', 'ari@example.com', '{"name":"Ari Cohen"}');
+       insert into public.founder_approvals (email, full_name) values ('ari@example.com', 'Ari Cohen');`,
+    );
+    await asRole(db, "authenticated", founder);
+    const created = await createFirstOrganization(client(db), { name: "צוות 3", type: "אבטחה" });
+    expect(created.sites).toHaveLength(0);
+    const withSite = await createFirstSite(client(db), { name: "ברן" });
+    const siteId = withSite.sites[0]?.id;
+    if (!siteId) throw new Error("site");
+    await client(db).query(`select public.invite_shift_manager($1, $2, $3, $4)`, [
+      withSite.org.id,
+      siteId,
+      "Dana Levy",
+      "dana@example.com",
+    ]);
+    await db.exec("reset role");
+    await db.exec(
+      `insert into auth.users (id, email, raw_user_meta_data) values ('${invited}', 'dana@example.com', '{"name":"Dana Levy"}')`,
+    );
+    const link = await client(db).query<{ site_id: string; role: string }>(
+      `select sm.site_id, m.role
+       from public.memberships m
+       join public.site_memberships sm on sm.user_id = m.user_id and sm.org_id = m.org_id
+       where m.user_id = '${invited}'`,
+    );
+    expect(link).toEqual([{ site_id: siteId, role: "manager" }]);
+    await asRole(db, "authenticated", invited);
+    const loaded = await loadStoredWorkspace(client(db), week);
+    expect(loaded?.sites.map((site) => site.id)).toEqual([siteId]);
+    expect(loaded?.org.name).toBe("צוות 3");
   });
 });

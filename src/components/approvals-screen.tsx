@@ -14,38 +14,50 @@ export interface TenantRow {
   adminJoined: boolean;
 }
 
-/** Super admin: open a company and name its first company admin. */
+export interface SignupApproval {
+  id: string;
+  email: string;
+  fullName: string;
+  consumed: boolean;
+}
+
+/** Super admin: approve an email. That person creates the business afterwards. */
 export function ApprovalsScreen({
   lang,
   toolbar,
   load,
-  onProvision,
+  onApprove,
   onStatus,
   bare = false,
 }: {
   lang: Lang;
   toolbar: ReactNode;
-  load: () => Promise<TenantRow[]>;
-  onProvision: (input: { name: string; type: string; fullName: string; email: string }) => Promise<boolean>;
+  load: () => Promise<{ companies: TenantRow[]; approvals: SignupApproval[] }>;
+  onApprove: (email: string) => Promise<boolean>;
   onStatus: (id: string, status: "active" | "suspended") => Promise<boolean>;
   bare?: boolean;
 }) {
   const t = copy[lang];
-  const [rows, setRows] = useState<TenantRow[]>([]);
-  const [name, setName] = useState("");
-  const [type, setType] = useState("");
-  const [fullName, setFullName] = useState("");
+  const [companies, setCompanies] = useState<TenantRow[]>([]);
+  const [approvals, setApprovals] = useState<SignupApproval[]>([]);
   const [email, setEmail] = useState("");
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let active = true;
     void load().then((next) => {
-      if (active) setRows(next);
+      if (!active) return;
+      setCompanies(next.companies);
+      setApprovals(next.approvals);
     });
     return () => {
       active = false;
     };
   }, [load]);
+  async function refresh() {
+    const next = await load();
+    setCompanies(next.companies);
+    setApprovals(next.approvals);
+  }
   const body = (
     <>
       <form
@@ -53,14 +65,11 @@ export function ApprovalsScreen({
         onSubmit={(event) => {
           event.preventDefault();
           void (async () => {
-            const ok = await onProvision({ name, type, fullName, email });
+            const ok = await onApprove(email);
             setFailed(!ok);
             if (!ok) return;
-            setName("");
-            setType("");
-            setFullName("");
             setEmail("");
-            setRows(await load());
+            await refresh();
           })();
         }}
       >
@@ -68,18 +77,6 @@ export function ApprovalsScreen({
           <h1 className="text-2xl font-bold tracking-tight">{t.approvalsTitle}</h1>
           <p className="mt-2 text-sm leading-6 text-muted">{t.approvalsHint}</p>
         </div>
-        <label className={label}>
-          <span className={labelText}>{t.orgName}</span>
-          <input className={field} value={name} onChange={(event) => setName(event.target.value)} />
-        </label>
-        <label className={label}>
-          <span className={labelText}>{t.bizType}</span>
-          <input className={field} value={type} onChange={(event) => setType(event.target.value)} />
-        </label>
-        <label className={label}>
-          <span className={labelText}>{t.fullName}</span>
-          <input className={field} value={fullName} onChange={(event) => setFullName(event.target.value)} />
-        </label>
         <label className={label}>
           <span className={labelText}>{t.email}</span>
           <input dir="ltr" type="email" className={field} value={email} onChange={(event) => setEmail(event.target.value)} />
@@ -89,42 +86,41 @@ export function ApprovalsScreen({
             {t.saveFailed}
           </p>
         ) : null}
-        <button
-          type="submit"
-          className={`${button.primary} h-10 w-full`}
-          disabled={!name.trim() || !fullName.trim() || !email.trim()}
-        >
+        <button type="submit" className={`${button.primary} h-10 w-full`} disabled={!email.trim()}>
           {t.approveFounder}
         </button>
       </form>
       <ul className={`${card} flex flex-col gap-3 text-sm`}>
-        {rows.map((row) => (
-          <li key={row.id} className="flex items-center justify-between gap-3">
-            <span>
-              <span className="font-medium">{row.name}</span>
-              <span className="ms-2 text-muted">{row.adminName}</span>
-              <span dir="ltr" className="ms-2 text-muted">
-                {row.adminEmail}
-              </span>
+        {approvals.map((row) => (
+          <li key={row.id} className="flex items-center justify-between gap-4">
+            <span dir="ltr" className="font-medium">
+              {row.email}
             </span>
-            <span className="flex items-center gap-2">
-              <span className="text-muted">{row.adminJoined ? t.approvalUsed : t.approvalOpen}</span>
+            <span className="text-muted">{row.consumed ? t.approvalUsed : t.approvalOpen}</span>
+          </li>
+        ))}
+      </ul>
+      {companies.length > 0 ? (
+        <ul className={`${card} flex flex-col gap-3 text-sm`}>
+          {companies.map((row) => (
+            <li key={row.id} className="flex items-center justify-between gap-4">
+              <span className="font-medium">{row.name}</span>
               <button
                 type="button"
                 className={button.quiet}
                 onClick={() => {
                   void (async () => {
                     const next = row.status === "active" ? "suspended" : "active";
-                    if (await onStatus(row.id, next)) setRows(await load());
+                    if (await onStatus(row.id, next)) await refresh();
                   })();
                 }}
               >
                 {row.status === "active" ? t.suspendCompany : t.activateCompany}
               </button>
-            </span>
-          </li>
-        ))}
-      </ul>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </>
   );
   if (bare) return <div className="mx-auto flex w-full max-w-lg flex-col gap-4">{body}</div>;

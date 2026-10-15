@@ -23,7 +23,13 @@ export async function loadStoredWorkspace(sql: SqlClient, week: string): Promise
   const org = orgs[0];
   if (!org) return null;
   const sites = await sql.query<{ id: string }>(
-    `select id from public.sites where org_id = $1 order by created_at, name`,
+    active.role === "owner"
+      ? `select id from public.sites where org_id = $1 order by created_at, name`
+      : `select s.id
+         from public.sites s
+         join public.site_memberships m on m.site_id = s.id and m.user_id = (select auth.uid())
+         where s.org_id = $1
+         order by s.created_at, s.name`,
     [org.id],
   );
   const loaded = [];
@@ -52,13 +58,23 @@ export async function saveStoredWorkspace(sql: SqlClient, workspace: Workspace):
       workspace.org.id,
     ]);
   }
+  if (active.role !== "owner") {
+    const allowed = await sql.query<{ site_id: string }>(
+      `select site_id from public.site_memberships where org_id = $1 and user_id = (select auth.uid())`,
+      [workspace.org.id],
+    );
+    const allowedIds = new Set(allowed.map((row) => row.site_id));
+    if (workspace.sites.some((site) => !allowedIds.has(site.id))) throw new SaveError("forbidden");
+  }
   for (const site of workspace.sites) {
     await saveSite(sql, { orgId: workspace.org.id, siteId: site.id, state: site.state });
   }
-  await sql.query(`delete from public.sites where org_id = $1 and not (id = any($2::uuid[]))`, [
-    workspace.org.id,
-    workspace.sites.map((site) => site.id),
-  ]);
+  if (active.role === "owner") {
+    await sql.query(`delete from public.sites where org_id = $1 and not (id = any($2::uuid[]))`, [
+      workspace.org.id,
+      workspace.sites.map((site) => site.id),
+    ]);
+  }
   await deleteOrphanEmployees(sql, workspace.org.id);
 }
 
@@ -169,6 +185,11 @@ export async function platformAdmin(sql: SqlClient): Promise<boolean> {
   return rows[0]?.admin === true;
 }
 
+export async function canCreateBusiness(sql: SqlClient): Promise<boolean> {
+  const rows = await sql.query<{ allowed: boolean }>(`select private.can_create_business() as allowed`);
+  return rows[0]?.allowed === true;
+}
+
 export async function openApprovalName(sql: SqlClient): Promise<string | null> {
   const rows = await sql.query<{ full_name: string }>(
     `select full_name from public.founder_approvals
@@ -257,6 +278,17 @@ export async function setTenantStatus(sql: SqlClient, input: { id: string; statu
   }
 }
 
+export async function approveSignupEmail(sql: SqlClient, email: string): Promise<void> {
+  try {
+    await sql.query(`select public.approve_signup_email($1)`, [email]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (/not allowed|42501/i.test(message)) throw new SaveError("forbidden");
+    if (/invalid|23514|duplicate|unique/i.test(message)) throw new SaveError("approval");
+    throw error;
+  }
+}
+
 export async function approveFounder(sql: SqlClient, input: { fullName: string; email: string }): Promise<void> {
   try {
     await sql.query(`select public.approve_founder($1, $2)`, [input.fullName, input.email]);
@@ -268,9 +300,9 @@ export async function approveFounder(sql: SqlClient, input: { fullName: string; 
   }
 }
 
-export async function inviteShiftManager(sql: SqlClient, input: { orgId: string; fullName: string; email: string }): Promise<void> {
+export async function inviteShiftManager(sql: SqlClient, input: { orgId: string; siteId: string; fullName: string; email: string }): Promise<void> {
   try {
-    await sql.query(`select public.invite_shift_manager($1, $2, $3)`, [input.orgId, input.fullName, input.email]);
+    await sql.query(`select public.invite_shift_manager($1, $2, $3, $4)`, [input.orgId, input.siteId, input.fullName, input.email]);
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
     if (/not allowed|42501/i.test(message)) throw new SaveError("forbidden");

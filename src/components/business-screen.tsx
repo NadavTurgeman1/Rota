@@ -99,7 +99,7 @@ export function BusinessScreen({
   onAddShift: (name: string) => void;
   onRemoveShift: (shiftId: string) => void;
   siteUsers?: { id: string; name: string; email: string; access: "owner" | "write" | "read" }[];
-  onInvite?: (input: { fullName: string; email: string }) => Promise<boolean>;
+  onInvite?: (input: { fullName: string; email: string; siteId: string }) => Promise<boolean>;
 }) {
   const t = copy[lang];
   const biz = state.biz;
@@ -108,7 +108,9 @@ export function BusinessScreen({
   const [siteError, setSiteError] = useState(false);
   const [inviteName, setInviteName] = useState("");
   const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteSiteId, setInviteSiteId] = useState(activeSiteId);
   const [inviteNote, setInviteNote] = useState<"saved" | "failed" | null>(null);
+  useEffect(() => setInviteSiteId(activeSiteId), [activeSiteId]);
   const numbers: { key: "minRest" | "maxHours" | "maxShift" | "maxDayHours"; label: string }[] = [
     { key: "minRest", label: t.minRest },
     { key: "maxHours", label: t.maxHours },
@@ -207,9 +209,9 @@ export function BusinessScreen({
           <ul className="mt-4 flex flex-col gap-2 text-sm">
             {(siteUsers ?? []).map((member) => (
               <li key={`${member.id}-${member.access}`} className="flex items-center justify-between gap-3">
-                <span>
+                <span className="flex items-center gap-6">
                   <span className="font-medium">{member.name}</span>
-                  <span dir="ltr" className="ms-2 text-muted">
+                  <span dir="ltr" className="text-muted">
                     {member.email}
                   </span>
                 </span>
@@ -223,7 +225,7 @@ export function BusinessScreen({
               event.preventDefault();
               if (!onInvite) return;
               void (async () => {
-                const ok = await onInvite({ fullName: inviteName, email: inviteEmail });
+                const ok = await onInvite({ fullName: inviteName, email: inviteEmail, siteId: inviteSiteId });
                 setInviteNote(ok ? "saved" : "failed");
                 if (ok) {
                   setInviteName("");
@@ -240,8 +242,18 @@ export function BusinessScreen({
               <span className={labelText}>{t.email}</span>
               <input dir="ltr" type="email" className={field} value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} />
             </label>
+            <label className={label}>
+              <span className={labelText}>{t.siteName}</span>
+              <select className={field} value={inviteSiteId} onChange={(event) => setInviteSiteId(event.target.value)}>
+                {sites.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {siteLabel(site.name, lang)}
+                  </option>
+                ))}
+              </select>
+            </label>
             <div className="flex items-end">
-              <button type="submit" className={`${button.primary} h-10`} disabled={!inviteName.trim() || !inviteEmail.trim()}>
+              <button type="submit" className={`${button.primary} h-10`} disabled={!inviteName.trim() || !inviteEmail.trim() || !inviteSiteId}>
                 {t.inviteUser}
               </button>
             </div>

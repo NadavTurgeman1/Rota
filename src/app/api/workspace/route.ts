@@ -1,9 +1,9 @@
 import { sundayOnOrBefore } from "../../../domain";
 import {
+  canCreateBusiness,
   createFirstOrganization,
   createFirstSite,
   loadStoredWorkspace,
-  openApprovalName,
   platformAdmin,
   saveStoredWorkspace,
   suspendedTenantName,
@@ -24,7 +24,7 @@ export async function GET(request: Request) {
       return {
         workspace,
         admin: await platformAdmin(sql),
-        approvalName: await openApprovalName(sql),
+        canCreateBusiness: workspace ? false : await canCreateBusiness(sql),
         suspended: workspace ? null : await suspendedTenantName(sql),
       };
     });
@@ -55,9 +55,11 @@ export async function POST(request: Request) {
   const name = typeof body?.name === "string" ? body.name : "";
   const type = typeof body?.type === "string" ? body.type : "";
   try {
-    const workspace = await withUserDb(userId, (sql) =>
-      siteName.trim() ? createFirstSite(sql, { name: siteName }) : createFirstOrganization(sql, { name, type }),
-    );
+    const workspace = await withUserDb(userId, (sql) => {
+      if (siteName.trim() && !name.trim()) return createFirstSite(sql, { name: siteName });
+      if (name.trim() && !siteName.trim()) return createFirstOrganization(sql, { name, type });
+      throw new SaveError("bad_request");
+    });
     return Response.json({ workspace });
   } catch (error) {
     return databaseError(error);

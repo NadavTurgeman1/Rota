@@ -10,14 +10,16 @@ export async function POST(request: Request) {
   if (!userId) return Response.json({ error: "unauthorized" }, { status: 401 });
   const body = (await request.json().catch(() => null)) as {
     orgId?: unknown;
+    siteId?: unknown;
     fullName?: unknown;
     email?: unknown;
   } | null;
   const orgId = typeof body?.orgId === "string" ? body.orgId : "";
+  const siteId = typeof body?.siteId === "string" ? body.siteId : "";
   const fullName = typeof body?.fullName === "string" ? body.fullName : "";
   const email = typeof body?.email === "string" ? body.email : "";
   try {
-    await withUserDb(userId, (sql) => inviteShiftManager(sql, { orgId, fullName, email }));
+    await withUserDb(userId, (sql) => inviteShiftManager(sql, { orgId, siteId, fullName, email }));
     return Response.json({ ok: true });
   } catch (error) {
     if (error instanceof SaveError && error.message === "forbidden") {

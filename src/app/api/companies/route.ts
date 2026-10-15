@@ -1,4 +1,4 @@
-import { listTenants, provisionCompany, setTenantStatus } from "../../../db/workspace-store";
+import { approveSignupEmail, listFounderApprovals, listTenants, setTenantStatus } from "../../../db/workspace-store";
 import { SaveError } from "../../../db/save";
 import { withUserDb } from "../../../supabase/database";
 import { userIdFromAuthorization } from "../../../supabase/user";
@@ -9,8 +9,11 @@ export async function GET(request: Request) {
   const userId = await userIdFromAuthorization(request.headers.get("authorization"));
   if (!userId) return Response.json({ error: "unauthorized" }, { status: 401 });
   try {
-    const companies = await withUserDb(userId, (sql) => listTenants(sql));
-    return Response.json({ companies });
+    const listed = await withUserDb(userId, async (sql) => ({
+      companies: await listTenants(sql),
+      approvals: await listFounderApprovals(sql),
+    }));
+    return Response.json(listed);
   } catch (error) {
     return failed(error);
   }
@@ -32,14 +35,14 @@ export async function POST(request: Request) {
       const id = typeof body.id === "string" ? body.id : "";
       await withUserDb(userId, (sql) => setTenantStatus(sql, { id, status: body.status as "active" | "suspended" }));
     } else {
-      const name = typeof body?.name === "string" ? body.name : "";
-      const type = typeof body?.type === "string" ? body.type : "";
-      const fullName = typeof body?.fullName === "string" ? body.fullName : "";
       const email = typeof body?.email === "string" ? body.email : "";
-      await withUserDb(userId, (sql) => provisionCompany(sql, { name, type, fullName, email }));
+      await withUserDb(userId, (sql) => approveSignupEmail(sql, email));
     }
-    const companies = await withUserDb(userId, (sql) => listTenants(sql));
-    return Response.json({ companies });
+    const listed = await withUserDb(userId, async (sql) => ({
+      companies: await listTenants(sql),
+      approvals: await listFounderApprovals(sql),
+    }));
+    return Response.json(listed);
   } catch (error) {
     return failed(error);
   }
