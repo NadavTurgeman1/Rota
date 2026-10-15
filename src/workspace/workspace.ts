@@ -31,6 +31,10 @@ export type UserInputError = "name" | "email" | "duplicate" | "password";
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MIN_PASSWORD = 6;
 
+/** Caps applied when a site is created, before anyone edits business settings. */
+export const NEW_SITE_MIN_REST = 8;
+export const NEW_SITE_MAX_HOURS = 72;
+
 export function canWrite(user: WorkspaceUser): boolean {
   return user.access !== "read";
 }
@@ -43,7 +47,7 @@ export function actorFor(user: WorkspaceUser): Actor {
   return canWrite(user) ? MANAGER : VIEWER;
 }
 
-export function activeSite(workspace: Workspace): WorkspaceSite {
+export function activeSite(workspace: Workspace): WorkspaceSite | undefined {
   return workspace.sites.find((site) => site.id === workspace.activeSiteId) ?? workspace.sites[0];
 }
 
@@ -82,12 +86,15 @@ export function addSite(workspace: Workspace, user: WorkspaceUser, input: { id: 
   if (!canWrite(user) || !name || siteNameTaken(workspace, name) || workspace.sites.some((site) => site.id === input.id)) {
     return workspace;
   }
-  const template = activeSite(workspace).state;
+  const template = activeSite(workspace)?.state;
+  if (!template) return workspace;
   const state: RotaState = {
     week: template.week,
     biz: {
       ...structuredClone(template.biz),
       name,
+      minRest: NEW_SITE_MIN_REST,
+      maxHours: NEW_SITE_MAX_HOURS,
       shifts: template.biz.shifts.map((shift) => ({ ...shift, id: input.newId(), req: [...shift.req] })),
     },
     emps: [],

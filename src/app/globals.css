@@ -254,3 +254,14 @@
     }
   }
 }
+
+/* Outside the base layer so it wins. Safari otherwise mirrors HH:MM into MM:HH on a Hebrew page. */
+input[type="time"],
+input[type="time"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-datetime-edit-fields-wrapper,
+input[type="time"]::-webkit-datetime-edit-hour-field,
+input[type="time"]::-webkit-datetime-edit-minute-field,
+input[type="time"]::-webkit-datetime-edit-text {
+  direction: ltr;
+  unicode-bidi: isolate;
+}

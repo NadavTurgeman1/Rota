@@ -36,6 +36,9 @@ function CommitInput({
   return (
     <input
       type={type}
+      dir={type === "time" ? "ltr" : undefined}
+      lang={type === "time" ? "en" : undefined}
+      style={type === "time" ? { direction: "ltr" } : undefined}
       min={type === "number" ? 0 : undefined}
       aria-label={label}
       data-testid={testId}

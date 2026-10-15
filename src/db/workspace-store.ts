@@ -1,4 +1,4 @@
-import type { Workspace, WorkspaceUser } from "../workspace/workspace";
+import { NEW_SITE_MAX_HOURS, NEW_SITE_MIN_REST, type Workspace, type WorkspaceUser } from "../workspace/workspace";
 import { listMemberships, resolveActiveOrg, type OrgRole } from "../auth/session";
 import { orgSlug } from "./slug";
 import { deleteOrphanEmployees, SaveError, saveSite } from "./save";
@@ -62,7 +62,7 @@ export async function saveStoredWorkspace(sql: SqlClient, workspace: Workspace):
   await deleteOrphanEmployees(sql, workspace.org.id);
 }
 
-/** First business for a signed-in user: one site and the three named shifts. */
+/** First business for a signed-in user. The first site is created on the next screen. */
 export async function createFirstOrganization(sql: SqlClient, input: { name: string; type: string }): Promise<Workspace> {
   const name = input.name.trim();
   if (!name) throw new SaveError("organization");
@@ -73,12 +73,37 @@ export async function createFirstOrganization(sql: SqlClient, input: { name: str
   ]);
   const orgId = created[0]?.id;
   if (!orgId) throw new SaveError("organization");
-  const sites = await sql.query<{ id: string }>(
-    `insert into public.sites (org_id, name) values ($1, $2) returning id`,
-    [orgId, name],
-  );
-  const siteId = sites[0]?.id;
-  if (!siteId) throw new SaveError("site");
+  const week = await currentWeek(sql);
+  const workspace = await loadStoredWorkspace(sql, week);
+  if (!workspace) throw new SaveError("organization");
+  return workspace;
+}
+
+/** First site: three named shifts, a 72-hour weekly cap, and 8 hours of rest between shifts. */
+export async function createFirstSite(sql: SqlClient, input: { name: string }): Promise<Workspace> {
+  const name = input.name.trim();
+  if (!name) throw new SaveError("site name");
+  const active = resolveActiveOrg(await listMemberships(sql), null);
+  if (!active) throw new SaveError("organization");
+  if (active.role !== "owner") throw new SaveError("forbidden");
+  const existing = await sql.query<{ id: string }>(`select id from public.sites where org_id = $1 limit 1`, [active.orgId]);
+  if (existing.length === 0) {
+    const sites = await sql.query<{ id: string }>(
+      `insert into public.sites (org_id, name, min_rest_hours, max_weekly_hours)
+       values ($1, $2, $3, $4)
+       returning id`,
+      [active.orgId, name, NEW_SITE_MIN_REST, NEW_SITE_MAX_HOURS],
+    );
+    const siteId = sites[0]?.id;
+    if (!siteId) throw new SaveError("site");
+    await insertOpeningShifts(sql, active.orgId, siteId);
+  }
+  const workspace = await loadStoredWorkspace(sql, await currentWeek(sql));
+  if (!workspace?.sites.length) throw new SaveError("site");
+  return workspace;
+}
+
+async function insertOpeningShifts(sql: SqlClient, orgId: string, siteId: string): Promise<void> {
   const shifts = [
     ["Morning", "06:00", "14:00"],
     ["Afternoon", "14:00", "22:00"],
@@ -101,10 +126,6 @@ export async function createFirstOrganization(sql: SqlClient, input: { name: str
       );
     }
   }
-  const week = await currentWeek(sql);
-  const workspace = await loadStoredWorkspace(sql, week);
-  if (!workspace) throw new SaveError("organization");
-  return workspace;
 }
 
 async function currentWeek(sql: SqlClient): Promise<string> {

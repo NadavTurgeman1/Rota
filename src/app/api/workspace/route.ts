@@ -1,5 +1,5 @@
 import { sundayOnOrBefore } from "../../../domain";
-import { createFirstOrganization, loadStoredWorkspace, saveStoredWorkspace } from "../../../db/workspace-store";
+import { createFirstOrganization, createFirstSite, loadStoredWorkspace, saveStoredWorkspace } from "../../../db/workspace-store";
 import { SaveError } from "../../../db/save";
 import type { Workspace } from "../../../workspace/workspace";
 import { withUserDb } from "../../../supabase/database";
@@ -35,10 +35,13 @@ export async function POST(request: Request) {
   const userId = await userIdFromAuthorization(request.headers.get("authorization"));
   if (!userId) return Response.json({ error: "unauthorized" }, { status: 401 });
   const body = await readJson(request);
+  const siteName = typeof body?.siteName === "string" ? body.siteName : "";
   const name = typeof body?.name === "string" ? body.name : "";
   const type = typeof body?.type === "string" ? body.type : "";
   try {
-    const workspace = await withUserDb(userId, (sql) => createFirstOrganization(sql, { name, type }));
+    const workspace = await withUserDb(userId, (sql) =>
+      siteName.trim() ? createFirstSite(sql, { name: siteName }) : createFirstOrganization(sql, { name, type }),
+    );
     return Response.json({ workspace });
   } catch (error) {
     return databaseError(error);
@@ -55,9 +58,16 @@ function jerusalemSunday(now = new Date()): string {
   return sundayOnOrBefore(iso);
 }
 
-async function readJson(request: Request): Promise<{ name?: unknown; type?: unknown; org?: unknown; sites?: unknown; activeSiteId?: unknown } | null> {
+async function readJson(request: Request): Promise<{ name?: unknown; type?: unknown; siteName?: unknown; org?: unknown; sites?: unknown; activeSiteId?: unknown } | null> {
   try {
-    return (await request.json()) as { name?: unknown; type?: unknown; org?: unknown; sites?: unknown; activeSiteId?: unknown };
+    return (await request.json()) as {
+      name?: unknown;
+      type?: unknown;
+      siteName?: unknown;
+      org?: unknown;
+      sites?: unknown;
+      activeSiteId?: unknown;
+    };
   } catch {
     return null;
   }

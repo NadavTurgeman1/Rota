@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, analyze, slots, sundayOnOrBefore, type Analysis, type Lang, type RotaState } from "../domain";
 import { addShift, removeShift, setShiftRequirement, updateBusiness, updateShift } from "../business/edit";
-import { DEMO_PASSWORD, DEMO_USERS, SENTINEL_FALLBACK_WEEK, sentinelWorkspace } from "../demo/sentinel";
+import { DEMO_PASSWORD, DEMO_USERS, SENTINEL_FALLBACK_WEEK, sentinelState, sentinelWorkspace } from "../demo/sentinel";
 import { copy, deleteEmployeeBlocked, publishBlocked, selectionHint } from "../i18n/copy";
 import { formatWeekRange, pngFileName, siteLabel } from "../schedule/display";
 import { backupJson, weekExport } from "../schedule/export";
@@ -69,7 +69,7 @@ import { BusinessScreen } from "./business-screen";
 import { ConstraintsScreen } from "./constraints-screen";
 import { InsightsScreen } from "./insights-screen";
 import { IssuesPanel } from "./issues-panel";
-import { BrandMark, CreateOrgScreen, LoginScreen, Wordmark } from "./login-screen";
+import { BrandMark, CreateOrgScreen, CreateSiteScreen, LoginScreen, Wordmark } from "./login-screen";
 import { browserClient } from "../supabase/browser";
 import { remoteConfigured } from "../supabase/public-env";
 import { WeekBoard } from "./schedule-board";
@@ -156,7 +156,9 @@ function useHistory(initial: RotaState) {
 
 export function ScheduleApp() {
   const [workspace, setWorkspace] = useState<Workspace>(() => sentinelWorkspace(SENTINEL_FALLBACK_WEEK));
-  const { state, setHistory, update, undoHistory, redoHistory, canUndo, canRedo } = useHistory(activeSite(workspace).state);
+  const { state, setHistory, update, undoHistory, redoHistory, canUndo, canRedo } = useHistory(
+    activeSite(workspace)?.state ?? sentinelState(SENTINEL_FALLBACK_WEEK),
+  );
   const [lang, setLang] = useState<Lang>("he");
   const [theme, setTheme] = useState<Theme>("light");
   const [hydrated, setHydrated] = useState(false);
@@ -198,7 +200,8 @@ export function ScheduleApp() {
     const body = (await response.json()) as { workspace: Workspace | null };
     const next = body.workspace ?? blankWorkspace(signedInId, email);
     setWorkspace(next);
-    if (next.sites.length > 0) setHistory({ present: activeSite(next).state, past: [], future: [] });
+    const opened = activeSite(next);
+    if (opened) setHistory({ present: opened.state, past: [], future: [] });
     setUserId(signedInId);
     savedRef.current = JSON.stringify(persistable(next));
     setRemoteError(null);
@@ -214,7 +217,8 @@ export function ScheduleApp() {
     if (!remote) {
       const loaded = loadWorkspace();
       setWorkspace(loaded.workspace);
-      setHistory({ present: activeSite(loaded.workspace).state, past: [], future: [] });
+      const opened = activeSite(loaded.workspace);
+      if (opened) setHistory({ present: opened.state, past: [], future: [] });
       setLang(loaded.lang);
       const session = window.localStorage.getItem(SESSION_STORAGE_KEY);
       if (session && loaded.workspace.users.some((item) => item.id === session)) setUserId(session);
@@ -309,6 +313,7 @@ export function ScheduleApp() {
     setSelection(null);
     setWorkspace(next);
     const site = activeSite(next);
+    if (!site) return;
     if (site.id !== live.activeSiteId || site.state !== state) {
       setHistory({ present: site.state, past: [], future: [] });
       setSelectedId(null);
@@ -320,6 +325,7 @@ export function ScheduleApp() {
       const next = selectSite(current, siteId);
       if (next === current) return current;
       const site = activeSite(next);
+      if (!site) return current;
       return withSiteState(next, site.id, goToWeek(site.state, state.week));
     });
   }
@@ -353,26 +359,35 @@ export function ScheduleApp() {
     return "signed-in";
   }
 
-  async function createOrg(name: string, type: string): Promise<boolean> {
+  async function postWorkspace(body: { name?: string; type?: string; siteName?: string }): Promise<boolean> {
     const token = tokenRef.current;
     if (!token) return false;
     const response = await fetch("/api/workspace", {
       method: "POST",
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify({ name, type }),
+      body: JSON.stringify(body),
     });
     if (!response.ok) {
-      const body = (await response.json().catch(() => null)) as { error?: string } | null;
-      if (body?.error === "db_unconfigured") setRemoteError("db");
+      const payload = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (payload?.error === "db_unconfigured") setRemoteError("db");
       return false;
     }
-    const body = (await response.json()) as { workspace: Workspace };
-    setWorkspace(body.workspace);
-    if (body.workspace.sites[0]) setHistory({ present: body.workspace.sites[0].state, past: [], future: [] });
-    savedRef.current = JSON.stringify(persistable(body.workspace));
+    const payload = (await response.json()) as { workspace: Workspace };
+    setWorkspace(payload.workspace);
+    const opened = payload.workspace.sites[0];
+    if (opened) setHistory({ present: opened.state, past: [], future: [] });
+    savedRef.current = JSON.stringify(persistable(payload.workspace));
     setRemoteError(null);
     setScreen("schedule");
     return true;
+  }
+
+  function createOrg(name: string, type: string): Promise<boolean> {
+    return postWorkspace({ name, type });
+  }
+
+  function createSite(name: string): Promise<boolean> {
+    return postWorkspace({ siteName: name });
   }
 
   function signOut() {
@@ -450,7 +465,11 @@ export function ScheduleApp() {
   if (remote && live.sites.length === 0) {
     return (
       <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang}>
-        <CreateOrgScreen lang={lang} toolbar={settings} onCreate={createOrg} />
+        {live.org.id ? (
+          <CreateSiteScreen lang={lang} toolbar={settings} onCreate={createSite} />
+        ) : (
+          <CreateOrgScreen lang={lang} toolbar={settings} onCreate={createOrg} />
+        )}
       </div>
     );
   }

@@ -154,6 +154,8 @@ export interface Copy {
   accountPending: string;
   createOrgTitle: string;
   createOrgAction: string;
+  createSiteTitle: string;
+  createSiteAction: string;
   remoteDbMissing: string;
   saveFailed: string;
   accessOwner: string;
@@ -341,6 +343,8 @@ export const copy: Record<Lang, Copy> = {
     accountPending: "החשבון נוצר. אם נשלח אימייל אישור, פתח אותו ואז היכנס.",
     createOrgTitle: "העסק הראשון",
     createOrgAction: "צור עסק",
+    createSiteTitle: "האתר הראשון",
+    createSiteAction: "צור אתר",
     remoteDbMissing: "חסרה כתובת מסד הנתונים בשרת. מוסיפים SUPABASE_DB_URL לקובץ הסביבה המקומי.",
     saveFailed: "השמירה לענן נכשלה.",
     accessOwner: "בעלים",
@@ -526,6 +530,8 @@ export const copy: Record<Lang, Copy> = {
     accountPending: "The account was created. If a confirmation email arrived, open it and then sign in.",
     createOrgTitle: "First business",
     createOrgAction: "Create business",
+    createSiteTitle: "First site",
+    createSiteAction: "Create site",
     remoteDbMissing: "The server is missing the database URL. Add SUPABASE_DB_URL to the local environment file.",
     saveFailed: "Saving to the cloud failed.",
     accessOwner: "Owner",

@@ -5,6 +5,7 @@ import { generateWeek } from "../schedule/edit";
 import { readWorkspaceSave, writeWorkspaceSave } from "../schedule/storage";
 import {
   actorFor,
+  activeSite,
   addSite,
   addUser,
   authenticate,
@@ -29,6 +30,12 @@ function users() {
 }
 
 describe("workspace", () => {
+  it("has no active site until the first site exists", () => {
+    const empty = { ...sentinelWorkspace(WEEK), sites: [], activeSiteId: "" };
+    expect(activeSite(empty)).toBeUndefined();
+    expect(activeSite(empty)?.state ?? sentinelWorkspace(WEEK).sites[0].state).toBeDefined();
+  });
+
   it("signs in by email and password, and maps access to an actor", () => {
     const { workspace, owner, viewer } = users();
     expect(authenticate(workspace, " OWNER@sentinel.demo ", DEMO_PASSWORD)?.id).toBe(owner.id);
@@ -68,6 +75,8 @@ describe("workspace", () => {
     const mall = added.sites.at(-1)!.state;
     expect(added.activeSiteId).toBe("s3");
     expect(mall.emps).toEqual([]);
+    expect(mall.biz.minRest).toBe(8);
+    expect(mall.biz.maxHours).toBe(72);
     expect(mall.biz.shifts.map((shift) => shift.id)).toEqual(["shift-1", "shift-2", "shift-3"]);
     expect(workspace.sites[0].state.biz.shifts[0].id).toBe(SENTINEL.morning);
 

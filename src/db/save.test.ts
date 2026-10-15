@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { loadSiteWeek } from "./load";
 import { orgSlug } from "./slug";
-import { createFirstOrganization, saveStoredWorkspace } from "./workspace-store";
+import { createFirstOrganization, createFirstSite, saveStoredWorkspace } from "./workspace-store";
 import { SaveError, saveSite } from "./save";
 import { asRole, client, openTestDatabase } from "./test-db";
 import type { RotaState } from "../domain/types";
@@ -103,9 +103,15 @@ describe("saving a site", () => {
     expect(workspace.org.type).toBe("אבטחה");
     expect(workspace.users.map((user) => user.access)).toEqual(["owner"]);
     expect(workspace.users[0]?.password).toBe("");
-    expect(workspace.sites).toHaveLength(1);
-    expect(workspace.sites[0]?.state.biz.shifts.map((shift) => shift.name)).toEqual(["Morning", "Afternoon", "Night"]);
-    expect(workspace.sites[0]?.state.biz.shifts.every((shift) => shift.req.every((count) => count === 1))).toBe(true);
-    await expect(saveStoredWorkspace(client(db), { ...workspace, org: { ...workspace.org, name: "צוות 4" } })).resolves.toBeUndefined();
+    expect(workspace.sites).toHaveLength(0);
+    const withSite = await createFirstSite(client(db), { name: "ברן" });
+    expect(withSite.sites).toHaveLength(1);
+    expect(withSite.sites[0]?.state.biz.name).toBe("ברן");
+    expect(withSite.sites[0]?.state.biz.minRest).toBe(8);
+    expect(withSite.sites[0]?.state.biz.maxHours).toBe(72);
+    expect(withSite.sites[0]?.state.biz.shifts.map((shift) => shift.name)).toEqual(["Morning", "Afternoon", "Night"]);
+    expect(withSite.sites[0]?.state.biz.shifts.every((shift) => shift.req.every((count) => count === 1))).toBe(true);
+    expect(withSite.sites[0]?.state.biz.shifts.map((shift) => shift.start)).toEqual(["06:00", "14:00", "22:00"]);
+    await expect(saveStoredWorkspace(client(db), { ...withSite, org: { ...withSite.org, name: "צוות 4" } })).resolves.toBeUndefined();
   });
 });

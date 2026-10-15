@@ -236,3 +236,52 @@ export function CreateOrgScreen({
     </div>
   );
 }
+
+/** Shown after the business exists and before it has a site. */
+export function CreateSiteScreen({
+  lang,
+  toolbar,
+  onCreate,
+}: {
+  lang: Lang;
+  toolbar: ReactNode;
+  onCreate: (name: string) => Promise<boolean>;
+}) {
+  const t = copy[lang];
+  const [name, setName] = useState("");
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className="relative flex min-h-screen flex-col">
+      <header className="flex items-center justify-between gap-3 px-4 py-4 sm:px-6">
+        <div className="flex items-center gap-3">
+          <BrandMark />
+          <Wordmark />
+        </div>
+        <div className="flex items-center gap-2">{toolbar}</div>
+      </header>
+      <main className="flex flex-1 items-start justify-center px-4 pb-12 pt-8 sm:pt-16">
+        <form
+          className={`${card} flex w-full max-w-sm flex-col gap-5 shadow-pop`}
+          onSubmit={(event) => {
+            event.preventDefault();
+            void (async () => setFailed(!(await onCreate(name))))();
+          }}
+        >
+          <h1 className="text-2xl font-bold tracking-tight">{t.createSiteTitle}</h1>
+          <label className={label}>
+            <span className={labelText}>{t.siteName}</span>
+            <input className={field} value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+          {failed ? (
+            <p role="alert" className="text-sm text-danger-text">
+              {t.saveFailed}
+            </p>
+          ) : null}
+          <button type="submit" className={`${button.primary} h-10 w-full`} disabled={!name.trim()}>
+            {t.createSiteAction}
+          </button>
+        </form>
+      </main>
+    </div>
+  );
+}
