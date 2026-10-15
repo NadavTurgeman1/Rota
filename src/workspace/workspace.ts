@@ -11,6 +11,8 @@ export interface WorkspaceUser {
   email: string;
   password: string;
   access: Access;
+  /** Empty for the business owner, who covers every site. */
+  siteId?: string | null;
 }
 
 /** One site. `state.biz.name` is the site name; the business name lives on `Workspace.org`. */

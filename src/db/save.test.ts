@@ -96,7 +96,13 @@ describe("saving a site", () => {
 
   it("creates the first organization for the signed-in user", async () => {
     const db = await openTestDatabase();
-    await db.exec(`insert into auth.users (id, email, raw_user_meta_data) values ('${founder}', 'ari@example.com', '{"name":"Ari"}')`);
+    await db.exec(`insert into auth.users (id, email, raw_user_meta_data) values ('${founder}', 'ari@example.com', '{"name":"Ari Cohen"}')`);
+    await asRole(db, "authenticated", founder);
+    await expect(createFirstOrganization(client(db), { name: "צוות 3", type: "אבטחה" })).rejects.toBeInstanceOf(SaveError);
+    await db.exec("reset role");
+    await db.exec(`insert into public.founder_approvals (email, full_name) values ('ari@example.com', 'Ari Cohen')`);
+    const allowed = await client(db).query<{ signup_allowed: boolean }>(`select public.signup_allowed('ari@example.com') as signup_allowed`);
+    expect(allowed[0]?.signup_allowed).toBe(true);
     await asRole(db, "authenticated", founder);
     const workspace = await createFirstOrganization(client(db), { name: "צוות 3", type: "אבטחה" });
     expect(workspace.org.name).toBe("צוות 3");

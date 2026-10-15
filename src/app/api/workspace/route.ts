@@ -1,5 +1,13 @@
 import { sundayOnOrBefore } from "../../../domain";
-import { createFirstOrganization, createFirstSite, loadStoredWorkspace, saveStoredWorkspace } from "../../../db/workspace-store";
+import {
+  createFirstOrganization,
+  createFirstSite,
+  loadStoredWorkspace,
+  openApprovalName,
+  platformAdmin,
+  saveStoredWorkspace,
+  suspendedTenantName,
+} from "../../../db/workspace-store";
 import { SaveError } from "../../../db/save";
 import type { Workspace } from "../../../workspace/workspace";
 import { withUserDb } from "../../../supabase/database";
@@ -11,8 +19,16 @@ export async function GET(request: Request) {
   const userId = await userIdFromAuthorization(request.headers.get("authorization"));
   if (!userId) return Response.json({ error: "unauthorized" }, { status: 401 });
   try {
-    const workspace = await withUserDb(userId, (sql) => loadStoredWorkspace(sql, jerusalemSunday()));
-    return Response.json({ workspace });
+    const access = await withUserDb(userId, async (sql) => {
+      const workspace = await loadStoredWorkspace(sql, jerusalemSunday());
+      return {
+        workspace,
+        admin: await platformAdmin(sql),
+        approvalName: await openApprovalName(sql),
+        suspended: workspace ? null : await suspendedTenantName(sql),
+      };
+    });
+    return Response.json(access);
   } catch (error) {
     return databaseError(error);
   }

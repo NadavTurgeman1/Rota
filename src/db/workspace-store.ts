@@ -66,11 +66,18 @@ export async function saveStoredWorkspace(sql: SqlClient, workspace: Workspace):
 export async function createFirstOrganization(sql: SqlClient, input: { name: string; type: string }): Promise<Workspace> {
   const name = input.name.trim();
   if (!name) throw new SaveError("organization");
-  const created = await sql.query<{ id: string }>(`select public.create_organization($1, $2, $3) as id`, [
-    name,
-    orgSlug(name, crypto.randomUUID()),
-    input.type.trim(),
-  ]);
+  let created: { id: string }[];
+  try {
+    created = await sql.query<{ id: string }>(`select public.create_organization($1, $2, $3) as id`, [
+      name,
+      orgSlug(name, crypto.randomUUID()),
+      input.type.trim(),
+    ]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (/not approved|not authenticated|42501|28000/i.test(message)) throw new SaveError("forbidden");
+    throw error;
+  }
   const orgId = created[0]?.id;
   if (!orgId) throw new SaveError("organization");
   const week = await currentWeek(sql);
@@ -136,13 +143,15 @@ async function currentWeek(sql: SqlClient): Promise<string> {
 }
 
 async function loadMembers(sql: SqlClient, orgId: string): Promise<WorkspaceUser[]> {
-  const rows = await sql.query<{ user_id: string; role: OrgRole; email: string; name: string }>(
+  const rows = await sql.query<{ user_id: string; role: OrgRole; email: string; name: string; site_id: string | null }>(
     `select m.user_id, m.role, coalesce(p.email, '') as email,
-            coalesce(nullif(btrim(p.name), ''), '') as name
+            coalesce(nullif(btrim(p.name), ''), '') as name,
+            su.site_id
      from public.memberships m
      left join public.profiles p on p.user_id = m.user_id
+     left join public.site_memberships su on su.org_id = m.org_id and su.user_id = m.user_id
      where m.org_id = $1
-     order by m.created_at, m.user_id`,
+     order by m.created_at, m.user_id, su.site_id`,
     [orgId],
   );
   return rows.map((row) => ({
@@ -151,5 +160,121 @@ async function loadMembers(sql: SqlClient, orgId: string): Promise<WorkspaceUser
     email: row.email,
     password: "",
     access: accessFor[row.role],
+    siteId: row.site_id,
   }));
+}
+
+export async function platformAdmin(sql: SqlClient): Promise<boolean> {
+  const rows = await sql.query<{ admin: boolean }>(`select private.is_platform_admin() as admin`);
+  return rows[0]?.admin === true;
+}
+
+export async function openApprovalName(sql: SqlClient): Promise<string | null> {
+  const rows = await sql.query<{ full_name: string }>(
+    `select full_name from public.founder_approvals
+     where email = (select private.actor_email()) and consumed_at is null
+     order by created_at
+     limit 1`,
+  );
+  return rows[0]?.full_name ?? null;
+}
+
+export async function listFounderApprovals(sql: SqlClient): Promise<{ id: string; email: string; fullName: string; consumed: boolean }[]> {
+  if (!(await platformAdmin(sql))) throw new SaveError("forbidden");
+  const rows = await sql.query<{ id: string; email: string; full_name: string; consumed_at: string | null }>(
+    `select id, email, full_name, consumed_at from public.founder_approvals order by created_at desc`,
+  );
+  return rows.map((row) => ({ id: row.id, email: row.email, fullName: row.full_name, consumed: row.consumed_at != null }));
+}
+
+export async function suspendedTenantName(sql: SqlClient): Promise<string | null> {
+  const rows = await sql.query<{ name: string | null }>(`select private.suspended_tenant_name() as name`);
+  return rows[0]?.name ?? null;
+}
+
+export interface TenantRecord {
+  id: string;
+  name: string;
+  kind: string;
+  status: "active" | "suspended";
+  adminEmail: string;
+  adminName: string;
+  adminJoined: boolean;
+}
+
+export async function listTenants(sql: SqlClient): Promise<TenantRecord[]> {
+  if (!(await platformAdmin(sql))) throw new SaveError("forbidden");
+  const rows = await sql.query<{
+    id: string;
+    name: string;
+    kind: string;
+    status: string;
+    admin_email: string | null;
+    admin_name: string | null;
+    admin_joined: boolean | null;
+  }>(`select id, name, kind, status, admin_email, admin_name, admin_joined from public.list_tenants()`);
+  return rows.map((row) => ({
+    id: row.id,
+    name: row.name,
+    kind: row.kind,
+    status: row.status === "suspended" ? "suspended" : "active",
+    adminEmail: row.admin_email ?? "",
+    adminName: row.admin_name ?? "",
+    adminJoined: row.admin_joined === true,
+  }));
+}
+
+export async function provisionCompany(
+  sql: SqlClient,
+  input: { name: string; type: string; fullName: string; email: string },
+): Promise<void> {
+  const name = input.name.trim();
+  if (!name) throw new SaveError("organization");
+  try {
+    await sql.query(`select public.provision_company($1, $2, $3, $4, $5)`, [
+      name,
+      orgSlug(name, crypto.randomUUID()),
+      input.type.trim(),
+      input.fullName,
+      input.email,
+    ]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (/not allowed|42501/i.test(message)) throw new SaveError("forbidden");
+    if (/invalid|23514|duplicate|unique/i.test(message)) throw new SaveError("approval");
+    throw error;
+  }
+}
+
+export async function setTenantStatus(sql: SqlClient, input: { id: string; status: "active" | "suspended" }): Promise<void> {
+  try {
+    await sql.query(`select public.set_tenant_status($1, $2)`, [input.id, input.status]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (/not allowed|42501/i.test(message)) throw new SaveError("forbidden");
+    if (/invalid|23514/i.test(message)) throw new SaveError("approval");
+    throw error;
+  }
+}
+
+export async function approveFounder(sql: SqlClient, input: { fullName: string; email: string }): Promise<void> {
+  try {
+    await sql.query(`select public.approve_founder($1, $2)`, [input.fullName, input.email]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (/not allowed|42501/i.test(message)) throw new SaveError("forbidden");
+    if (/invalid|23514|duplicate|unique/i.test(message)) throw new SaveError("approval");
+    throw error;
+  }
+}
+
+export async function inviteShiftManager(sql: SqlClient, input: { orgId: string; fullName: string; email: string }): Promise<void> {
+  try {
+    await sql.query(`select public.invite_shift_manager($1, $2, $3)`, [input.orgId, input.fullName, input.email]);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (/not allowed|42501/i.test(message)) throw new SaveError("forbidden");
+    if (/invalid|23514|duplicate|unique/i.test(message)) throw new SaveError("invitation");
+    throw error;
+  }
 }

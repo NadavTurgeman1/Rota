@@ -175,6 +175,11 @@ describe("role permissions", () => {
       db.query(`delete from public.memberships where org_id = '${sentinel}' and user_id = '${ownerA}'`),
     ).rejects.toThrow(/keep an owner/i);
 
+    await db.exec("reset role");
+    await db.exec(
+      `update auth.users set email = 'founder@example.com' where id = '${founder}';
+       insert into public.founder_approvals (email, full_name) values ('founder@example.com', 'Founder One');`,
+    );
     await asRole(db, "authenticated", founder);
     await expect(
       db.query(`insert into public.organizations (name, slug) values ('Nope', 'nope')`),

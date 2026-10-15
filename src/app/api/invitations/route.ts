@@ -1,0 +1,30 @@
+import { inviteShiftManager } from "../../../db/workspace-store";
+import { SaveError } from "../../../db/save";
+import { withUserDb } from "../../../supabase/database";
+import { userIdFromAuthorization } from "../../../supabase/user";
+
+export const dynamic = "force-dynamic";
+
+export async function POST(request: Request) {
+  const userId = await userIdFromAuthorization(request.headers.get("authorization"));
+  if (!userId) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const body = (await request.json().catch(() => null)) as {
+    orgId?: unknown;
+    fullName?: unknown;
+    email?: unknown;
+  } | null;
+  const orgId = typeof body?.orgId === "string" ? body.orgId : "";
+  const fullName = typeof body?.fullName === "string" ? body.fullName : "";
+  const email = typeof body?.email === "string" ? body.email : "";
+  try {
+    await withUserDb(userId, (sql) => inviteShiftManager(sql, { orgId, fullName, email }));
+    return Response.json({ ok: true });
+  } catch (error) {
+    if (error instanceof SaveError && error.message === "forbidden") {
+      return Response.json({ error: "forbidden" }, { status: 403 });
+    }
+    if (error instanceof SaveError) return Response.json({ error: error.message }, { status: 400 });
+    console.error(error instanceof Error ? error.message : "invitation request failed");
+    return Response.json({ error: "save_failed" }, { status: 500 });
+  }
+}

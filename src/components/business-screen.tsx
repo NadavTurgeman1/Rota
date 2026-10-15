@@ -4,6 +4,7 @@ import type { BusinessPatch, ShiftPatch } from "../business/edit";
 import { confirmDeleteSite, copy } from "../i18n/copy";
 import { orgTypeLabel, shiftLabel, siteLabel } from "../schedule/display";
 
+import { accessLabel } from "./users-panel";
 import { button, card, cardHint, cardTitle, field, label, labelText } from "./ui";
 
 const cell = field.replace("h-10", "h-9");
@@ -77,6 +78,8 @@ export function BusinessScreen({
   onRequirement,
   onAddShift,
   onRemoveShift,
+  siteUsers,
+  onInvite,
 }: {
   state: RotaState;
   lang: Lang;
@@ -95,12 +98,17 @@ export function BusinessScreen({
   onRequirement: (shiftId: string, day: number, count: number) => void;
   onAddShift: (name: string) => void;
   onRemoveShift: (shiftId: string) => void;
+  siteUsers?: { id: string; name: string; email: string; access: "owner" | "write" | "read" }[];
+  onInvite?: (input: { fullName: string; email: string }) => Promise<boolean>;
 }) {
   const t = copy[lang];
   const biz = state.biz;
   const readOnly = !canWrite;
   const [newSite, setNewSite] = useState("");
   const [siteError, setSiteError] = useState(false);
+  const [inviteName, setInviteName] = useState("");
+  const [inviteEmail, setInviteEmail] = useState("");
+  const [inviteNote, setInviteNote] = useState<"saved" | "failed" | null>(null);
   const numbers: { key: "minRest" | "maxHours" | "maxShift" | "maxDayHours"; label: string }[] = [
     { key: "minRest", label: t.minRest },
     { key: "maxHours", label: t.maxHours },
@@ -191,6 +199,61 @@ export function BusinessScreen({
           </form>
         ) : null}
       </section>
+
+      {onInvite ? (
+        <section className={card}>
+          <h2 className={cardTitle}>{t.usersTitle}</h2>
+          <p className={cardHint}>{t.inviteHint}</p>
+          <ul className="mt-4 flex flex-col gap-2 text-sm">
+            {(siteUsers ?? []).map((member) => (
+              <li key={`${member.id}-${member.access}`} className="flex items-center justify-between gap-3">
+                <span>
+                  <span className="font-medium">{member.name}</span>
+                  <span dir="ltr" className="ms-2 text-muted">
+                    {member.email}
+                  </span>
+                </span>
+                <span className="text-muted">{accessLabel(lang, member.access)}</span>
+              </li>
+            ))}
+          </ul>
+          <form
+            className="mt-4 grid gap-3 sm:grid-cols-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!onInvite) return;
+              void (async () => {
+                const ok = await onInvite({ fullName: inviteName, email: inviteEmail });
+                setInviteNote(ok ? "saved" : "failed");
+                if (ok) {
+                  setInviteName("");
+                  setInviteEmail("");
+                }
+              })();
+            }}
+          >
+            <label className={label}>
+              <span className={labelText}>{t.fullName}</span>
+              <input className={field} value={inviteName} onChange={(event) => setInviteName(event.target.value)} />
+            </label>
+            <label className={label}>
+              <span className={labelText}>{t.email}</span>
+              <input dir="ltr" type="email" className={field} value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} />
+            </label>
+            <div className="flex items-end">
+              <button type="submit" className={`${button.primary} h-10`} disabled={!inviteName.trim() || !inviteEmail.trim()}>
+                {t.inviteUser}
+              </button>
+            </div>
+            {inviteNote === "saved" ? <p className="text-sm text-muted sm:col-span-2">{t.inviteSaved}</p> : null}
+            {inviteNote === "failed" ? (
+              <p role="alert" className="text-sm text-danger-text sm:col-span-2">
+                {t.saveFailed}
+              </p>
+            ) : null}
+          </form>
+        </section>
+      ) : null}
 
       <section className={card}>
         <div className="flex flex-wrap items-center gap-2">

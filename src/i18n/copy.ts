@@ -151,6 +151,27 @@ export interface Copy {
   signInFailed: string;
   demoAccounts: string;
   createAccount: string;
+  goToSignup: string;
+  goToLogin: string;
+  signupTitle: string;
+  signupHint: string;
+  passwordTooShort: string;
+  signupFailed: string;
+  signupRateLimit: string;
+  fullName: string;
+  accountNotApproved: string;
+  approvalsTitle: string;
+  approvalsHint: string;
+  approveFounder: string;
+  approvalOpen: string;
+  approvalUsed: string;
+  notApprovedTitle: string;
+  inviteUser: string;
+  inviteHint: string;
+  inviteSaved: string;
+  suspendCompany: string;
+  activateCompany: string;
+  tenantSuspended: string;
   accountPending: string;
   createOrgTitle: string;
   createOrgAction: string;
@@ -340,6 +361,27 @@ export const copy: Record<Lang, Copy> = {
     signInFailed: "האימייל או הסיסמה לא נכונים.",
     demoAccounts: "חשבון הדמו",
     createAccount: "יצירת חשבון",
+    goToSignup: "אין חשבון? יצירת חשבון",
+    goToLogin: "יש חשבון? כניסה",
+    signupTitle: "יצירת חשבון",
+    signupHint: "בוחרים כאן סיסמה של 6 תווים לפחות. אין סיסמה מוכנה. אחרי יצירת החשבון נכנסים עם אותה סיסמה.",
+    passwordTooShort: "הסיסמה צריכה 6 תווים לפחות.",
+    signupFailed: "יצירת החשבון נכשלה. נסו שוב.",
+    signupRateLimit: "נשלחו יותר מדי אימיילי אישור, והחשבון לא נוצר. ממתינים כשעה ולוחצים שוב על יצירת חשבון עם אותו מייל ואותה סיסמה.",
+    fullName: "שם מלא",
+    accountNotApproved: "המייל הזה לא מאושר. אפשר ליצור חשבון רק אחרי שמנהל המערכת פותח את העסק.",
+    approvalsTitle: "עסקים",
+    approvalsHint: "אחרי הסכם נפתח כאן העסק, ונקבע מנהל העסק הראשון. הוא נרשם עם השם והמייל, ואז מזמין מנהלי משמרות.",
+    approveFounder: "פתיחת עסק",
+    approvalOpen: "ממתין להרשמה",
+    approvalUsed: "מנהל העסק נרשם",
+    notApprovedTitle: "אין אישור למייל הזה. מנהל המערכת פותח את העסק ומאשר את המייל.",
+    inviteUser: "הוספת מנהל משמרות",
+    inviteHint: "מנהל משמרות נכנס ומסדר את אתרי העסק. עובד הוא אדם בסידור, בלי כניסה.",
+    inviteSaved: "המייל אושר. מנהל המשמרות יוצר חשבון עם השם המלא והמייל.",
+    suspendCompany: "השעיה",
+    activateCompany: "הפעלה",
+    tenantSuspended: "העסק מושעה. פונים למנהל המערכת.",
     accountPending: "החשבון נוצר. אם נשלח אימייל אישור, פתח אותו ואז היכנס.",
     createOrgTitle: "העסק הראשון",
     createOrgAction: "צור עסק",
@@ -347,8 +389,8 @@ export const copy: Record<Lang, Copy> = {
     createSiteAction: "צור אתר",
     remoteDbMissing: "חסרה כתובת מסד הנתונים בשרת. מוסיפים SUPABASE_DB_URL לקובץ הסביבה המקומי.",
     saveFailed: "השמירה לענן נכשלה.",
-    accessOwner: "בעלים",
-    accessWrite: "כתיבה",
+    accessOwner: "מנהל עסק",
+    accessWrite: "מנהל משמרות",
     accessRead: "קריאה",
     readOnlyBanner: "יש לך הרשאת קריאה: אפשר לראות הכול, ושינויים נעולים.",
     site: "אתר",
@@ -356,12 +398,12 @@ export const copy: Record<Lang, Copy> = {
     siteSettings: "הגדרות האתר",
     siteName: "שם האתר",
     orgName: "שם העסק",
-    orgReadOnly: "רק בעל העסק יכול לשנות את שם העסק ואת הסוג.",
+    orgReadOnly: "רק מנהל העסק יכול לשנות את שם העסק ואת הסוג.",
     addSite: "הוספת אתר",
     deleteSite: "מחיקת האתר",
     newSiteName: "שם האתר החדש",
     siteNameTaken: "כבר יש אתר בשם הזה.",
-    usersTitle: "משתמשים והרשאות",
+    usersTitle: "מנהלי העסק",
     usersHint: "קריאה: רואה הכול ולא משנה. כתיבה: עורך את כל המסכים. רק בעל העסק מנהל משתמשים.",
     addUser: "הוספת משתמש",
     removeUser: "הסרה",
@@ -527,6 +569,27 @@ export const copy: Record<Lang, Copy> = {
     signInFailed: "The email or password is wrong.",
     demoAccounts: "Demo account",
     createAccount: "Create account",
+    goToSignup: "No account? Create one",
+    goToLogin: "Already have an account? Sign in",
+    signupTitle: "Create account",
+    signupHint: "Choose a password of at least 6 characters. There is no preset password. Sign in later with that same password.",
+    passwordTooShort: "The password needs at least 6 characters.",
+    signupFailed: "The account could not be created. Try again.",
+    signupRateLimit: "Too many confirmation emails were sent, so the account was not created. Wait about an hour, then create the account again with the same email and password.",
+    fullName: "Full name",
+    accountNotApproved: "This email is not approved. An account can be created only after the system owner opens the company.",
+    approvalsTitle: "Companies",
+    approvalsHint: "After an agreement, open the company here and name its first company admin. They sign up with that name and email, then invite shift managers.",
+    approveFounder: "Open company",
+    approvalOpen: "Waiting for sign-up",
+    approvalUsed: "Company admin signed up",
+    notApprovedTitle: "This email is not approved. The system owner opens the company and approves the email.",
+    inviteUser: "Add a shift manager",
+    inviteHint: "A shift manager signs in and plans the company's sites. An employee is only placed on the schedule and cannot sign in.",
+    inviteSaved: "The email is approved. The shift manager creates an account with this full name and email.",
+    suspendCompany: "Suspend",
+    activateCompany: "Activate",
+    tenantSuspended: "This company is suspended. Contact the system owner.",
     accountPending: "The account was created. If a confirmation email arrived, open it and then sign in.",
     createOrgTitle: "First business",
     createOrgAction: "Create business",
@@ -534,8 +597,8 @@ export const copy: Record<Lang, Copy> = {
     createSiteAction: "Create site",
     remoteDbMissing: "The server is missing the database URL. Add SUPABASE_DB_URL to the local environment file.",
     saveFailed: "Saving to the cloud failed.",
-    accessOwner: "Owner",
-    accessWrite: "Write",
+    accessOwner: "Company admin",
+    accessWrite: "Shift manager",
     accessRead: "Read",
     readOnlyBanner: "You have read access: you can see everything, and changes are locked.",
     site: "Site",
@@ -543,12 +606,12 @@ export const copy: Record<Lang, Copy> = {
     siteSettings: "Site settings",
     siteName: "Site name",
     orgName: "Business name",
-    orgReadOnly: "Only the business owner can change the business name and type.",
+    orgReadOnly: "Only the company admin can change the business name and type.",
     addSite: "Add site",
     deleteSite: "Delete site",
     newSiteName: "New site name",
     siteNameTaken: "A site with this name already exists.",
-    usersTitle: "Users & permissions",
+    usersTitle: "Company managers",
     usersHint: "Read: sees everything, changes nothing. Write: edits every screen. Only the owner manages users.",
     addUser: "Add user",
     removeUser: "Remove",

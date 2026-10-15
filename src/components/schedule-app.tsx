@@ -69,7 +69,8 @@ import { BusinessScreen } from "./business-screen";
 import { ConstraintsScreen } from "./constraints-screen";
 import { InsightsScreen } from "./insights-screen";
 import { IssuesPanel } from "./issues-panel";
-import { BrandMark, CreateOrgScreen, CreateSiteScreen, LoginScreen, Wordmark } from "./login-screen";
+import { ApprovalsScreen, type TenantRow } from "./approvals-screen";
+import { BrandMark, CreateSiteScreen, LoginScreen, SignupScreen, Wordmark } from "./login-screen";
 import { browserClient } from "../supabase/browser";
 import { remoteConfigured } from "../supabase/public-env";
 import { WeekBoard } from "./schedule-board";
@@ -98,7 +99,7 @@ function blankWorkspace(userId: string, email: string): Workspace {
   };
 }
 
-type Screen = "business" | "team" | "constraints" | "insights" | "schedule";
+type Screen = "business" | "team" | "constraints" | "insights" | "schedule" | "approvals";
 
 function todayIso(now = new Date()): string {
   const year = now.getFullYear();
@@ -163,6 +164,9 @@ export function ScheduleApp() {
   const [theme, setTheme] = useState<Theme>("light");
   const [hydrated, setHydrated] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [operator, setOperator] = useState(false);
+  const [suspended, setSuspended] = useState<string | null>(null);
+  const [authScreen, setAuthScreen] = useState<"login" | "signup">("login");
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [saveNote, setSaveNote] = useState<string | null>(null);
   const remote = remoteConfigured();
@@ -197,7 +201,9 @@ export function ScheduleApp() {
       setHydrated(true);
       return;
     }
-    const body = (await response.json()) as { workspace: Workspace | null };
+    const body = (await response.json()) as { workspace: Workspace | null; admin?: boolean; suspended?: string | null };
+    setOperator(body.admin === true);
+    setSuspended(body.suspended ?? null);
     const next = body.workspace ?? blankWorkspace(signedInId, email);
     setWorkspace(next);
     const opened = activeSite(next);
@@ -346,13 +352,24 @@ export function ScheduleApp() {
     return true;
   }
 
-  async function createAccount(email: string, password: string): Promise<"signed-in" | "confirm" | "failed"> {
+  async function createAccount(fullName: string, email: string, password: string): Promise<"signed-in" | "confirm" | "failed" | "denied" | "short" | "rate"> {
+    const name = fullName.trim();
+    const address = email.trim();
+    if (!name || !address) return "failed";
+    if (password.length < 6) return "short";
+    const allowed = await browserClient().rpc("signup_allowed", { target_email: address });
+    if (allowed.error || allowed.data !== true) return "denied";
     const { data, error } = await browserClient().auth.signUp({
-      email: email.trim(),
+      email: address,
       password,
-      options: { data: { name: email.trim().split("@")[0] ?? "" } },
+      options: { data: { name } },
     });
-    if (error || !data.user) return "failed";
+    if (error || !data.user) {
+      const detail = `${error?.message ?? ""} ${error?.code ?? ""}`;
+      if (detail.includes("signup_not_approved")) return "denied";
+      if (error?.status === 429 || /rate limit/i.test(detail)) return "rate";
+      return "failed";
+    }
     if (!data.session) return "confirm";
     await adopt(data.session.access_token, data.user.id, data.user.email ?? email);
     setScreen("schedule");
@@ -382,18 +399,59 @@ export function ScheduleApp() {
     return true;
   }
 
-  function createOrg(name: string, type: string): Promise<boolean> {
-    return postWorkspace({ name, type });
-  }
-
   function createSite(name: string): Promise<boolean> {
     return postWorkspace({ siteName: name });
+  }
+
+  const loadCompanies = useCallback(async (): Promise<TenantRow[]> => {
+    const token = tokenRef.current;
+    if (!token) return [];
+    const response = await fetch("/api/companies", { headers: { authorization: `Bearer ${token}` } });
+    if (!response.ok) return [];
+    const body = (await response.json()) as { companies?: TenantRow[] };
+    return body.companies ?? [];
+  }, []);
+
+  async function provisionCompany(input: { name: string; type: string; fullName: string; email: string }): Promise<boolean> {
+    const token = tokenRef.current;
+    if (!token) return false;
+    const response = await fetch("/api/companies", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    return response.ok;
+  }
+
+  async function setCompanyStatus(id: string, status: "active" | "suspended"): Promise<boolean> {
+    const token = tokenRef.current;
+    if (!token) return false;
+    const response = await fetch("/api/companies", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ id, status }),
+    });
+    return response.ok;
+  }
+
+  async function inviteManager(input: { fullName: string; email: string }): Promise<boolean> {
+    const token = tokenRef.current;
+    if (!token || !live.org.id) return false;
+    const response = await fetch("/api/invitations", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ ...input, orgId: live.org.id }),
+    });
+    return response.ok;
   }
 
   function signOut() {
     if (remote) void browserClient().auth.signOut();
     else window.localStorage.removeItem(SESSION_STORAGE_KEY);
     setUserId(null);
+    setOperator(false);
+    setSuspended(null);
+    setAuthScreen("login");
     setSelection(null);
     setRemoteError(null);
   }
@@ -445,19 +503,23 @@ export function ScheduleApp() {
   if (!user) {
     return (
       <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang}>
-        <LoginScreen
-          lang={lang}
-          orgName={remote ? "Rota" : live.org.name}
-          demoAccounts={
-            remote
-              ? []
-              : DEMO_USERS.filter((account) => live.users.some((item) => item.email === account.email)).map((account) => ({ ...account }))
-          }
-          demoPassword={DEMO_PASSWORD}
-          toolbar={settings}
-          onSignIn={signIn}
-          onCreateAccount={remote ? createAccount : undefined}
-        />
+        {remote && authScreen === "signup" ? (
+          <SignupScreen lang={lang} toolbar={settings} onCreateAccount={createAccount} onShowLogin={() => setAuthScreen("login")} />
+        ) : (
+          <LoginScreen
+            lang={lang}
+            orgName={remote ? "Rota" : live.org.name}
+            demoAccounts={
+              remote
+                ? []
+                : DEMO_USERS.filter((account) => live.users.some((item) => item.email === account.email)).map((account) => ({ ...account }))
+            }
+            demoPassword={DEMO_PASSWORD}
+            toolbar={settings}
+            onSignIn={signIn}
+            onShowSignup={remote ? () => setAuthScreen("signup") : undefined}
+          />
+        )}
       </div>
     );
   }
@@ -467,8 +529,13 @@ export function ScheduleApp() {
       <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang}>
         {live.org.id ? (
           <CreateSiteScreen lang={lang} toolbar={settings} onCreate={createSite} />
+        ) : operator ? (
+          <ApprovalsScreen lang={lang} toolbar={settings} load={loadCompanies} onProvision={provisionCompany} onStatus={setCompanyStatus} />
         ) : (
-          <CreateOrgScreen lang={lang} toolbar={settings} onCreate={createOrg} />
+          <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 px-4">
+            <p className="text-sm leading-6 text-ink">{suspended ? t.tenantSuspended : t.notApprovedTitle}</p>
+            {settings}
+          </div>
         )}
       </div>
     );
@@ -560,6 +627,15 @@ export function ScheduleApp() {
                 ))}
               </select>
             </label>
+            {operator ? (
+              <button
+                type="button"
+                className={button.quiet}
+                onClick={() => setScreen(screen === "approvals" ? "schedule" : "approvals")}
+              >
+                {t.approvalsTitle}
+              </button>
+            ) : null}
             {settings}
           </div>
         </div>
@@ -757,6 +833,9 @@ export function ScheduleApp() {
             }
           />
         ) : null}
+        {screen === "approvals" && operator ? (
+          <ApprovalsScreen bare lang={lang} toolbar={null} load={loadCompanies} onProvision={provisionCompany} onStatus={setCompanyStatus} />
+        ) : null}
         {screen === "business" ? (
           <BusinessScreen
             state={state}
@@ -784,6 +863,10 @@ export function ScheduleApp() {
             onRequirement={(shiftId, dayIndex, count) => change((current) => setShiftRequirement(current, actor, shiftId, dayIndex, count))}
             onAddShift={(name) => change((current) => addShift(current, actor, { id: crypto.randomUUID(), name }))}
             onRemoveShift={(shiftId) => change((current) => removeShift(current, actor, shiftId))}
+            siteUsers={live.users
+              .filter((member) => member.access === "owner" || !member.siteId || member.siteId === live.activeSiteId)
+              .map((member) => ({ id: member.id, name: member.name, email: member.email, access: member.access }))}
+            onInvite={remote && owner ? inviteManager : undefined}
           />
         ) : null}
         {screen === "insights" ? <InsightsScreen state={state} lang={lang} /> : null}

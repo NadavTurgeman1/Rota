@@ -36,7 +36,7 @@ export function LoginScreen({
   demoPassword,
   toolbar,
   onSignIn,
-  onCreateAccount,
+  onShowSignup,
 }: {
   lang: Lang;
   orgName: string;
@@ -45,13 +45,12 @@ export function LoginScreen({
   toolbar: ReactNode;
   /** Returns false when the email or password is wrong. */
   onSignIn: (email: string, password: string) => boolean | Promise<boolean>;
-  onCreateAccount?: (email: string, password: string) => Promise<"signed-in" | "confirm" | "failed">;
+  onShowSignup?: () => void;
 }) {
   const t = copy[lang];
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [failed, setFailed] = useState(false);
-  const [pending, setPending] = useState(false);
 
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden">
@@ -74,7 +73,6 @@ export function LoginScreen({
             onSubmit={(event) => {
               event.preventDefault();
               void (async () => {
-                setPending(false);
                 setFailed(!(await onSignIn(email, password)));
               })();
             }}
@@ -120,26 +118,10 @@ export function LoginScreen({
             <button type="submit" data-testid="login-submit" className={`${button.primary} h-10 w-full`}>
               {t.signIn}
             </button>
-            {onCreateAccount ? (
-              <button
-                type="button"
-                data-testid="create-account"
-                className={`${button.quiet} h-10 w-full`}
-                onClick={() => {
-                  void (async () => {
-                    const result = await onCreateAccount(email, password);
-                    setFailed(result === "failed");
-                    setPending(result === "confirm");
-                  })();
-                }}
-              >
-                {t.createAccount}
+            {onShowSignup ? (
+              <button type="button" data-testid="show-signup" className={`${button.quiet} h-10 w-full`} onClick={onShowSignup}>
+                {t.goToSignup}
               </button>
-            ) : null}
-            {pending ? (
-              <p role="status" className="text-sm leading-6 text-muted">
-                {t.accountPending}
-              </p>
             ) : null}
           </form>
           {demoAccounts.length > 0 ? (
@@ -178,6 +160,131 @@ export function LoginScreen({
           </section>
           ) : null}
         </div>
+      </main>
+    </div>
+  );
+}
+
+/** Name, email and password. Only an approved email can create an account. */
+export function SignupScreen({
+  lang,
+  toolbar,
+  onCreateAccount,
+  onShowLogin,
+}: {
+  lang: Lang;
+  toolbar: ReactNode;
+  onCreateAccount: (fullName: string, email: string, password: string) => Promise<"signed-in" | "confirm" | "failed" | "denied" | "short" | "rate">;
+  onShowLogin: () => void;
+}) {
+  const t = copy[lang];
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [failed, setFailed] = useState(false);
+  const [denied, setDenied] = useState(false);
+  const [pending, setPending] = useState(false);
+  const [short, setShort] = useState(false);
+  const [rateLimited, setRateLimited] = useState(false);
+  return (
+    <div className="relative flex min-h-screen flex-col overflow-hidden">
+      <header className="relative flex items-center justify-between gap-3 px-4 py-4 sm:px-6">
+        <div className="flex items-center gap-3">
+          <BrandMark />
+          <Wordmark />
+        </div>
+        <div className="flex items-center gap-2">{toolbar}</div>
+      </header>
+      <main className="relative flex flex-1 items-start justify-center px-4 pb-12 pt-8 sm:pt-16">
+        <form
+          data-testid="signup-form"
+          className={`${card} flex w-full max-w-sm flex-col gap-5 shadow-pop`}
+          onSubmit={(event) => {
+            event.preventDefault();
+            void (async () => {
+              const result = await onCreateAccount(fullName, email, password);
+              setFailed(result === "failed");
+              setDenied(result === "denied");
+              setShort(result === "short");
+              setRateLimited(result === "rate");
+              setPending(result === "confirm");
+            })();
+          }}
+        >
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight">{t.signupTitle}</h1>
+            <p className="mt-2 text-sm leading-6 text-muted">{t.signupHint}</p>
+          </div>
+          <label className={label}>
+            <span className={labelText}>{t.fullName}</span>
+            <input
+              data-testid="create-full-name"
+              autoComplete="name"
+              className={field}
+              value={fullName}
+              onChange={(event) => setFullName(event.target.value)}
+            />
+          </label>
+          <label className={label}>
+            <span className={labelText}>{t.email}</span>
+            <input
+              data-testid="signup-email"
+              type="email"
+              dir="ltr"
+              autoComplete="username"
+              className={field}
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+            />
+          </label>
+          <label className={label}>
+            <span className={labelText}>{t.password}</span>
+            <input
+              data-testid="signup-password"
+              type="password"
+              autoComplete="new-password"
+              className={field}
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+            />
+          </label>
+          {short ? (
+            <p role="alert" className="text-sm text-danger-text">
+              {t.passwordTooShort}
+            </p>
+          ) : null}
+          {rateLimited ? (
+            <p role="alert" className="text-sm leading-6 text-danger-text">
+              {t.signupRateLimit}
+            </p>
+          ) : null}
+          {failed ? (
+            <p role="alert" className="text-sm text-danger-text">
+              {t.signupFailed}
+            </p>
+          ) : null}
+          {denied ? (
+            <p role="alert" className="text-sm leading-6 text-danger-text">
+              {t.accountNotApproved}
+            </p>
+          ) : null}
+          {pending ? (
+            <p role="status" className="text-sm leading-6 text-muted">
+              {t.accountPending}
+            </p>
+          ) : null}
+          <button
+            type="submit"
+            data-testid="create-account"
+            className={`${button.primary} h-10 w-full`}
+            disabled={!fullName.trim() || !email.trim() || password.length < 6}
+          >
+            {t.createAccount}
+          </button>
+          <button type="button" className={`${button.quiet} h-10 w-full`} onClick={onShowLogin}>
+            {t.goToLogin}
+          </button>
+        </form>
       </main>
     </div>
   );
