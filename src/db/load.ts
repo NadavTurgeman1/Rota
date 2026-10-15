@@ -123,7 +123,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
         [siteId],
       ),
       sql.query<ScheduleRow>(
-        `select id, week_start::text as week_start, status
+        `select id, week_start::text as week_start, status, restored_from
          from public.schedules
          where site_id = $1`,
         [siteId],
@@ -161,7 +161,8 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
       ),
       sql.query<CallOffRow>(
         `select c.id, c.schedule_id, c.shift_id, c.weekday::int as weekday, c.employee_id,
-                e.name as employee_name, to_json(c.reported_at) #>> '{}' as reported_at, c.reported_by
+                e.name as employee_name, to_json(c.reported_at) #>> '{}' as reported_at,
+                c.reported_by, c.reported_by_name
          from public.schedule_calloffs c
          join public.schedules sc on sc.id = c.schedule_id
          join public.employees e on e.id = c.employee_id
@@ -171,7 +172,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
       ),
       sql.query<VersionRow>(
         `select v.id, v.schedule_id, v.number, v.reason, v.restored_from,
-                to_json(v.created_at) #>> '{}' as created_at, v.created_by, v.snapshot
+                to_json(v.created_at) #>> '{}' as created_at, v.created_by, v.author_name, v.snapshot
          from public.schedule_versions v
          join public.schedules sc on sc.id = v.schedule_id
          where sc.site_id = $1

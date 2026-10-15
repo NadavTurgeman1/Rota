@@ -5,6 +5,7 @@ import { constraintReasonText, copy } from "../i18n/copy";
 import { agreementCell } from "../people/edit";
 import { checkOverride, constraintDraftWritable, parseConstraints, type LineOverride, type ParsedLine } from "../parser";
 import { shiftLabel } from "../schedule/display";
+import { jsonAuthHeaders } from "../supabase/browser";
 
 import { button, card, cardHint, cardTitle, pill } from "./ui";
 
@@ -63,7 +64,7 @@ export function ConstraintPaste({
     try {
       const response = await fetch("/api/ai/constraints", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: await jsonAuthHeaders(),
         body: JSON.stringify({ ...request, lines: askable }),
       });
       if (!response.ok) throw new Error(String(response.status));

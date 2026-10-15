@@ -36,6 +36,7 @@ export function LoginScreen({
   demoPassword,
   toolbar,
   onSignIn,
+  onCreateAccount,
 }: {
   lang: Lang;
   orgName: string;
@@ -43,12 +44,14 @@ export function LoginScreen({
   demoPassword: string;
   toolbar: ReactNode;
   /** Returns false when the email or password is wrong. */
-  onSignIn: (email: string, password: string) => boolean;
+  onSignIn: (email: string, password: string) => boolean | Promise<boolean>;
+  onCreateAccount?: (email: string, password: string) => Promise<"signed-in" | "confirm" | "failed">;
 }) {
   const t = copy[lang];
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [failed, setFailed] = useState(false);
+  const [pending, setPending] = useState(false);
 
   return (
     <div className="relative flex min-h-screen flex-col overflow-hidden">
@@ -70,7 +73,10 @@ export function LoginScreen({
             className={`${card} flex flex-col gap-5 shadow-pop`}
             onSubmit={(event) => {
               event.preventDefault();
-              setFailed(!onSignIn(email, password));
+              void (async () => {
+                setPending(false);
+                setFailed(!(await onSignIn(email, password)));
+              })();
             }}
           >
             <div>
@@ -114,7 +120,29 @@ export function LoginScreen({
             <button type="submit" data-testid="login-submit" className={`${button.primary} h-10 w-full`}>
               {t.signIn}
             </button>
+            {onCreateAccount ? (
+              <button
+                type="button"
+                data-testid="create-account"
+                className={`${button.quiet} h-10 w-full`}
+                onClick={() => {
+                  void (async () => {
+                    const result = await onCreateAccount(email, password);
+                    setFailed(result === "failed");
+                    setPending(result === "confirm");
+                  })();
+                }}
+              >
+                {t.createAccount}
+              </button>
+            ) : null}
+            {pending ? (
+              <p role="status" className="text-sm leading-6 text-muted">
+                {t.accountPending}
+              </p>
+            ) : null}
           </form>
+          {demoAccounts.length > 0 ? (
           <section className="rounded-2xl border border-dashed border-field-line/60 bg-card/60 p-4 text-sm backdrop-blur">
             <h2 className="font-semibold text-ink-soft">
               {t.demoAccounts} · {t.password}:{" "}
@@ -148,7 +176,62 @@ export function LoginScreen({
               ))}
             </ul>
           </section>
+          ) : null}
         </div>
+      </main>
+    </div>
+  );
+}
+
+/** Shown after sign-in when the account does not belong to a business yet. */
+export function CreateOrgScreen({
+  lang,
+  toolbar,
+  onCreate,
+}: {
+  lang: Lang;
+  toolbar: ReactNode;
+  onCreate: (name: string, type: string) => Promise<boolean>;
+}) {
+  const t = copy[lang];
+  const [name, setName] = useState("");
+  const [type, setType] = useState("");
+  const [failed, setFailed] = useState(false);
+  return (
+    <div className="relative flex min-h-screen flex-col">
+      <header className="flex items-center justify-between gap-3 px-4 py-4 sm:px-6">
+        <div className="flex items-center gap-3">
+          <BrandMark />
+          <Wordmark />
+        </div>
+        <div className="flex items-center gap-2">{toolbar}</div>
+      </header>
+      <main className="flex flex-1 items-start justify-center px-4 pb-12 pt-8 sm:pt-16">
+        <form
+          className={`${card} flex w-full max-w-sm flex-col gap-5 shadow-pop`}
+          onSubmit={(event) => {
+            event.preventDefault();
+            void (async () => setFailed(!(await onCreate(name, type))))();
+          }}
+        >
+          <h1 className="text-2xl font-bold tracking-tight">{t.createOrgTitle}</h1>
+          <label className={label}>
+            <span className={labelText}>{t.orgName}</span>
+            <input className={field} value={name} onChange={(event) => setName(event.target.value)} />
+          </label>
+          <label className={label}>
+            <span className={labelText}>{t.bizType}</span>
+            <input className={field} value={type} onChange={(event) => setType(event.target.value)} />
+          </label>
+          {failed ? (
+            <p role="alert" className="text-sm text-danger-text">
+              {t.signInFailed}
+            </p>
+          ) : null}
+          <button type="submit" className={`${button.primary} h-10 w-full`} disabled={!name.trim()}>
+            {t.createOrgAction}
+          </button>
+        </form>
       </main>
     </div>
   );

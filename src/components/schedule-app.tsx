@@ -69,7 +69,9 @@ import { BusinessScreen } from "./business-screen";
 import { ConstraintsScreen } from "./constraints-screen";
 import { InsightsScreen } from "./insights-screen";
 import { IssuesPanel } from "./issues-panel";
-import { BrandMark, LoginScreen, Wordmark } from "./login-screen";
+import { BrandMark, CreateOrgScreen, LoginScreen, Wordmark } from "./login-screen";
+import { browserClient } from "../supabase/browser";
+import { remoteConfigured } from "../supabase/public-env";
 import { WeekBoard } from "./schedule-board";
 import { TeamScreen } from "./team-screen";
 import { useAiEnabled } from "./use-ai";
@@ -81,6 +83,20 @@ import { downloadBlob, downloadWeekPng } from "./week-png";
 
 const EMPTY: Analysis = { violations: [], overQuota: [], unfilled: [], under: [], hours: {}, counts: {} };
 const THEME_KEY = "rota.theme";
+
+function persistable(workspace: Workspace) {
+  return { org: workspace.org, sites: workspace.sites, activeSiteId: workspace.activeSiteId };
+}
+
+function blankWorkspace(userId: string, email: string): Workspace {
+  const name = email.split("@")[0] || "Rota";
+  return {
+    org: { id: "", name: "", type: "" },
+    sites: [],
+    activeSiteId: "",
+    users: [{ id: userId, name, email, password: "", access: "owner" }],
+  };
+}
 
 type Screen = "business" | "team" | "constraints" | "insights" | "schedule";
 
@@ -145,6 +161,11 @@ export function ScheduleApp() {
   const [theme, setTheme] = useState<Theme>("light");
   const [hydrated, setHydrated] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [remoteError, setRemoteError] = useState<string | null>(null);
+  const [saveNote, setSaveNote] = useState<string | null>(null);
+  const remote = remoteConfigured();
+  const tokenRef = useRef<string | null>(null);
+  const savedRef = useRef("");
   const [selection, setSelection] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>("schedule");
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -159,27 +180,90 @@ export function ScheduleApp() {
   const writer = Boolean(user && hasWrite(user));
   const owner = Boolean(user && isOwner(user));
 
+  async function adopt(token: string, signedInId: string, email: string) {
+    tokenRef.current = token;
+    const response = await fetch("/api/workspace", { headers: { authorization: `Bearer ${token}` } });
+    if (response.status === 401) {
+      setUserId(null);
+      setHydrated(true);
+      return;
+    }
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      setRemoteError(body?.error === "db_unconfigured" ? "db" : "load");
+      setUserId(signedInId);
+      setHydrated(true);
+      return;
+    }
+    const body = (await response.json()) as { workspace: Workspace | null };
+    const next = body.workspace ?? blankWorkspace(signedInId, email);
+    setWorkspace(next);
+    if (next.sites.length > 0) setHistory({ present: activeSite(next).state, past: [], future: [] });
+    setUserId(signedInId);
+    savedRef.current = JSON.stringify(persistable(next));
+    setRemoteError(null);
+    setHydrated(true);
+  }
+
   useEffect(() => {
-    const loaded = loadWorkspace();
-    setWorkspace(loaded.workspace);
-    setHistory({ present: activeSite(loaded.workspace).state, past: [], future: [] });
-    setLang(loaded.lang);
-    const session = window.localStorage.getItem(SESSION_STORAGE_KEY);
-    if (session && loaded.workspace.users.some((item) => item.id === session)) setUserId(session);
-    setCurrentWeek(sundayOnOrBefore(todayIso()));
     const savedTheme = window.localStorage.getItem(THEME_KEY);
     if (savedTheme === "dark" || (savedTheme === null && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
       setTheme("dark");
     }
-    setHydrated(true);
-  }, [setHistory]);
+    setCurrentWeek(sundayOnOrBefore(todayIso()));
+    if (!remote) {
+      const loaded = loadWorkspace();
+      setWorkspace(loaded.workspace);
+      setHistory({ present: activeSite(loaded.workspace).state, past: [], future: [] });
+      setLang(loaded.lang);
+      const session = window.localStorage.getItem(SESSION_STORAGE_KEY);
+      if (session && loaded.workspace.users.some((item) => item.id === session)) setUserId(session);
+      setHydrated(true);
+      return;
+    }
+    const supabase = browserClient();
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      tokenRef.current = session?.access_token ?? null;
+      if (event !== "INITIAL_SESSION") return;
+      if (!session) {
+        setHydrated(true);
+        return;
+      }
+      void adopt(session.access_token, session.user.id, session.user.email ?? "");
+    });
+    return () => data.subscription.unsubscribe();
+  }, [remote, setHistory]);
 
   useEffect(() => {
     if (!hydrated) return;
-    window.localStorage.setItem(WORKSPACE_STORAGE_KEY, writeWorkspaceSave(live, lang));
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === "he" ? "rtl" : "ltr";
-  }, [hydrated, live, lang]);
+    if (!remote) {
+      window.localStorage.setItem(WORKSPACE_STORAGE_KEY, writeWorkspaceSave(live, lang));
+      return;
+    }
+    if (!user || !writer || live.sites.length === 0) return;
+    const payload = persistable(live);
+    const json = JSON.stringify(payload);
+    if (json === savedRef.current) return;
+    const token = tokenRef.current;
+    if (!token) return;
+    const handle = window.setTimeout(() => {
+      void fetch("/api/workspace", {
+        method: "PUT",
+        headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+        body: json,
+      }).then((response) => {
+        if (response.ok) {
+          savedRef.current = json;
+          setSaveNote(null);
+          return;
+        }
+        setSaveNote(response.status === 503 ? "db" : "save");
+      });
+    }, 450);
+    return () => window.clearTimeout(handle);
+  }, [hydrated, live, lang, remote, user, writer]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -240,19 +324,63 @@ export function ScheduleApp() {
     });
   }
 
-  function signIn(email: string, password: string): boolean {
-    const found = authenticate(live, email, password);
-    if (!found) return false;
-    window.localStorage.setItem(SESSION_STORAGE_KEY, found.id);
-    setUserId(found.id);
+  async function signIn(email: string, password: string): Promise<boolean> {
+    if (!remote) {
+      const found = authenticate(live, email, password);
+      if (!found) return false;
+      window.localStorage.setItem(SESSION_STORAGE_KEY, found.id);
+      setUserId(found.id);
+      setScreen("schedule");
+      return true;
+    }
+    const { data, error } = await browserClient().auth.signInWithPassword({ email: email.trim(), password });
+    if (error || !data.session || !data.user) return false;
+    await adopt(data.session.access_token, data.user.id, data.user.email ?? email);
+    setScreen("schedule");
+    return true;
+  }
+
+  async function createAccount(email: string, password: string): Promise<"signed-in" | "confirm" | "failed"> {
+    const { data, error } = await browserClient().auth.signUp({
+      email: email.trim(),
+      password,
+      options: { data: { name: email.trim().split("@")[0] ?? "" } },
+    });
+    if (error || !data.user) return "failed";
+    if (!data.session) return "confirm";
+    await adopt(data.session.access_token, data.user.id, data.user.email ?? email);
+    setScreen("schedule");
+    return "signed-in";
+  }
+
+  async function createOrg(name: string, type: string): Promise<boolean> {
+    const token = tokenRef.current;
+    if (!token) return false;
+    const response = await fetch("/api/workspace", {
+      method: "POST",
+      headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
+      body: JSON.stringify({ name, type }),
+    });
+    if (!response.ok) {
+      const body = (await response.json().catch(() => null)) as { error?: string } | null;
+      if (body?.error === "db_unconfigured") setRemoteError("db");
+      return false;
+    }
+    const body = (await response.json()) as { workspace: Workspace };
+    setWorkspace(body.workspace);
+    if (body.workspace.sites[0]) setHistory({ present: body.workspace.sites[0].state, past: [], future: [] });
+    savedRef.current = JSON.stringify(persistable(body.workspace));
+    setRemoteError(null);
     setScreen("schedule");
     return true;
   }
 
   function signOut() {
-    window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    if (remote) void browserClient().auth.signOut();
+    else window.localStorage.removeItem(SESSION_STORAGE_KEY);
     setUserId(null);
     setSelection(null);
+    setRemoteError(null);
   }
 
   function savePng(source: RotaState) {
@@ -288,17 +416,41 @@ export function ScheduleApp() {
 
   if (!hydrated) return <div className="min-h-screen" />;
 
+  if (remoteError === "db") {
+    return (
+      <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang} className="mx-auto flex min-h-screen max-w-md flex-col gap-4 px-4 py-8">
+        <p role="alert" className="text-sm leading-6 text-danger-text">
+          {t.remoteDbMissing}
+        </p>
+        {settings}
+      </div>
+    );
+  }
+
   if (!user) {
     return (
       <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang}>
         <LoginScreen
           lang={lang}
-          orgName={live.org.name}
-          demoAccounts={DEMO_USERS.filter((account) => live.users.some((item) => item.email === account.email)).map((account) => ({ ...account }))}
+          orgName={remote ? "Rota" : live.org.name}
+          demoAccounts={
+            remote
+              ? []
+              : DEMO_USERS.filter((account) => live.users.some((item) => item.email === account.email)).map((account) => ({ ...account }))
+          }
           demoPassword={DEMO_PASSWORD}
           toolbar={settings}
           onSignIn={signIn}
+          onCreateAccount={remote ? createAccount : undefined}
         />
+      </div>
+    );
+  }
+
+  if (remote && live.sites.length === 0) {
+    return (
+      <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang}>
+        <CreateOrgScreen lang={lang} toolbar={settings} onCreate={createOrg} />
       </div>
     );
   }
@@ -362,6 +514,11 @@ export function ScheduleApp() {
   return (
     <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang} className="min-h-screen">
       <header className="sticky top-0 z-30 border-b border-line bg-page/80 backdrop-blur-xl">
+        {saveNote ? (
+          <p role="alert" className="mx-auto max-w-[1440px] px-4 pt-2 text-sm text-danger-text sm:px-6">
+            {saveNote === "db" ? t.remoteDbMissing : t.saveFailed}
+          </p>
+        ) : null}
         <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-2">
             <BrandMark />

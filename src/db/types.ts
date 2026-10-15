@@ -70,6 +70,7 @@ export interface ScheduleRow {
   id: string;
   week_start: string;
   status: "draft" | "published";
+  restored_from: number | null;
 }
 
 export interface AssignmentRow {
@@ -115,6 +116,7 @@ export interface CallOffRow {
   employee_name: string;
   reported_at: string;
   reported_by: string | null;
+  reported_by_name: string | null;
 }
 
 export interface VersionRow {
@@ -125,6 +127,7 @@ export interface VersionRow {
   restored_from: number | null;
   created_at: string;
   created_by: string | null;
+  author_name: string | null;
   snapshot: unknown;
 }
 

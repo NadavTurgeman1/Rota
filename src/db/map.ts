@@ -27,7 +27,7 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
   const maxHours = Number(bundle.site.max_weekly_hours);
   const maxShift = Number(bundle.site.max_shift_hours);
 
-  const employees = [...bundle.employees]
+  const people = [...bundle.employees]
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((employee) => {
       const grid = EMPTY_WEEK();
@@ -57,6 +57,8 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
         grid,
       };
     });
+  const employees = people.filter((employee) => employee.active !== false);
+  const former = Object.fromEntries(people.filter((employee) => employee.active === false).map((employee) => [employee.id, employee.name]));
 
   const avail: RotaState["avail"] = {};
   for (const submitted of bundle.availabilityWeeks) {
@@ -74,7 +76,7 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
   const sched: RotaState["sched"] = {};
   const versions: NonNullable<RotaState["versions"]> = {};
   for (const schedule of bundle.schedules) {
-    sched[schedule.week_start] = scheduleFromBundle(bundle, schedule.id, schedule.status);
+    sched[schedule.week_start] = scheduleFromBundle(bundle, schedule.id, schedule.status, schedule.restored_from);
     const frozen = bundle.versions
       .filter((row) => row.schedule_id === schedule.id)
       .sort((a, b) => a.number - b.number)
@@ -83,7 +85,7 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
           id: row.id,
           number: Number(row.number),
           at: isoTime(row.created_at),
-          by: row.created_by ?? "manager",
+          by: row.author_name || row.created_by || "manager",
           reason: row.reason,
           ...(row.restored_from ? { restoredFrom: Number(row.restored_from) } : {}),
           schedule: { ...(row.snapshot as Schedule), status: "published" },
@@ -122,6 +124,7 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
     closed: {},
     ...(Object.keys(notes).length ? { notes } : {}),
     ...(Object.keys(versions).length ? { versions } : {}),
+    ...(Object.keys(former).length ? { former } : {}),
   };
 }
 
@@ -129,7 +132,12 @@ function isoTime(value: string): string {
   return new Date(value).toISOString();
 }
 
-function scheduleFromBundle(bundle: SiteBundle, scheduleId: string, status: Schedule["status"]): Schedule {
+function scheduleFromBundle(
+  bundle: SiteBundle,
+  scheduleId: string,
+  status: Schedule["status"],
+  restoredFrom: number | null,
+): Schedule {
   const assign: Schedule["assign"] = {};
   for (const row of bundle.assignments) {
     if (row.schedule_id !== scheduleId) continue;
@@ -163,12 +171,13 @@ function scheduleFromBundle(bundle: SiteBundle, scheduleId: string, status: Sche
       employeeId: row.employee_id,
       name: row.employee_name,
       at: isoTime(row.reported_at),
-      by: row.reported_by ?? "manager",
+      by: row.reported_by_name || row.reported_by || "manager",
     }));
   return {
     assign,
     locked,
     status,
+    ...(restoredFrom ? { restoredFrom: Number(restoredFrom) } : {}),
     ...(Object.keys(ext).length ? { ext } : {}),
     ...(Object.keys(over).length ? { over } : {}),
     ...(calloffs.length ? { calloffs } : {}),

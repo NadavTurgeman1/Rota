@@ -150,6 +150,12 @@ export interface Copy {
   signOut: string;
   signInFailed: string;
   demoAccounts: string;
+  createAccount: string;
+  accountPending: string;
+  createOrgTitle: string;
+  createOrgAction: string;
+  remoteDbMissing: string;
+  saveFailed: string;
   accessOwner: string;
   accessWrite: string;
   accessRead: string;
@@ -331,6 +337,12 @@ export const copy: Record<Lang, Copy> = {
     signOut: "יציאה",
     signInFailed: "האימייל או הסיסמה לא נכונים.",
     demoAccounts: "חשבון הדמו",
+    createAccount: "יצירת חשבון",
+    accountPending: "החשבון נוצר. אם נשלח אימייל אישור, פתח אותו ואז היכנס.",
+    createOrgTitle: "העסק הראשון",
+    createOrgAction: "צור עסק",
+    remoteDbMissing: "חסרה כתובת מסד הנתונים בשרת. מוסיפים SUPABASE_DB_URL לקובץ הסביבה המקומי.",
+    saveFailed: "השמירה לענן נכשלה.",
     accessOwner: "בעלים",
     accessWrite: "כתיבה",
     accessRead: "קריאה",
@@ -510,6 +522,12 @@ export const copy: Record<Lang, Copy> = {
     signOut: "Sign out",
     signInFailed: "The email or password is wrong.",
     demoAccounts: "Demo account",
+    createAccount: "Create account",
+    accountPending: "The account was created. If a confirmation email arrived, open it and then sign in.",
+    createOrgTitle: "First business",
+    createOrgAction: "Create business",
+    remoteDbMissing: "The server is missing the database URL. Add SUPABASE_DB_URL to the local environment file.",
+    saveFailed: "Saving to the cloud failed.",
     accessOwner: "Owner",
     accessWrite: "Write",
     accessRead: "Read",

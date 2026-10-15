@@ -12,6 +12,7 @@ import {
 import { copy } from "../i18n/copy";
 import { localizeShiftNames, proposalText, replacementText, slotTitle, splitText } from "../schedule/display";
 import { proposalsFor } from "../schedule/edit";
+import { jsonAuthHeaders } from "../supabase/browser";
 import { button as buttons, cardTitle, surface } from "./ui";
 
 export function IssuesPanel({
@@ -152,7 +153,7 @@ function RejectedLine({
     try {
       const response = await fetch("/api/ai/explain", {
         method: "POST",
-        headers: { "content-type": "application/json" },
+        headers: await jsonAuthHeaders(),
         body: JSON.stringify({ lang, name: candidate.name, seat, reason: candidate.reason }),
       });
       const body = (await response.json()) as { text?: unknown };
