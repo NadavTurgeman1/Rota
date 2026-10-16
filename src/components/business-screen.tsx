@@ -42,13 +42,13 @@ function TimeStepper({
     <div
       dir="ltr"
       lang="en"
-      className={`inline-flex h-9 items-stretch rounded-xl border text-sm text-ink ${
+      className={`inline-flex h-9 items-center rounded-xl border px-1 text-sm text-ink ${
         readOnly ? "border-line bg-well" : "border-field-line bg-card hover:border-muted"
       }`}
     >
-      <ClockSpin label={label} value={hour} readOnly={readOnly} onStep={(step) => commit(hour + step, minute)} />
-      <span className="flex items-center font-medium tabular-nums leading-none">{clockText(hour, minute)}</span>
-      <ClockSpin label={`${label} :`} value={minute} readOnly={readOnly} onStep={(step) => commit(hour, minute + step)} />
+      <ClockSpin label={label} value={hour} side="hour" readOnly={readOnly} onStep={(step) => commit(hour + step, minute)} />
+      <span className="px-1 font-medium tabular-nums leading-none">{clockText(hour, minute)}</span>
+      <ClockSpin label={`${label} :`} value={minute} side="minute" readOnly={readOnly} onStep={(step) => commit(hour, minute + step)} />
     </div>
   );
 }
@@ -56,30 +56,33 @@ function TimeStepper({
 function ClockSpin({
   value,
   label,
+  side,
   readOnly,
   onStep,
 }: {
   value: number;
   label: string;
+  side: "hour" | "minute";
   readOnly: boolean;
   onStep: (step: 1 | -1) => void;
 }) {
   return (
-    <input
-      type="number"
-      dir="ltr"
-      lang="en"
-      aria-label={label}
-      value={value}
-      disabled={readOnly}
-      tabIndex={-1}
-      className="clock-spin"
-      onChange={(event) => {
-        const next = Number(event.target.value);
-        if (!Number.isFinite(next) || next === value) return;
-        onStep(next > value ? 1 : -1);
-      }}
-    />
+    <span className={`clock-spin-window ${side === "minute" ? "clock-spin-window-end" : ""}`}>
+      <input
+        type="number"
+        dir={side === "hour" ? "rtl" : "ltr"}
+        lang="en"
+        aria-label={label}
+        value={value}
+        disabled={readOnly}
+        className={`clock-spin ${side === "hour" ? "clock-spin-hour" : "clock-spin-minute"}`}
+        onChange={(event) => {
+          const next = Number(event.target.value);
+          if (!Number.isFinite(next) || next === value) return;
+          onStep(next > value ? 1 : -1);
+        }}
+      />
+    </span>
   );
 }
 
@@ -406,7 +409,7 @@ export function BusinessScreen({
       <section className={card}>
         <h2 className={cardTitle}>{t.shiftsTitle}</h2>
         <div className="-mx-1 mt-4 overflow-x-auto px-1">
-          <table className="w-full min-w-[56rem] border-separate border-spacing-1 text-sm">
+          <table className="w-max border-separate border-spacing-x-2 border-spacing-y-1 text-sm">
             <thead>
               <tr className="text-xs font-semibold text-muted">
                 <th className="px-1 pb-1 text-start font-semibold">{t.shiftName}</th>
@@ -424,7 +427,7 @@ export function BusinessScreen({
             <tbody>
               {biz.shifts.map((shift) => (
                 <tr key={shift.id} data-testid={`shift-row-${shift.name}`}>
-                  <td className="min-w-28">
+                  <td className="w-36">
                     <CommitInput
                       shown={shiftLabel(shift.name, lang)}
                       label={t.shiftName}
@@ -434,13 +437,13 @@ export function BusinessScreen({
                       onCommit={(name) => onShift(shift.id, { name })}
                     />
                   </td>
-                  <td>
+                  <td className="whitespace-nowrap">
                     <TimeStepper value={shift.start} label={t.shiftStart} readOnly={readOnly} onCommit={(start) => onShift(shift.id, { start })} />
                   </td>
-                  <td>
+                  <td className="whitespace-nowrap">
                     <TimeStepper value={shift.end} label={t.shiftEnd} readOnly={readOnly} onCommit={(end) => onShift(shift.id, { end })} />
                   </td>
-                  <td className="min-w-28">
+                  <td className="w-36">
                     <CommitInput
                       shown={shift.role}
                       label={`${t.requiredRole} ${t.anyRole}`}
