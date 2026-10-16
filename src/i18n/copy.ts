@@ -53,6 +53,8 @@ export interface Copy {
   active: string;
   inactive: string;
   agreement: string;
+  preferenceTitle: string;
+  preferenceHint: string;
   agreementForbids: string;
   unavailableWeek: string;
   availableWeek: string;
@@ -183,6 +185,7 @@ export interface Copy {
   createSiteTitle: string;
   createSiteAction: string;
   remoteDbMissing: string;
+  appDisconnected: string;
   saveFailed: string;
   accessOwner: string;
   accessWrite: string;
@@ -268,6 +271,8 @@ export const copy: Record<Lang, Copy> = {
     active: "פעיל",
     inactive: "לא פעיל",
     agreement: "הסכם",
+    preferenceTitle: "העדפות משמרת",
+    preferenceHint: "השיבוץ מעדיף את המשמרות המסומנות כשאפשר. משמרת לא מסומנת עדיין מותרת לפי ההסכם.",
     agreementForbids: "ההסכם אוסר",
     unavailableWeek: "לא זמין השבוע",
     availableWeek: "זמין השבוע",
@@ -280,13 +285,13 @@ export const copy: Record<Lang, Copy> = {
     addPerson: "הוספת עובד",
     pickEmployee: "בחרו עובד מהרשימה.",
     scheduleReadOnly: "הסידור לקריאה בלבד.",
-    callOff: "הברזה",
-    calledOff: "הברזה",
+    callOff: "חיסור",
+    calledOff: "חיסור",
     replacements: "מחליפים חוקיים",
     noReplacement: "אין מחליף שעבר את כל הכללים. המושב נשאר פתוח.",
     rejectedTitle: "נפסלו",
     emergency: "חלופות חירום",
-    publishedOpen: "השבוע נשאר פורסם. יש מושב פתוח אחרי הברזה.",
+    publishedOpen: "השבוע נשאר פורסם. יש מושב פתוח אחרי חיסור.",
     assignReplacement: "שיבוץ",
     pasteTitle: "הודעה מהעובד",
     pasteHint: "הדביקו הודעה. הזמינות נכתבת רק אחרי אישור, וההסכם לא משתנה.",
@@ -316,12 +321,12 @@ export const copy: Record<Lang, Copy> = {
     versionsTitle: "גרסאות",
     noVersions: "עדיין אין גרסאות. פרסום יוצר את הראשונה.",
     versionPublish: "פרסום",
-    versionCalloff: "כיסוי הברזה",
+    versionCalloff: "כיסוי חיסור",
     restoreVersion: "שחזור כטיוטה",
     diffAdded: "נוסף",
     diffRemoved: "הוסר",
     diffExtended: "שעות שונו",
-    diffCalledOff: "הברזה",
+    diffCalledOff: "חיסור",
     noDiff: "אין שינוי בשיבוץ.",
     firstVersion: "הגרסה הראשונה של השבוע.",
     exportPng: "ייצוא PNG",
@@ -398,6 +403,7 @@ export const copy: Record<Lang, Copy> = {
     createSiteTitle: "האתר הראשון",
     createSiteAction: "צור אתר",
     remoteDbMissing: "חסרה כתובת מסד הנתונים בשרת. מוסיפים SUPABASE_DB_URL לקובץ הסביבה המקומי.",
+    appDisconnected: "Rota לא מחובר לענן. צריך קובץ בשם .env.local ליד הפרויקט, ואז להפעיל מחדש את השרת. בלי החיבור הזה האפליקציה לא נפתחת.",
     saveFailed: "השמירה לענן נכשלה.",
     accessOwner: "מנהל עסק",
     accessWrite: "מנהל משמרות",
@@ -481,6 +487,8 @@ export const copy: Record<Lang, Copy> = {
     active: "Active",
     inactive: "Inactive",
     agreement: "Agreement",
+    preferenceTitle: "Shift preferences",
+    preferenceHint: "Scheduling favors the checked shifts when it can. An unchecked shift stays allowed by the agreement.",
     agreementForbids: "Agreement excludes this",
     unavailableWeek: "Unavailable this week",
     availableWeek: "Available this week",
@@ -611,6 +619,7 @@ export const copy: Record<Lang, Copy> = {
     createSiteTitle: "First site",
     createSiteAction: "Create site",
     remoteDbMissing: "The server is missing the database URL. Add SUPABASE_DB_URL to the local environment file.",
+    appDisconnected: "Rota is not connected to the cloud. Add a file named .env.local next to the project, then start the server again. Without that connection the app does not open.",
     saveFailed: "Saving to the cloud failed.",
     accessOwner: "Company admin",
     accessWrite: "Shift manager",
@@ -673,7 +682,7 @@ export function confirmDeleteEmployee(lang: Lang, name: string): string {
 
 export function deleteEmployeeBlocked(lang: Lang, weeks: string): string {
   return lang === "he"
-    ? `אי אפשר למחוק עכשיו: העובד משובץ בסידור שפורסם (${weeks}). החזירו את השבוע לטיוטה או דווחו הברזה, ואז מחקו.`
+    ? `אי אפשר למחוק עכשיו: העובד משובץ בסידור שפורסם (${weeks}). החזירו את השבוע לטיוטה או דווחו חיסור, ואז מחקו.`
     : `Can't delete yet: they're seated in a published week (${weeks}). Return it to draft or report a call-off first.`;
 }
 
@@ -708,7 +717,7 @@ export function sinceVersionText(lang: Lang, number: number): string {
 }
 
 export function callOffLabel(lang: Lang, name: string): string {
-  return lang === "he" ? `הברזה: ${name}` : `Call off ${name}`;
+  return lang === "he" ? `חיסור: ${name}` : `Call off ${name}`;
 }
 
 export function constraintReasonText(lang: Lang, reason: ConstraintReason): string {

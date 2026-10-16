@@ -9,6 +9,88 @@ import { button, card, cardHint, cardTitle, field, label, labelText } from "./ui
 
 const cell = field.replace("h-10", "h-9");
 
+function parseClock(value: string): [number, number] {
+  const match = /^(\d{1,2}):(\d{2})$/.exec(value.trim());
+  if (!match) return [0, 0];
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return [0, 0];
+  return [hour, minute];
+}
+
+function clockText(hour: number, minute: number): string {
+  return `${String((hour + 24) % 24).padStart(2, "0")}:${String((minute + 60) % 60).padStart(2, "0")}`;
+}
+
+/** Hour and minute arrows. The clock stays left to right so Hebrew does not swap it. */
+function TimeStepper({
+  value,
+  label,
+  readOnly,
+  onCommit,
+}: {
+  value: string;
+  label: string;
+  readOnly: boolean;
+  onCommit: (value: string) => void;
+}) {
+  const [hour, minute] = parseClock(value);
+  function commit(nextHour: number, nextMinute: number) {
+    onCommit(clockText(nextHour, nextMinute));
+  }
+  return (
+    <div dir="ltr" lang="en" className="flex items-center gap-1">
+      <ClockUnit
+        value={String(hour).padStart(2, "0")}
+        upLabel={`${label} +`}
+        downLabel={`${label} -`}
+        readOnly={readOnly}
+        onUp={() => commit(hour + 1, minute)}
+        onDown={() => commit(hour - 1, minute)}
+      />
+      <span className="text-muted">:</span>
+      <ClockUnit
+        value={String(minute).padStart(2, "0")}
+        upLabel={`${label} : +`}
+        downLabel={`${label} : -`}
+        readOnly={readOnly}
+        onUp={() => commit(hour, minute + 1)}
+        onDown={() => commit(hour, minute - 1)}
+      />
+    </div>
+  );
+}
+
+function ClockUnit({
+  value,
+  upLabel,
+  downLabel,
+  readOnly,
+  onUp,
+  onDown,
+}: {
+  value: string;
+  upLabel: string;
+  downLabel: string;
+  readOnly: boolean;
+  onUp: () => void;
+  onDown: () => void;
+}) {
+  return (
+    <div className="inline-flex items-center gap-0.5">
+      <span className="w-6 text-center text-sm font-medium tabular-nums">{value}</span>
+      <span className="flex flex-col">
+        <button type="button" aria-label={upLabel} className="h-4 w-5 text-[10px] leading-none text-muted hover:text-ink disabled:opacity-40" disabled={readOnly} onClick={onUp}>
+          ▲
+        </button>
+        <button type="button" aria-label={downLabel} className="h-4 w-5 text-[10px] leading-none text-muted hover:text-ink disabled:opacity-40" disabled={readOnly} onClick={onDown}>
+          ▼
+        </button>
+      </span>
+    </div>
+  );
+}
+
 /** Commits on Enter or blur. `shown` may be a translated label; committing it unchanged is a no-op. */
 function CommitInput({
   shown,
@@ -46,7 +128,11 @@ function CommitInput({
       value={draft}
       readOnly={readOnly}
       className={className}
-      onChange={(event) => setDraft(event.target.value)}
+      onChange={(event) => {
+        const next = event.target.value;
+        setDraft(next);
+        if (type === "number" && !readOnly && next !== shown && next.trim() !== "" && Number.isFinite(Number(next))) onCommit(next);
+      }}
       onKeyDown={(event) => {
         if (event.key === "Enter") commit();
       }}
@@ -357,10 +443,10 @@ export function BusinessScreen({
                     />
                   </td>
                   <td>
-                    <CommitInput type="time" shown={shift.start} label={t.shiftStart} readOnly={readOnly} className={`${cell} tabular-nums`} onCommit={(start) => onShift(shift.id, { start })} />
+                    <TimeStepper value={shift.start} label={t.shiftStart} readOnly={readOnly} onCommit={(start) => onShift(shift.id, { start })} />
                   </td>
                   <td>
-                    <CommitInput type="time" shown={shift.end} label={t.shiftEnd} readOnly={readOnly} className={`${cell} tabular-nums`} onCommit={(end) => onShift(shift.id, { end })} />
+                    <TimeStepper value={shift.end} label={t.shiftEnd} readOnly={readOnly} onCommit={(end) => onShift(shift.id, { end })} />
                   </td>
                   <td className="min-w-28">
                     <CommitInput

@@ -192,6 +192,31 @@ describe("prototype scheduling parity", () => {
     expect(dynamicReason(state, state.emps[0], morning, [])).toBeNull();
   });
 
+  it("orders a generated shift by name and favors a preferred shift", () => {
+    const morning = { ...standardShifts[0], req: [2, 0, 0, 0, 0, 0, 0] };
+    const named = stateFor(
+      [
+        { ...employee("b", 1, ["m"]), name: "בני" },
+        { ...employee("a", 1, ["m"]), name: "אבי" },
+      ],
+      {},
+      [morning],
+    );
+    generate(named, week);
+    expect(named.sched[week].assign["0|m"]).toEqual(["a", "b"]);
+
+    const preferred = stateFor(
+      [
+        { ...employee("plain", 1, ["m"]), name: "plain" },
+        { ...employee("keen", 1, ["m"]), name: "keen", pref: ["m"] },
+      ],
+      {},
+      [{ ...morning, req: [1, 0, 0, 0, 0, 0, 0] }],
+    );
+    generate(preferred, week);
+    expect(preferred.sched[week].assign["0|m"]).toEqual(["keen"]);
+  });
+
   it("keeps a lock on regenerate, which the prototype used to clear", () => {
     const state = stateFor([employee("p", 5, ["m", "a", "n"])]);
     const schedule = ensureSchedule(state, week);

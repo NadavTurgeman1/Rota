@@ -115,6 +115,10 @@ export function generate(state: RotaState, week: string): GenerateResult {
       // Each success fills exactly one open seat.
     }
   }
+  const nameOf = (id: string) => employees.find((employee) => employee.id === id)?.name ?? "";
+  for (const ids of Object.values(assign)) {
+    ids.sort((left, right) => nameOf(left).localeCompare(nameOf(right), "he", { sensitivity: "base" }));
+  }
   schedule.assign = assign;
   return { kept, dropped };
 

@@ -9,6 +9,7 @@ import {
   availabilityCell,
   copyAvailability,
   setAgreement,
+  setPreference,
   setWholeAgreement,
   setAvailability,
   updateEmployee,
@@ -21,6 +22,17 @@ function danaGrid(state: ReturnType<typeof sentinelState>) {
 }
 
 describe("people edits", () => {
+  it("stores a shift preference without closing the agreement", () => {
+    const open = sentinelState("2026-10-11");
+    const dana = open.emps.find((employee) => employee.id === SENTINEL.dana);
+    expect(dana?.pref ?? []).not.toContain(SENTINEL.morning);
+    const preferred = setPreference(open, MANAGER, SENTINEL.dana, SENTINEL.morning, true);
+    expect(preferred.emps.find((employee) => employee.id === SENTINEL.dana)?.pref).toContain(SENTINEL.morning);
+    expect(agreementCell(preferred, SENTINEL.dana, 0, SENTINEL.morning)).toBe("allowed");
+    const cleared = setPreference(preferred, danaActor, SENTINEL.dana, SENTINEL.morning, false);
+    expect(cleared).toBe(preferred);
+  });
+
   it("drops a closed agreement cell from the generated week", () => {
     const open = sentinelState("2026-10-11");
     const sundayMorning = `0|${SENTINEL.morning}`;

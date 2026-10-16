@@ -83,48 +83,61 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
      where r.shift_id = s.id and s.site_id = $1`,
     [siteId],
   );
+  const requirementShifts: string[] = [];
+  const requirementDays: number[] = [];
+  const requirementCounts: number[] = [];
   for (const shift of state.biz.shifts) {
     for (let weekday = 0; weekday < 7; weekday += 1) {
-      const required = Math.max(0, Math.trunc(Number(shift.req[weekday] ?? 0)));
-      await sql.query(
-        `insert into public.shift_requirements (org_id, shift_id, weekday, required_count)
-         values ($1, $2, $3, $4)`,
-        [orgId, shift.id, weekday, required],
-      );
+      requirementShifts.push(shift.id);
+      requirementDays.push(weekday);
+      requirementCounts.push(Math.max(0, Math.trunc(Number(shift.req[weekday] ?? 0))));
     }
   }
+  await writeRows(
+    sql,
+    `insert into public.shift_requirements (org_id, shift_id, weekday, required_count)
+     select $1, shift_id, weekday, required_count
+     from unnest($2::uuid[], $3::int[], $4::int[]) as t(shift_id, weekday, required_count)`,
+    [orgId],
+    [requirementShifts, requirementDays, requirementCounts],
+  );
 
-  for (const person of people) {
-    await sql.query(
-      `insert into public.employees (
-         id, org_id, name, contact, job_title, weekly_shift_quota, max_weekly_hours, active
-       ) values ($1, $2, $3, $4, $5, $6, $7, $8)
-       on conflict (id) do update set
-         name = excluded.name,
-         contact = excluded.contact,
-         job_title = excluded.job_title,
-         weekly_shift_quota = excluded.weekly_shift_quota,
-         max_weekly_hours = excluded.max_weekly_hours,
-         active = excluded.active
-       where public.employees.org_id = excluded.org_id`,
-      [
-        person.id,
-        orgId,
-        person.name,
-        person.contact,
-        person.role,
-        person.perWeek,
-        person.maxHours,
-        person.active,
-      ],
-    );
-    await sql.query(
-      `insert into public.employee_sites (org_id, employee_id, site_id)
-       values ($1, $2, $3)
-       on conflict do nothing`,
-      [orgId, person.id, siteId],
-    );
-  }
+  await writeRows(
+    sql,
+    `insert into public.employees (
+       id, org_id, name, contact, job_title, weekly_shift_quota, max_weekly_hours, active
+     )
+     select id, $1, name, contact, job_title, quota, max_hours, active
+     from unnest($2::uuid[], $3::text[], $4::text[], $5::text[], $6::int[], $7::numeric[], $8::bool[])
+       as t(id, name, contact, job_title, quota, max_hours, active)
+     on conflict (id) do update set
+       name = excluded.name,
+       contact = excluded.contact,
+       job_title = excluded.job_title,
+       weekly_shift_quota = excluded.weekly_shift_quota,
+       max_weekly_hours = excluded.max_weekly_hours,
+       active = excluded.active
+     where public.employees.org_id = excluded.org_id`,
+    [orgId],
+    [
+      people.map((person) => person.id),
+      people.map((person) => person.name),
+      people.map((person) => person.contact),
+      people.map((person) => person.role),
+      people.map((person) => person.perWeek),
+      people.map((person) => person.maxHours),
+      people.map((person) => person.active),
+    ],
+  );
+  await writeRows(
+    sql,
+    `insert into public.employee_sites (org_id, employee_id, site_id)
+     select $1, employee_id, $2
+     from unnest($3::uuid[]) as employee_id
+     on conflict do nothing`,
+    [orgId, siteId],
+    [people.map((person) => person.id)],
+  );
 
   const keptIds = people.map((person) => person.id);
   await sql.query(
@@ -153,79 +166,118 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
   );
 
   const shiftSet = new Set(shiftIds);
-  for (const person of people.filter((item) => item.active)) {
+  const activePeople = people.filter((item) => item.active);
+  const qualificationEmployees: string[] = [];
+  const qualificationNamesForPeople: string[] = [];
+  const preferredEmployees: string[] = [];
+  const preferredShifts: string[] = [];
+  const agreedEmployees: string[] = [];
+  const agreedShifts: string[] = [];
+  const agreedDays: number[] = [];
+  for (const person of activePeople) {
     for (const qualification of person.quals) {
-      const rows = await sql.query<{ id: string }>(
-        `with inserted as (
-           insert into public.qualifications (org_id, name)
-           values ($1, $2)
-           on conflict (org_id, name) do nothing
-           returning id
-         )
-         select id from inserted
-         union all
-         select id from public.qualifications where org_id = $1 and name = $2
-         limit 1`,
-        [orgId, qualification],
-      );
-      const qualificationId = rows[0]?.id;
-      if (!qualificationId) throw new SaveError("qualification");
-      await sql.query(
-        `insert into public.employee_qualifications (org_id, employee_id, qualification_id)
-         values ($1, $2, $3)
-         on conflict do nothing`,
-        [orgId, person.id, qualificationId],
-      );
+      qualificationEmployees.push(person.id);
+      qualificationNamesForPeople.push(qualification);
     }
     for (const shiftId of person.pref) {
       if (!shiftSet.has(shiftId)) continue;
-      await sql.query(
-        `insert into public.employee_preferences (org_id, employee_id, shift_id)
-         values ($1, $2, $3)
-         on conflict do nothing`,
-        [orgId, person.id, shiftId],
-      );
+      preferredEmployees.push(person.id);
+      preferredShifts.push(shiftId);
     }
     for (let weekday = 0; weekday < 7; weekday += 1) {
       for (const shiftId of person.grid[weekday] ?? []) {
         if (!shiftSet.has(shiftId)) continue;
-        await sql.query(
-          `insert into public.employee_agreements (org_id, employee_id, shift_id, weekday)
-           values ($1, $2, $3, $4)
-           on conflict do nothing`,
-          [orgId, person.id, shiftId, weekday],
-        );
+        agreedEmployees.push(person.id);
+        agreedShifts.push(shiftId);
+        agreedDays.push(weekday);
       }
     }
   }
+  const distinctQualifications = [...new Set(qualificationNamesForPeople)];
+  await writeRows(
+    sql,
+    `insert into public.qualifications (org_id, name)
+     select $1, name from unnest($2::text[]) as name
+     on conflict (org_id, name) do nothing`,
+    [orgId],
+    [distinctQualifications],
+  );
+  await writeRows(
+    sql,
+    `insert into public.employee_qualifications (org_id, employee_id, qualification_id)
+     select $1, t.employee_id, q.id
+     from unnest($2::uuid[], $3::text[]) as t(employee_id, name)
+     join public.qualifications q on q.org_id = $1 and q.name = t.name
+     on conflict do nothing`,
+    [orgId],
+    [qualificationEmployees, qualificationNamesForPeople],
+  );
+  await writeRows(
+    sql,
+    `insert into public.employee_preferences (org_id, employee_id, shift_id)
+     select $1, employee_id, shift_id
+     from unnest($2::uuid[], $3::uuid[]) as t(employee_id, shift_id)
+     on conflict do nothing`,
+    [orgId],
+    [preferredEmployees, preferredShifts],
+  );
+  await writeRows(
+    sql,
+    `insert into public.employee_agreements (org_id, employee_id, shift_id, weekday)
+     select $1, employee_id, shift_id, weekday
+     from unnest($2::uuid[], $3::uuid[], $4::int[]) as t(employee_id, shift_id, weekday)
+     on conflict do nothing`,
+    [orgId],
+    [agreedEmployees, agreedShifts, agreedDays],
+  );
 
   await sql.query(`delete from public.availability_weeks where site_id = $1`, [siteId]);
   const knownPeople = new Set(keptIds);
+  const availableEmployees: string[] = [];
+  const availableWeeks: string[] = [];
+  const availableDays = new Map<string, string[][]>();
   for (const [week, byEmployee] of Object.entries(state.avail)) {
     if (!isSunday(week)) continue;
     for (const [employeeId, days] of Object.entries(byEmployee)) {
       if (!knownPeople.has(employeeId)) continue;
-      const weeks = await sql.query<{ id: string }>(
-        `insert into public.availability_weeks (org_id, site_id, employee_id, week_start)
-         values ($1, $2, $3, $4)
-         returning id`,
-        [orgId, siteId, employeeId, week],
-      );
-      const weekId = weeks[0]?.id;
-      if (!weekId) throw new SaveError("availability");
-      for (let weekday = 0; weekday < 7; weekday += 1) {
-        for (const shiftId of days[weekday] ?? []) {
-          if (!shiftSet.has(shiftId)) continue;
-          await sql.query(
-            `insert into public.availability_entries (org_id, availability_week_id, shift_id, weekday)
-             values ($1, $2, $3, $4)
-             on conflict do nothing`,
-            [orgId, weekId, shiftId, weekday],
-          );
-        }
+      availableEmployees.push(employeeId);
+      availableWeeks.push(week);
+      availableDays.set(`${employeeId}|${week}`, days);
+    }
+  }
+  const insertedWeeks = await writeReturning<{ id: string; employee_id: string; week_start: string }>(
+    sql,
+    `insert into public.availability_weeks (org_id, site_id, employee_id, week_start)
+     select $1, $2, employee_id, week_start::date
+     from unnest($3::uuid[], $4::text[]) as t(employee_id, week_start)
+     returning id, employee_id, to_char(week_start, 'YYYY-MM-DD') as week_start`,
+    [orgId, siteId],
+    [availableEmployees, availableWeeks],
+  );
+  const entryWeeks: string[] = [];
+  const entryShifts: string[] = [];
+  const entryDays: number[] = [];
+  for (const week of insertedWeeks) {
+    const days = availableDays.get(`${week.employee_id}|${week.week_start}`);
+    if (!days) throw new SaveError("availability");
+    for (let weekday = 0; weekday < 7; weekday += 1) {
+      for (const shiftId of days[weekday] ?? []) {
+        if (!shiftSet.has(shiftId)) continue;
+        entryWeeks.push(week.id);
+        entryShifts.push(shiftId);
+        entryDays.push(weekday);
       }
     }
   }
+  await writeRows(
+    sql,
+    `insert into public.availability_entries (org_id, availability_week_id, shift_id, weekday)
+     select $1, availability_week_id, shift_id, weekday
+     from unnest($2::uuid[], $3::uuid[], $4::int[]) as t(availability_week_id, shift_id, weekday)
+     on conflict do nothing`,
+    [orgId],
+    [entryWeeks, entryShifts, entryDays],
+  );
 
   const weeks = Object.keys(state.sched).filter(isSunday);
   await sql.query(
@@ -304,7 +356,7 @@ function peopleToKeep(state: RotaState): KeptPerson[] {
       maxHours: employee.maxHours > 0 ? hours(employee.maxHours) : null,
       active: true,
       quals: qualificationNames(employee.quals),
-      pref: employee.pref.filter((id) => UUID.test(id)),
+      pref: (employee.pref ?? []).filter((id) => UUID.test(id)),
       grid: employee.grid ?? [[], [], [], [], [], [], []],
     });
   }
@@ -366,6 +418,16 @@ function uniqueNames(shifts: { id: string; name: string }[]): Map<string, string
   return names;
 }
 
+/** One statement for a whole list. An empty list does not touch the database. */
+async function writeRows(sql: SqlClient, statement: string, scalars: unknown[], columns: unknown[][]): Promise<void> {
+  await writeReturning(sql, statement, scalars, columns);
+}
+
+async function writeReturning<Row>(sql: SqlClient, statement: string, scalars: unknown[], columns: unknown[][]): Promise<Row[]> {
+  if (columns.length === 0 || columns[0].length === 0) return [];
+  return sql.query<Row>(statement, [...scalars, ...columns]);
+}
+
 function hours(value: number): number {
   if (!Number.isFinite(value) || value < 0) throw new SaveError("hours");
   return value;
@@ -405,67 +467,116 @@ async function writeSchedule(
   await sql.query(`delete from public.assignments where schedule_id = $1`, [scheduleId]);
 
   const seated = new Set<string>();
+  const assignedShifts: string[] = [];
+  const assignedDays: number[] = [];
+  const assignedEmployees: string[] = [];
   for (const [key, employeeIds] of Object.entries(input.schedule.assign)) {
     const slot = parseSlot(key);
     if (!slot || !input.shiftIds.has(slot.shiftId)) continue;
     for (const employeeId of employeeIds) {
       if (!input.people.has(employeeId)) continue;
-      await sql.query(
-        `insert into public.assignments (org_id, schedule_id, shift_id, weekday, employee_id)
-         values ($1, $2, $3, $4, $5)
-         on conflict do nothing`,
-        [input.orgId, scheduleId, slot.shiftId, slot.weekday, employeeId],
-      );
+      assignedShifts.push(slot.shiftId);
+      assignedDays.push(slot.weekday);
+      assignedEmployees.push(employeeId);
       seated.add(`${slot.weekday}|${slot.shiftId}#${employeeId}`);
     }
   }
+  await writeRows(
+    sql,
+    `insert into public.assignments (org_id, schedule_id, shift_id, weekday, employee_id)
+     select $1, $2, shift_id, weekday, employee_id
+     from unnest($3::uuid[], $4::int[], $5::uuid[]) as t(shift_id, weekday, employee_id)
+     on conflict do nothing`,
+    [input.orgId, scheduleId],
+    [assignedShifts, assignedDays, assignedEmployees],
+  );
 
+  const extensionShifts: string[] = [];
+  const extensionDays: number[] = [];
+  const extensionEmployees: string[] = [];
+  const extensionStarts: number[] = [];
+  const extensionEnds: number[] = [];
+  const extensionGroups: string[] = [];
+  const extensionCovers: string[] = [];
+  const extensionCoverDays: number[] = [];
+  const extensionSizes: number[] = [];
   for (const [key, extension] of Object.entries(input.schedule.ext ?? {})) {
     if (!seated.has(key)) continue;
     const seat = parseSeat(key);
     const cover = parseSlot(extension.cover);
     if (!seat || !cover || !input.shiftIds.has(cover.shiftId)) continue;
-    await sql.query(
-      `insert into public.assignment_extensions (
-         org_id, schedule_id, shift_id, weekday, employee_id, start_hour, end_hour, group_id, cover_shift_id, cover_weekday, group_size
-       ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-      [
-        input.orgId,
-        scheduleId,
-        seat.shiftId,
-        seat.weekday,
-        seat.employeeId,
-        extension.start,
-        extension.end,
-        extension.groupId,
-        cover.shiftId,
-        cover.weekday,
-        Math.max(1, Math.trunc(extension.groupSize)),
-      ],
-    );
+    extensionShifts.push(seat.shiftId);
+    extensionDays.push(seat.weekday);
+    extensionEmployees.push(seat.employeeId);
+    extensionStarts.push(extension.start);
+    extensionEnds.push(extension.end);
+    extensionGroups.push(extension.groupId);
+    extensionCovers.push(cover.shiftId);
+    extensionCoverDays.push(cover.weekday);
+    extensionSizes.push(Math.max(1, Math.trunc(extension.groupSize)));
   }
+  await writeRows(
+    sql,
+    `insert into public.assignment_extensions (
+       org_id, schedule_id, shift_id, weekday, employee_id, start_hour, end_hour, group_id, cover_shift_id, cover_weekday, group_size
+     )
+     select $1, $2, shift_id, weekday, employee_id, start_hour, end_hour, group_id, cover_shift_id, cover_weekday, group_size
+     from unnest(
+       $3::uuid[], $4::int[], $5::uuid[], $6::numeric[], $7::numeric[], $8::text[], $9::uuid[], $10::int[], $11::int[]
+     ) as t(shift_id, weekday, employee_id, start_hour, end_hour, group_id, cover_shift_id, cover_weekday, group_size)`,
+    [input.orgId, scheduleId],
+    [
+      extensionShifts,
+      extensionDays,
+      extensionEmployees,
+      extensionStarts,
+      extensionEnds,
+      extensionGroups,
+      extensionCovers,
+      extensionCoverDays,
+      extensionSizes,
+    ],
+  );
+  const lockedShifts: string[] = [];
+  const lockedDays: number[] = [];
+  const lockedEmployees: string[] = [];
   for (const key of input.schedule.locked) {
     if (!seated.has(key)) continue;
     const seat = parseSeat(key);
     if (!seat) continue;
-    await sql.query(
-      `insert into public.assignment_locks (org_id, schedule_id, shift_id, weekday, employee_id)
-       values ($1, $2, $3, $4, $5)
-       on conflict do nothing`,
-      [input.orgId, scheduleId, seat.shiftId, seat.weekday, seat.employeeId],
-    );
+    lockedShifts.push(seat.shiftId);
+    lockedDays.push(seat.weekday);
+    lockedEmployees.push(seat.employeeId);
   }
+  await writeRows(
+    sql,
+    `insert into public.assignment_locks (org_id, schedule_id, shift_id, weekday, employee_id)
+     select $1, $2, shift_id, weekday, employee_id
+     from unnest($3::uuid[], $4::int[], $5::uuid[]) as t(shift_id, weekday, employee_id)
+     on conflict do nothing`,
+    [input.orgId, scheduleId],
+    [lockedShifts, lockedDays, lockedEmployees],
+  );
+  const overShifts: string[] = [];
+  const overDays: number[] = [];
+  const overEmployees: string[] = [];
   for (const key of Object.keys(input.schedule.over ?? {})) {
     if (!seated.has(key)) continue;
     const seat = parseSeat(key);
     if (!seat) continue;
-    await sql.query(
-      `insert into public.assignment_overages (org_id, schedule_id, shift_id, weekday, employee_id)
-       values ($1, $2, $3, $4, $5)
-       on conflict do nothing`,
-      [input.orgId, scheduleId, seat.shiftId, seat.weekday, seat.employeeId],
-    );
+    overShifts.push(seat.shiftId);
+    overDays.push(seat.weekday);
+    overEmployees.push(seat.employeeId);
   }
+  await writeRows(
+    sql,
+    `insert into public.assignment_overages (org_id, schedule_id, shift_id, weekday, employee_id)
+     select $1, $2, shift_id, weekday, employee_id
+     from unnest($3::uuid[], $4::int[], $5::uuid[]) as t(shift_id, weekday, employee_id)
+     on conflict do nothing`,
+    [input.orgId, scheduleId],
+    [overShifts, overDays, overEmployees],
+  );
   for (const calloff of input.schedule.calloffs ?? []) await writeCalloff(sql, input.orgId, scheduleId, calloff, input.shiftIds, input.people);
 
   for (const version of input.versions) {

@@ -61,6 +61,20 @@ function nonNegative(value: number): number {
   return Math.max(0, value);
 }
 
+/** Soft shift preference. The generator favors these shifts without forbidding the others. */
+export function setPreference(state: RotaState, actor: Actor, employeeId: string, shiftId: string, preferred: boolean): RotaState {
+  if (!canEditRoster(actor)) return state;
+  const employee = findEmployee(state, employeeId);
+  if (!employee || !state.biz.shifts.some((shift) => shift.id === shiftId)) return state;
+  const current = employee.pref ?? [];
+  const next = preferred ? [...new Set([...current, shiftId])] : current.filter((id) => id !== shiftId);
+  if (next.length === current.length && next.every((id, index) => id === current[index])) return state;
+  const draft = cloneState(state);
+  const index = draft.emps.findIndex((item) => item.id === employeeId);
+  draft.emps[index] = { ...draft.emps[index], pref: next };
+  return draft;
+}
+
 /** Profile fields. Does not touch the agreement grid or any availability row. */
 export function updateEmployee(state: RotaState, actor: Actor, employeeId: string, patch: EmployeePatch): RotaState {
   if (!canEditRoster(actor)) return state;

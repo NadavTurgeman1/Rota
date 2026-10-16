@@ -15,6 +15,7 @@ export function TeamScreen({
   onUpdate,
   onAdd,
   onAgreement,
+  onPreference,
   onWholeAgreement,
   onDelete,
   deletionBlock,
@@ -27,6 +28,7 @@ export function TeamScreen({
   onUpdate: (employeeId: string, patch: EmployeePatch) => void;
   onAdd: (name: string) => void;
   onAgreement: (employeeId: string, day: number, shiftId: string, allowed: boolean) => void;
+  onPreference: (employeeId: string, shiftId: string, preferred: boolean) => void;
   onWholeAgreement: (employeeId: string, allowed: boolean) => void;
   onDelete: (employeeId: string) => void;
   /** Why the employee cannot be deleted right now, or `null`. */
@@ -91,6 +93,7 @@ export function TeamScreen({
           canEditAgreement={canWrite}
           onUpdate={onUpdate}
           onAgreement={onAgreement}
+          onPreference={onPreference}
           onWholeAgreement={onWholeAgreement}
           onDelete={onDelete}
           deletionBlock={deletionBlock(employee.id)}
@@ -110,6 +113,7 @@ function EmployeeCard({
   canEditAgreement,
   onUpdate,
   onAgreement,
+  onPreference,
   onWholeAgreement,
   onDelete,
   deletionBlock,
@@ -120,6 +124,7 @@ function EmployeeCard({
   canEditAgreement: boolean;
   onUpdate: (employeeId: string, patch: EmployeePatch) => void;
   onAgreement: (employeeId: string, day: number, shiftId: string, allowed: boolean) => void;
+  onPreference: (employeeId: string, shiftId: string, preferred: boolean) => void;
   onWholeAgreement: (employeeId: string, allowed: boolean) => void;
   onDelete: (employeeId: string) => void;
   deletionBlock: string | null;
@@ -208,6 +213,33 @@ function EmployeeCard({
           ) : null}
         </div>
         {canEditAgreement ? null : <p className={cardHint}>{t.agreementReadOnly}</p>}
+        <div className="mt-5">
+          <h3 className="text-sm font-semibold text-ink">{t.preferenceTitle}</h3>
+          <p className={cardHint}>{t.preferenceHint}</p>
+          <div className="mt-3 flex flex-wrap gap-2">
+            {state.biz.shifts.map((shift) => {
+              const preferred = (employee.pref ?? []).includes(shift.id);
+              return (
+                <label
+                  key={shift.id}
+                  className={`inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-sm ${
+                    preferred ? "border-brand bg-brand-soft text-brand-text" : "border-line bg-card"
+                  } ${canEditAgreement ? "cursor-pointer" : "cursor-not-allowed"}`}
+                >
+                  <input
+                    type="checkbox"
+                    data-testid={`preference-${shift.name}`}
+                    className="h-4 w-4"
+                    checked={preferred}
+                    disabled={!canEditAgreement}
+                    onChange={(event) => onPreference(employeeId, shift.id, event.target.checked)}
+                  />
+                  {shiftLabel(shift.name, lang)}
+                </label>
+              );
+            })}
+          </div>
+        </div>
         <WeekGrid
           state={state}
           lang={lang}
@@ -374,7 +406,17 @@ function NumberField({
         value={draft}
         placeholder={noneLabel}
         readOnly={readOnly}
-        onChange={(event) => setDraft(event.target.value)}
+        onChange={(event) => {
+          const nextDraft = event.target.value;
+          setDraft(nextDraft);
+          if (readOnly) return;
+          if (noneLabel && nextDraft.trim() === "") {
+            if (value !== 0) onCommit(0);
+            return;
+          }
+          const next = Number(nextDraft);
+          if (nextDraft.trim() !== "" && Number.isFinite(next) && next !== value) onCommit(next);
+        }}
         onBlur={() => {
           if (readOnly) return;
           const next = noneLabel && draft.trim() === "" ? 0 : Number(draft);

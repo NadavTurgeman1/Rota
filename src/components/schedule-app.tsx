@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, analyze, slots, sundayOnOrBefore, type Analysis, type Lang, type RotaState } from "../domain";
 import { addShift, removeShift, setShiftRequirement, updateBusiness, updateShift } from "../business/edit";
-import { DEMO_PASSWORD, DEMO_USERS, SENTINEL_FALLBACK_WEEK, sentinelState, sentinelWorkspace } from "../demo/sentinel";
 import { copy, deleteEmployeeBlocked, publishBlocked, selectionHint } from "../i18n/copy";
 import { formatWeekRange, pngFileName, siteLabel } from "../schedule/display";
 import { backupJson, weekExport } from "../schedule/export";
@@ -30,14 +29,7 @@ import {
   undo,
   type History,
 } from "../schedule/edit";
-import {
-  DEMO_STORAGE_KEY,
-  SESSION_STORAGE_KEY,
-  WORKSPACE_STORAGE_KEY,
-  readDemoSave,
-  readWorkspaceSave,
-  writeWorkspaceSave,
-} from "../schedule/storage";
+import { createSaveQueue } from "../schedule/save-queue";
 import {
   addEmployeeRecord,
   applyConstraintText,
@@ -46,6 +38,7 @@ import {
   employeeName,
   removeEmployeeRecord,
   setAgreement,
+  setPreference,
   setWholeAgreement,
   setAvailability,
   updateEmployee,
@@ -55,7 +48,6 @@ import {
   actorFor,
   activeSite,
   addSite,
-  authenticate,
   canWrite as hasWrite,
   isOwner,
   removeSite,
@@ -109,33 +101,15 @@ function todayIso(now = new Date()): string {
   return `${year}-${month}-${day}`;
 }
 
-/** Locks have no control in the UI any more, so an older save must not keep invisible ones. */
-function withoutLocks(state: RotaState): RotaState {
-  const sched = Object.fromEntries(Object.entries(state.sched).map(([week, schedule]) => [week, { ...schedule, locked: [] }]));
-  return { ...state, sched };
-}
-
-/**
- * The demo signs in as the owner only, so accounts added by an older save are dropped.
- * Approved messages are no longer kept either; the availability grid they wrote stays.
- */
-function cleanSave(workspace: Workspace): Workspace {
+function emptyState(): RotaState {
   return {
-    ...workspace,
-    users: workspace.users.filter((item) => item.access === "owner"),
-    sites: workspace.sites.map(({ state, ...site }) => {
-      const { notes: _notes, ...rest } = state;
-      return { ...site, state: rest };
-    }),
+    week: "2026-10-11",
+    biz: { name: "", type: "", minRest: 8, maxHours: 72, maxShift: 0, assume: true, shifts: [] },
+    emps: [],
+    avail: {},
+    sched: {},
+    closed: {},
   };
-}
-
-function loadWorkspace(): { workspace: Workspace; lang: Lang } {
-  const saved = readWorkspaceSave(window.localStorage.getItem(WORKSPACE_STORAGE_KEY));
-  if (saved) return { ...saved, workspace: cleanSave(saved.workspace) };
-  const legacy = readDemoSave(window.localStorage.getItem(DEMO_STORAGE_KEY));
-  if (legacy) return { workspace: cleanSave(sentinelWorkspace(legacy.state.week, withoutLocks(legacy.state))), lang: legacy.lang };
-  return { workspace: sentinelWorkspace(sundayOnOrBefore(todayIso())), lang: "he" };
 }
 
 function useHistory(initial: RotaState) {
@@ -157,10 +131,8 @@ function useHistory(initial: RotaState) {
 }
 
 export function ScheduleApp() {
-  const [workspace, setWorkspace] = useState<Workspace>(() => sentinelWorkspace(SENTINEL_FALLBACK_WEEK));
-  const { state, setHistory, update, undoHistory, redoHistory, canUndo, canRedo } = useHistory(
-    activeSite(workspace)?.state ?? sentinelState(SENTINEL_FALLBACK_WEEK),
-  );
+  const [workspace, setWorkspace] = useState<Workspace>(() => blankWorkspace("", ""));
+  const { state, setHistory, update, undoHistory, redoHistory, canUndo, canRedo } = useHistory(emptyState());
   const [lang, setLang] = useState<Lang>("he");
   const [theme, setTheme] = useState<Theme>("light");
   const [hydrated, setHydrated] = useState(false);
@@ -176,12 +148,34 @@ export function ScheduleApp() {
   const [saveNote, setSaveNote] = useState<string | null>(null);
   const remote = remoteConfigured();
   const tokenRef = useRef<string | null>(null);
-  const savedRef = useRef("");
+  const retrySave = useRef(false);
+  const saves = useRef(
+    createSaveQueue(async (json, signal) => {
+      const token = tokenRef.current;
+      if (!token) return "retry";
+      const response = await fetch("/api/workspace", {
+        method: "PUT",
+        headers: authHeaders(true),
+        body: json,
+        keepalive: true,
+        signal,
+      });
+      if (response.ok) {
+        retrySave.current = false;
+        setSaveNote(null);
+        return "ok";
+      }
+      const retry = response.status === 503 || response.status >= 500;
+      retrySave.current = retry;
+      setSaveNote(response.status === 503 ? "db" : "save");
+      return retry ? "retry" : "stop";
+    }),
+  );
   const [selection, setSelection] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>("schedule");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [nowHours, setNowHours] = useState<number | null>(null);
-  const [currentWeek, setCurrentWeek] = useState(SENTINEL_FALLBACK_WEEK);
+  const [currentWeek, setCurrentWeek] = useState("2026-10-11");
   const aiEnabled = useAiEnabled();
   const t = copy[lang];
 
@@ -233,7 +227,7 @@ export function ScheduleApp() {
     const opened = activeSite(next);
     if (opened) setHistory({ present: opened.state, past: [], future: [] });
     setUserId(signedInId);
-    savedRef.current = JSON.stringify(persistable(next));
+    saves.current.noteSaved(JSON.stringify(persistable(next)));
     setRemoteError(null);
     setHydrated(true);
   }
@@ -245,13 +239,6 @@ export function ScheduleApp() {
     }
     setCurrentWeek(sundayOnOrBefore(todayIso()));
     if (!remote) {
-      const loaded = loadWorkspace();
-      setWorkspace(loaded.workspace);
-      const opened = activeSite(loaded.workspace);
-      if (opened) setHistory({ present: opened.state, past: [], future: [] });
-      setLang(loaded.lang);
-      const session = window.localStorage.getItem(SESSION_STORAGE_KEY);
-      if (session && loaded.workspace.users.some((item) => item.id === session)) setUserId(session);
       setHydrated(true);
       return;
     }
@@ -274,32 +261,34 @@ export function ScheduleApp() {
     if (!hydrated) return;
     document.documentElement.lang = lang;
     document.documentElement.dir = lang === "he" ? "rtl" : "ltr";
-    if (!remote) {
-      window.localStorage.setItem(WORKSPACE_STORAGE_KEY, writeWorkspaceSave(live, lang));
-      return;
-    }
-    if (!user || !writer || live.sites.length === 0) return;
-    const payload = persistable(live);
-    const json = JSON.stringify(payload);
-    if (json === savedRef.current) return;
-    const token = tokenRef.current;
-    if (!token) return;
-    const handle = window.setTimeout(() => {
-      void fetch("/api/workspace", {
-        method: "PUT",
-        headers: authHeaders(true),
-        body: json,
-      }).then((response) => {
-        if (response.ok) {
-          savedRef.current = json;
-          setSaveNote(null);
-          return;
-        }
-        setSaveNote(response.status === 503 ? "db" : "save");
-      });
-    }, 450);
+    if (!remote || !user || !writer || live.sites.length === 0) return;
+    const json = JSON.stringify(persistable(live));
+    saves.current.push(json);
+    const handle = window.setTimeout(() => saves.current.kick(), 200);
     return () => window.clearTimeout(handle);
   }, [hydrated, live, lang, remote, user, writer]);
+
+  useEffect(() => {
+    if (!remote || !saveNote || !retrySave.current) return;
+    const handle = window.setInterval(() => saves.current.kick(), 2000);
+    return () => window.clearInterval(handle);
+  }, [remote, saveNote]);
+
+  useEffect(() => {
+    if (!remote) return;
+    function flush() {
+      saves.current.kick();
+    }
+    function onHide() {
+      if (document.visibilityState === "hidden") flush();
+    }
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", flush);
+    };
+  }, [remote]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -363,14 +352,6 @@ export function ScheduleApp() {
   }
 
   async function signIn(email: string, password: string): Promise<boolean> {
-    if (!remote) {
-      const found = authenticate(live, email, password);
-      if (!found) return false;
-      window.localStorage.setItem(SESSION_STORAGE_KEY, found.id);
-      setUserId(found.id);
-      setScreen("schedule");
-      return true;
-    }
     const { data, error } = await browserClient().auth.signInWithPassword({ email: email.trim(), password });
     if (error || !data.session || !data.user) return false;
     await adopt(data.session.access_token, data.user.id, data.user.email ?? email);
@@ -419,7 +400,7 @@ export function ScheduleApp() {
     setWorkspace(payload.workspace);
     const opened = payload.workspace.sites[0];
     if (opened) setHistory({ present: opened.state, past: [], future: [] });
-    savedRef.current = JSON.stringify(persistable(payload.workspace));
+    saves.current.noteSaved(JSON.stringify(persistable(payload.workspace)));
     setRemoteError(null);
     setScreen("schedule");
     return true;
@@ -491,8 +472,7 @@ export function ScheduleApp() {
   }
 
   function signOut() {
-    if (remote) void browserClient().auth.signOut();
-    else window.localStorage.removeItem(SESSION_STORAGE_KEY);
+    void browserClient().auth.signOut();
     setUserId(null);
     setOperator(false);
     setCanCreate(false);
@@ -536,6 +516,17 @@ export function ScheduleApp() {
 
   if (!hydrated) return <div className="min-h-screen" />;
 
+  if (!remote) {
+    return (
+      <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang} className="mx-auto flex min-h-screen max-w-md flex-col gap-4 px-4 py-8">
+        <p role="alert" className="text-sm leading-6 text-ink">
+          {t.appDisconnected}
+        </p>
+        {settings}
+      </div>
+    );
+  }
+
   if (remoteError === "db") {
     return (
       <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang} className="mx-auto flex min-h-screen max-w-md flex-col gap-4 px-4 py-8">
@@ -555,13 +546,9 @@ export function ScheduleApp() {
         ) : (
           <LoginScreen
             lang={lang}
-            orgName={remote ? "Rota" : live.org.name}
-            demoAccounts={
-              remote
-                ? []
-                : DEMO_USERS.filter((account) => live.users.some((item) => item.email === account.email)).map((account) => ({ ...account }))
-            }
-            demoPassword={DEMO_PASSWORD}
+            orgName="Rota"
+            demoAccounts={[]}
+            demoPassword=""
             toolbar={settings}
             onSignIn={signIn}
             onShowSignup={remote ? () => setAuthScreen("signup") : undefined}
@@ -875,6 +862,9 @@ export function ScheduleApp() {
             }}
             onAgreement={(employeeId, dayIndex, shiftId, allowed) =>
               change((current) => setAgreement(current, actor, employeeId, dayIndex, shiftId, allowed))
+            }
+            onPreference={(employeeId, shiftId, preferred) =>
+              change((current) => setPreference(current, actor, employeeId, shiftId, preferred))
             }
             onWholeAgreement={(employeeId, allowed) => change((current) => setWholeAgreement(current, actor, employeeId, allowed))}
             onDelete={(employeeId) => {
