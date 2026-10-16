@@ -48,6 +48,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
     shifts,
     requirements,
     employees,
+    historical,
     qualifications,
     preferences,
     agreements,
@@ -80,11 +81,32 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
       ),
       sql.query<EmployeeRow>(
         `select e.id, e.name, e.contact, e.job_title, e.weekly_shift_quota,
-                e.max_weekly_hours::float8 as max_weekly_hours, e.active
+                e.max_weekly_hours::float8 as max_weekly_hours, e.active, true as on_roster
          from public.employees e
          join public.employee_sites es on es.employee_id = e.id
          where es.site_id = $1
          order by e.name`,
+        [siteId],
+      ),
+      sql.query<EmployeeRow>(
+        `select e.id, e.name, e.contact, e.job_title, e.weekly_shift_quota,
+                e.max_weekly_hours::float8 as max_weekly_hours, e.active, false as on_roster
+         from public.employees e
+         where e.id in (
+           select a.employee_id
+           from public.assignments a
+           join public.schedules sc on sc.id = a.schedule_id
+           where sc.site_id = $1
+           union
+           select c.employee_id
+           from public.schedule_calloffs c
+           join public.schedules sc on sc.id = c.schedule_id
+           where sc.site_id = $1
+         )
+           and not exists (
+             select 1 from public.employee_sites es
+             where es.employee_id = e.id and es.site_id = $1
+           )`,
         [siteId],
       ),
       sql.query<QualificationRow>(
@@ -193,7 +215,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
     site,
     shifts,
     requirements,
-    employees,
+    employees: [...employees, ...historical],
     qualifications,
     preferences,
     agreements,

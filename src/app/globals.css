@@ -265,3 +265,31 @@ input[type="time"]::-webkit-datetime-edit-text {
   direction: ltr;
   unicode-bidi: isolate;
 }
+
+/* Same spinner as a headcount field, with the digits hidden so only the arrows show. */
+.clock-spin {
+  width: 1.15rem;
+  height: 2.25rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: transparent;
+  font-size: 1px;
+  line-height: 0;
+  text-indent: -999px;
+  appearance: auto;
+  -webkit-appearance: auto;
+  -moz-appearance: number-input;
+}
+
+.clock-spin::-webkit-inner-spin-button,
+.clock-spin::-webkit-outer-spin-button {
+  height: 2.25rem;
+  margin: 0;
+  opacity: 1;
+  cursor: pointer;
+  appearance: inner-spin-button;
+  -webkit-appearance: inner-spin-button;
+}

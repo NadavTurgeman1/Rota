@@ -27,7 +27,11 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
   const maxHours = Number(bundle.site.max_weekly_hours);
   const maxShift = Number(bundle.site.max_shift_hours);
 
-  const people = [...bundle.employees]
+  const roster = bundle.employees.filter((employee) => employee.on_roster !== false);
+  const former = Object.fromEntries(
+    bundle.employees.filter((employee) => employee.on_roster === false).map((employee) => [employee.id, employee.name]),
+  );
+  const people = [...roster]
     .sort((a, b) => a.name.localeCompare(b.name))
     .map((employee) => {
       const grid = EMPTY_WEEK();
@@ -57,8 +61,6 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
         grid,
       };
     });
-  const employees = people.filter((employee) => employee.active !== false);
-  const former = Object.fromEntries(people.filter((employee) => employee.active === false).map((employee) => [employee.id, employee.name]));
 
   const avail: RotaState["avail"] = {};
   for (const submitted of bundle.availabilityWeeks) {
@@ -118,7 +120,7 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
       assume: bundle.site.assume_available,
       shifts,
     },
-    emps: employees,
+    emps: people,
     avail,
     sched,
     closed: {},

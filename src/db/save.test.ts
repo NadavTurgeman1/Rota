@@ -73,6 +73,40 @@ describe("saving a site", () => {
     expect(loaded.versions?.[week]?.[0]?.by).toBe("Ari");
   });
 
+  it("keeps an inactive teammate on the roster and stores a new draft week", async () => {
+    const db = await openTestDatabase();
+    await db.exec(
+      `insert into auth.users (id) values ('${manager}');
+       insert into public.memberships (org_id, user_id, role) values ('${sentinel}', '${manager}', 'manager');`,
+    );
+    const sql = client(db);
+    const state = await loadSiteWeek(sql, headquarters, week);
+    const person = state.emps[0];
+    const morning = state.biz.shifts[0];
+    if (!person || !morning) throw new Error("seed");
+    const nextWeek = "2026-10-18";
+    const draft: RotaState = {
+      ...state,
+      emps: state.emps.map((employee) => (employee.id === person.id ? { ...employee, active: false } : employee)),
+      sched: {
+        ...state.sched,
+        [nextWeek]: { assign: { [`0|${morning.id}`]: [person.id] }, locked: [], status: "draft" },
+      },
+    };
+    await asRole(db, "authenticated", manager);
+    await db.exec("begin");
+    await saveSite(sql, { orgId: sentinel, siteId: headquarters, state: draft });
+    await db.exec("commit");
+    await db.exec("reset role");
+    const loaded = await loadSiteWeek(sql, headquarters, nextWeek);
+    const inactive = loaded.emps.find((employee) => employee.id === person.id);
+    expect(inactive?.active).toBe(false);
+    expect(inactive?.grid).toEqual(person.grid);
+    expect(loaded.former?.[person.id]).toBeUndefined();
+    expect(loaded.sched[nextWeek]?.status).toBe("draft");
+    expect(loaded.sched[nextWeek]?.assign[`0|${morning.id}`]).toEqual([person.id]);
+  });
+
   it("lets a manager save their site and refuses another organization", async () => {
     const db = await openTestDatabase();
     await db.exec(

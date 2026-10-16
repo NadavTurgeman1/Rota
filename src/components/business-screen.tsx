@@ -22,7 +22,7 @@ function clockText(hour: number, minute: number): string {
   return `${String((hour + 24) % 24).padStart(2, "0")}:${String((minute + 60) % 60).padStart(2, "0")}`;
 }
 
-/** Hour and minute arrows. The clock stays left to right so Hebrew does not swap it. */
+/** Hour arrows on the left, minute arrows on the right, inside the same box as a headcount field. */
 function TimeStepper({
   value,
   label,
@@ -39,55 +39,47 @@ function TimeStepper({
     onCommit(clockText(nextHour, nextMinute));
   }
   return (
-    <div dir="ltr" lang="en" className="flex items-center gap-1">
-      <ClockUnit
-        value={String(hour).padStart(2, "0")}
-        upLabel={`${label} +`}
-        downLabel={`${label} -`}
-        readOnly={readOnly}
-        onUp={() => commit(hour + 1, minute)}
-        onDown={() => commit(hour - 1, minute)}
-      />
-      <span className="text-muted">:</span>
-      <ClockUnit
-        value={String(minute).padStart(2, "0")}
-        upLabel={`${label} : +`}
-        downLabel={`${label} : -`}
-        readOnly={readOnly}
-        onUp={() => commit(hour, minute + 1)}
-        onDown={() => commit(hour, minute - 1)}
-      />
+    <div
+      dir="ltr"
+      lang="en"
+      className={`inline-flex h-9 items-stretch rounded-xl border text-sm text-ink ${
+        readOnly ? "border-line bg-well" : "border-field-line bg-card hover:border-muted"
+      }`}
+    >
+      <ClockSpin label={label} value={hour} readOnly={readOnly} onStep={(step) => commit(hour + step, minute)} />
+      <span className="flex items-center font-medium tabular-nums leading-none">{clockText(hour, minute)}</span>
+      <ClockSpin label={`${label} :`} value={minute} readOnly={readOnly} onStep={(step) => commit(hour, minute + step)} />
     </div>
   );
 }
 
-function ClockUnit({
+function ClockSpin({
   value,
-  upLabel,
-  downLabel,
+  label,
   readOnly,
-  onUp,
-  onDown,
+  onStep,
 }: {
-  value: string;
-  upLabel: string;
-  downLabel: string;
+  value: number;
+  label: string;
   readOnly: boolean;
-  onUp: () => void;
-  onDown: () => void;
+  onStep: (step: 1 | -1) => void;
 }) {
   return (
-    <div className="inline-flex items-center gap-0.5">
-      <span className="w-6 text-center text-sm font-medium tabular-nums">{value}</span>
-      <span className="flex flex-col">
-        <button type="button" aria-label={upLabel} className="h-4 w-5 text-[10px] leading-none text-muted hover:text-ink disabled:opacity-40" disabled={readOnly} onClick={onUp}>
-          ▲
-        </button>
-        <button type="button" aria-label={downLabel} className="h-4 w-5 text-[10px] leading-none text-muted hover:text-ink disabled:opacity-40" disabled={readOnly} onClick={onDown}>
-          ▼
-        </button>
-      </span>
-    </div>
+    <input
+      type="number"
+      dir="ltr"
+      lang="en"
+      aria-label={label}
+      value={value}
+      disabled={readOnly}
+      tabIndex={-1}
+      className="clock-spin"
+      onChange={(event) => {
+        const next = Number(event.target.value);
+        if (!Number.isFinite(next) || next === value) return;
+        onStep(next > value ? 1 : -1);
+      }}
+    />
   );
 }
 

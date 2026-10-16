@@ -107,8 +107,8 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
     `insert into public.employees (
        id, org_id, name, contact, job_title, weekly_shift_quota, max_weekly_hours, active
      )
-     select id, $1, name, contact, job_title, quota, max_hours, active
-     from unnest($2::uuid[], $3::text[], $4::text[], $5::text[], $6::int[], $7::numeric[], $8::bool[])
+     select id, $1, name, contact, job_title, quota, max_hours, active <> 0
+     from unnest($2::uuid[], $3::text[], $4::text[], $5::text[], $6::int[], $7::numeric[], $8::int[])
        as t(id, name, contact, job_title, quota, max_hours, active)
      on conflict (id) do update set
        name = excluded.name,
@@ -126,9 +126,11 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
       people.map((person) => person.role),
       people.map((person) => person.perWeek),
       people.map((person) => person.maxHours),
-      people.map((person) => person.active),
+      // A boolean array is sent as one boolean, so the active flag travels as 0 or 1.
+      people.map((person) => (person.active ? 1 : 0)),
     ],
   );
+  const rosterIds = people.filter((person) => person.roster).map((person) => person.id);
   await writeRows(
     sql,
     `insert into public.employee_sites (org_id, employee_id, site_id)
@@ -136,14 +138,14 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
      from unnest($3::uuid[]) as employee_id
      on conflict do nothing`,
     [orgId, siteId],
-    [people.map((person) => person.id)],
+    [rosterIds],
   );
 
   const keptIds = people.map((person) => person.id);
   await sql.query(
     `delete from public.employee_sites
      where site_id = $1 and not (employee_id = any($2::uuid[]))`,
-    [siteId, keptIds],
+    [siteId, rosterIds],
   );
 
   await sql.query(
@@ -166,7 +168,7 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
   );
 
   const shiftSet = new Set(shiftIds);
-  const activePeople = people.filter((item) => item.active);
+  const rosterPeople = people.filter((item) => item.roster);
   const qualificationEmployees: string[] = [];
   const qualificationNamesForPeople: string[] = [];
   const preferredEmployees: string[] = [];
@@ -174,7 +176,7 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
   const agreedEmployees: string[] = [];
   const agreedShifts: string[] = [];
   const agreedDays: number[] = [];
-  for (const person of activePeople) {
+  for (const person of rosterPeople) {
     for (const qualification of person.quals) {
       qualificationEmployees.push(person.id);
       qualificationNamesForPeople.push(qualification);
@@ -336,44 +338,48 @@ interface KeptPerson {
   perWeek: number;
   maxHours: number | null;
   active: boolean;
+  /** People on the team stay linked to the site. Deleted people are names on old weeks only. */
+  roster: boolean;
   quals: string[];
   pref: string[];
   grid: string[][];
 }
 
 function peopleToKeep(state: RotaState): KeptPerson[] {
-  const active = new Map<string, KeptPerson>();
+  const roster = new Map<string, KeptPerson>();
   for (const employee of state.emps) {
     if (!UUID.test(employee.id)) throw new SaveError("employee");
     const name = employee.name.trim();
     if (!name) throw new SaveError("employee");
-    active.set(employee.id, {
+    const perWeek = Number.isFinite(employee.perWeek) ? employee.perWeek : 0;
+    roster.set(employee.id, {
       id: employee.id,
       name,
       contact: employee.contact ?? "",
       role: employee.role ?? "",
-      perWeek: Math.max(0, Math.trunc(employee.perWeek)),
+      perWeek: Math.max(0, Math.trunc(perWeek)),
       maxHours: employee.maxHours > 0 ? hours(employee.maxHours) : null,
-      active: true,
+      active: employee.active !== false,
+      roster: true,
       quals: qualificationNames(employee.quals),
       pref: (employee.pref ?? []).filter((id) => UUID.test(id)),
       grid: employee.grid ?? [[], [], [], [], [], [], []],
     });
   }
-  const inactive = new Map<string, string>();
+  const historical = new Map<string, string>();
   for (const [id, name] of Object.entries(state.former ?? {})) {
-    if (!UUID.test(id) || active.has(id)) continue;
-    inactive.set(id, name.trim() || " ");
+    if (!UUID.test(id) || roster.has(id)) continue;
+    historical.set(id, name.trim() || " ");
   }
   for (const schedule of Object.values(state.sched)) {
     for (const ids of Object.values(schedule.assign)) {
-      for (const id of ids) remember(inactive, active, id, "");
+      for (const id of ids) remember(historical, roster, id, "");
     }
-    for (const calloff of schedule.calloffs ?? []) remember(inactive, active, calloff.employeeId, calloff.name);
+    for (const calloff of schedule.calloffs ?? []) remember(historical, roster, calloff.employeeId, calloff.name);
   }
   return [
-    ...active.values(),
-    ...[...inactive].map(([id, name]) => ({
+    ...roster.values(),
+    ...[...historical].map(([id, name]) => ({
       id,
       name: name || " ",
       contact: "",
@@ -381,6 +387,7 @@ function peopleToKeep(state: RotaState): KeptPerson[] {
       perWeek: 0,
       maxHours: null,
       active: false,
+      roster: false,
       quals: [],
       pref: [],
       grid: [[], [], [], [], [], [], []],
@@ -388,9 +395,9 @@ function peopleToKeep(state: RotaState): KeptPerson[] {
   ];
 }
 
-function remember(inactive: Map<string, string>, active: Map<string, KeptPerson>, id: string, name: string): void {
-  if (!UUID.test(id) || active.has(id)) return;
-  if (!inactive.has(id)) inactive.set(id, name.trim());
+function remember(historical: Map<string, string>, roster: Map<string, KeptPerson>, id: string, name: string): void {
+  if (!UUID.test(id) || roster.has(id)) return;
+  if (!historical.has(id)) historical.set(id, name.trim());
 }
 
 function qualificationNames(value: string): string[] {
@@ -585,7 +592,7 @@ async function writeSchedule(
     await sql.query(
       `insert into public.schedule_versions (
          id, org_id, schedule_id, number, reason, restored_from, author_name, snapshot, created_at
-       ) values ($1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9)
+       ) values ($1, $2, $3, $4, $5, $6, $7, $8::text::jsonb, $9)
        on conflict (schedule_id, number) do nothing`,
       [
         version.id,
@@ -595,6 +602,8 @@ async function writeSchedule(
         version.reason,
         version.restoredFrom && version.restoredFrom > 0 ? version.restoredFrom : null,
         version.by ?? "",
+        // A ::jsonb parameter is stringified again by the driver, so the check
+        // sees a string instead of an object. Parsing text avoids that.
         JSON.stringify(version.schedule),
         version.at,
       ],

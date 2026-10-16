@@ -36,6 +36,8 @@ export interface EmployeeRow {
   weekly_shift_quota: number;
   max_weekly_hours: number | null;
   active: boolean;
+  /** False when the person is only kept so an old week can still show their name. */
+  on_roster: boolean;
 }
 
 export interface QualificationRow {
