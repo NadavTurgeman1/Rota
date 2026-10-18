@@ -1,3 +1,4 @@
+import { laborNotes } from "./labor";
 import { coveredSeats, effectiveSlot } from "./schedule";
 import { approvedExtraShifts, dynamicReason, formatReason, slotLabel, slots, staticReason, type Lang } from "./rules";
 import type { Analysis, Employee, OverQuota, RotaState, UnfilledShift } from "./types";
@@ -5,7 +6,7 @@ import type { Analysis, Employee, OverQuota, RotaState, UnfilledShift } from "./
 /** Explain a stored week. Does not change it. An unfilled seat stays unfilled. */
 export function analyze(state: RotaState, week: string, lang: Lang = "he"): Analysis {
   const schedule = state.sched[week];
-  if (!schedule) return { violations: [], overQuota: [], unfilled: [], under: [], hours: {}, counts: {} };
+  if (!schedule) return { violations: [], overQuota: [], unfilled: [], under: [], lawNotes: [], hours: {}, counts: {} };
 
   const openSlots = slots(state, week);
   const employees = state.emps.filter((employee) => employee.active);
@@ -92,7 +93,7 @@ export function analyze(state: RotaState, week: string, lang: Lang = "he"): Anal
     });
   }
 
-  return { violations, overQuota, unfilled, under, hours, counts };
+  return { violations, overQuota, unfilled, under, lawNotes: laborNotes(state, week, lang), hours, counts };
 }
 
 function explainGap(

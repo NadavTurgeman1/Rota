@@ -39,6 +39,7 @@ export function IssuesPanel({
   onEmergency: (slot: Slot, choice: EmergencyChoice) => void;
 }) {
   const t = copy[lang];
+  const [lawNotesOpen, setLawNotesOpen] = useState(false);
   const clear = hasSchedule && report.violations.length === 0 && report.unfilled.length === 0;
   const showPublishHint = manager && !published;
 
@@ -92,7 +93,7 @@ export function IssuesPanel({
                           className={buttons.action}
                           onClick={() => onApprove(item.slot, index)}
                         >
-                          {t.approve}: {proposalText(proposal, lang)}
+                          {t.approve}: {proposalText(proposal, lang, state)}
                         </button>
                       ))}
                     </div>
@@ -111,6 +112,37 @@ export function IssuesPanel({
               );
             })}
           </ul>
+        </section>
+      ) : null}
+      {report.lawNotes.length > 0 ? (
+        <section className="mt-4" data-testid="law-notes">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              data-testid="law-notes-toggle"
+              aria-expanded={lawNotesOpen}
+              aria-label={lawNotesOpen ? t.hideLawNotes : t.showLawNotes}
+              className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-muted hover:bg-well hover:text-ink"
+              onClick={() => setLawNotesOpen((open) => !open)}
+            >
+              <span aria-hidden className="text-xs leading-none">
+                {lawNotesOpen ? "▴" : "▾"}
+              </span>
+            </button>
+            <h3 className="text-sm font-medium text-ink">{t.lawNotesTitle}</h3>
+          </div>
+          {lawNotesOpen ? (
+            <>
+              <p className="mt-1 text-xs leading-5 text-muted">{t.lawNotesHint}</p>
+              <ul className="mt-2 space-y-2">
+                {report.lawNotes.map((note) => (
+                  <li key={note} className="rounded-xl border border-line bg-well px-3 py-2 text-sm leading-6 text-ink-soft">
+                    {note}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : null}
         </section>
       ) : null}
       {report.under.length > 0 ? (
@@ -231,6 +263,17 @@ function CallOffChoices({
           {plan.extensions.length + plan.splits.length + plan.extras.length > 0 ? (
             <div className="mt-1 flex flex-col gap-1">
               <p className="text-xs font-medium">{t.emergency}</p>
+              {plan.extras.map((option, index) => (
+                <button
+                  key={`extra-${index}`}
+                  type="button"
+                  data-testid={`emergency-extra-${slot.day}-${slot.shiftId}-${index}`}
+                  className={button}
+                  onClick={() => onEmergency(slot, { kind: "extra", index })}
+                >
+                  {t.approve}: {proposalText({ kind: "extra", option }, lang, state)}
+                </button>
+              ))}
               {plan.extensions.map((option, index) => (
                 <button
                   key={`extension-${index}`}
@@ -239,7 +282,7 @@ function CallOffChoices({
                   className={button}
                   onClick={() => onEmergency(slot, { kind: "extension", index })}
                 >
-                  {t.approve}: {proposalText({ kind: "coverage", option }, lang)}
+                  {t.approve}: {proposalText({ kind: "coverage", option }, lang, state)}
                 </button>
               ))}
               {plan.splits.map((option, index) => (
@@ -250,18 +293,7 @@ function CallOffChoices({
                   className={button}
                   onClick={() => onEmergency(slot, { kind: "split", index })}
                 >
-                  {t.approve}: {splitText(option, lang)}
-                </button>
-              ))}
-              {plan.extras.map((option, index) => (
-                <button
-                  key={`extra-${index}`}
-                  type="button"
-                  data-testid={`emergency-extra-${slot.day}-${slot.shiftId}-${index}`}
-                  className={button}
-                  onClick={() => onEmergency(slot, { kind: "extra", index })}
-                >
-                  {t.approve}: {proposalText({ kind: "extra", option }, lang)}
+                  {t.approve}: {splitText(option, lang, state)}
                 </button>
               ))}
             </div>

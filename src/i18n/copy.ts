@@ -18,6 +18,10 @@ export interface Copy {
   publishedClear: string;
   noSchedule: string;
   issues: string;
+  lawNotesTitle: string;
+  lawNotesHint: string;
+  showLawNotes: string;
+  hideLawNotes: string;
   violations: string;
   openShifts: string;
   underQuota: string;
@@ -64,6 +68,8 @@ export interface Copy {
   submitted: string;
   availabilityLocked: string;
   agreementReadOnly: string;
+  unlockAgreement: string;
+  lockAgreement: string;
   addPerson: string;
   pickEmployee: string;
   scheduleReadOnly: string;
@@ -279,6 +285,10 @@ export const copy: Record<Lang, Copy> = {
     publishedClear: "אין הפרות ואין חורים.",
     noSchedule: "אין עדיין שיבוץ. יצירת הסידור תמלא את המושבים לפי המנוע.",
     issues: "בעיות",
+    lawNotesTitle: "הערות לפי דיני העבודה",
+    lawNotesHint: "הערות בלבד לפי חוק שעות עבודה ומנוחה ושבוע העבודה של 42 שעות. הן לא חוסמות פרסום, וייתכן היתר לענף השמירה.",
+    showLawNotes: "הצגת הערות דיני העבודה",
+    hideLawNotes: "הסתרת הערות דיני העבודה",
     violations: "הפרות",
     openShifts: "משמרות פתוחות",
     underQuota: "מתחת למכסה",
@@ -325,6 +335,8 @@ export const copy: Record<Lang, Copy> = {
     submitted: "הזמינות הוגשה לשבוע הזה.",
     availabilityLocked: "אי אפשר לפתוח כאן משמרת שההסכם סוגר.",
     agreementReadOnly: "ההסכם לקריאה בלבד.",
+    unlockAgreement: "ביטול נעילת ההסכם",
+    lockAgreement: "נעילת ההסכם",
     addPerson: "הוספת עובד",
     pickEmployee: "בחרו עובד מהרשימה.",
     scheduleReadOnly: "הסידור לקריאה בלבד.",
@@ -538,6 +550,10 @@ export const copy: Record<Lang, Copy> = {
     publishedClear: "No violations and no open shifts.",
     noSchedule: "Nothing is assigned yet. Generate fills the seats through the engine.",
     issues: "Issues",
+    lawNotesTitle: "Employment-law notes",
+    lawNotesHint: "Notes only, from the Hours of Work and Rest Law and the 42-hour week. They do not block publishing, and a guarding permit may apply.",
+    showLawNotes: "Show employment-law notes",
+    hideLawNotes: "Hide employment-law notes",
     violations: "Violations",
     openShifts: "Open shifts",
     underQuota: "Under the agreement",
@@ -584,6 +600,8 @@ export const copy: Record<Lang, Copy> = {
     submitted: "Availability is submitted for this week.",
     availabilityLocked: "A shift the agreement closes stays closed here.",
     agreementReadOnly: "The agreement is read-only.",
+    unlockAgreement: "Unlock the agreement",
+    lockAgreement: "Lock the agreement",
     addPerson: "Add employee",
     pickEmployee: "Choose an employee from the list.",
     scheduleReadOnly: "The schedule is read-only.",

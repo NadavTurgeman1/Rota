@@ -3,6 +3,7 @@ import {
   dayName,
   shiftById,
   type CoverageOption,
+  type CoveragePart,
   type Lang,
   type ReplacementCandidate,
   type RotaState,
@@ -82,7 +83,42 @@ function wageNote(wage: number | undefined, dearerThan: number | undefined, lang
   return base + (lang === "he" ? ` · יקר יותר מ־${cheaper} ₪` : ` · dearer than ${cheaper} ₪`);
 }
 
-export function proposalText(proposal: Proposal, lang: Lang): string {
+function seatName(state: RotaState | undefined, key: string, lang: Lang): string {
+  const shiftId = key.split("|")[1] ?? key;
+  if (!state) return shiftId;
+  const shift = state.biz.shifts.find((item) => item.id === shiftId);
+  return shift ? shiftLabel(shift.name, lang) : shiftId;
+}
+
+/** Every person who moves or extends, by name. People who stay put are left out. */
+export function coverageChanges(option: CoverageOption, lang: Lang, state?: RotaState): string {
+  const changed = option.parts.filter((part) => part.from !== part.slotKey || part.extended);
+  const ordered = [...changed].sort((left, right) => {
+    const moved = (part: CoveragePart) => (part.from !== part.slotKey ? 0 : 1);
+    return moved(left) - moved(right) || left.start - right.start || left.name.localeCompare(right.name, lang);
+  });
+  const lines = ordered.map((part) => changeLine(part, lang, state));
+  const dearer = option.dearerThan ? wageNote(option.wage, option.dearerThan, lang) : "";
+  return `${lines.join(". ")}${dearer}`;
+}
+
+function changeLine(part: CoveragePart, lang: Lang, state?: RotaState): string {
+  const moved = part.from !== part.slotKey;
+  const from = seatName(state, part.from, lang);
+  const to = seatName(state, part.slotKey, lang);
+  const hours = `${clockLabel(part.start)}–${clockLabel(part.end)}`;
+  const wage = part.extended ? wageNote(part.wage, undefined, lang) : "";
+  if (lang === "he") {
+    if (moved && part.extended) return `${part.name} — מעבר מ${from} ל${to}, והארכה לכפולה (${hours})${wage}`;
+    if (moved) return `${part.name} — מעבר מ${from} ל${to}`;
+    return `${part.name} — הארכה לכפולה ב${to} (${hours})${wage}`;
+  }
+  if (moved && part.extended) return `${part.name} — moves from ${from} to ${to} and extends into a double (${hours})${wage}`;
+  if (moved) return `${part.name} — moves from ${from} to ${to}`;
+  return `${part.name} — extends ${to} into a double (${hours})${wage}`;
+}
+
+export function proposalText(proposal: Proposal, lang: Lang, state?: RotaState): string {
   if (proposal.kind === "extra") {
     const option = proposal.option;
     const wage = wageNote(option.wage, option.dearerThan, lang);
@@ -93,11 +129,7 @@ export function proposalText(proposal: Proposal, lang: Lang): string {
     }
     return lang === "he" ? `${option.name}: משמרת נוספת${wage}` : `${option.name}: extra shift${wage}`;
   }
-  const parts = proposal.option.ext
-    .map((part) => `${part.name} ${clockLabel(part.start)}–${clockLabel(part.end)}${wageNote(part.wage, undefined, lang)}`)
-    .join(", ");
-  const dearer = wageNote(proposal.option.wage, proposal.option.dearerThan, lang);
-  return lang === "he" ? `הארכת משמרות (${parts})${proposal.option.dearerThan ? dearer : ""}` : `Extend shifts (${parts})${proposal.option.dearerThan ? dearer : ""}`;
+  return coverageChanges(proposal.option, lang, state);
 }
 
 export function replacementText(candidate: ReplacementCandidate, lang: Lang): string {
@@ -113,9 +145,6 @@ export function replacementText(candidate: ReplacementCandidate, lang: Lang): st
   return `${candidate.name} · ${quota} · ${hours}h${preference}${nights}${wageNote(candidate.wage, candidate.dearerThan, lang)}`;
 }
 
-export function splitText(option: CoverageOption, lang: Lang): string {
-  const parts = option.ext
-    .map((part) => `${part.name} ${clockLabel(part.start)}–${clockLabel(part.end)}${wageNote(part.wage, undefined, lang)}`)
-    .join(", ");
-  return lang === "he" ? `חלוקת המשמרת (${parts})` : `Split the shift (${parts})`;
+export function splitText(option: CoverageOption, lang: Lang, state?: RotaState): string {
+  return coverageChanges(option, lang, state);
 }

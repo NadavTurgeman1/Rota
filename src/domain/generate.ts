@@ -1,4 +1,4 @@
-import { shiftKind } from "./time";
+import { gapBetween, shiftKind } from "./time";
 import { ensureSchedule, shiftById } from "./schedule";
 import { dynamicReason, slots, staticReason } from "./rules";
 import type { Employee, Reason, RotaState, Slot } from "./types";
@@ -136,6 +136,20 @@ export function generate(state: RotaState, week: string): GenerateResult {
         value += 5;
       }
     }
+    const chain = tightChain(mine[employee.id], slot, state.biz.minRest);
+    if (chain >= 3) value += 6 + (chain - 3) * 3;
     return value;
   }
+}
+
+/** Shifts joined only by the site's minimum rest. Two are fine. Three is a soft penalty. */
+function tightChain(held: Slot[], slot: Slot, minRest: number): number {
+  const all = [...held, slot].sort((left, right) => left.start - right.start);
+  const index = all.indexOf(slot);
+  const tight = (gap: number) => gap >= -1e-9 && gap <= minRest + 0.01;
+  let from = index;
+  let to = index;
+  while (from > 0 && tight(gapBetween(all[from - 1], all[from]))) from -= 1;
+  while (to + 1 < all.length && tight(gapBetween(all[to], all[to + 1]))) to += 1;
+  return to - from + 1;
 }

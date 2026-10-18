@@ -208,6 +208,8 @@ export interface Analysis {
   overQuota: OverQuota[];
   unfilled: UnfilledShift[];
   under: UnderContract[];
+  /** Israeli employment-law notes. They do not block publishing. */
+  lawNotes: string[];
   hours: Record<string, number>;
   counts: Record<string, number>;
 }

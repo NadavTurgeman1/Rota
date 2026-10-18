@@ -341,17 +341,31 @@ export function BusinessScreen({
           ))}
         </div>
         <div className="mt-5 border-t border-line pt-5">
-          <label className="inline-flex items-center gap-2 text-sm font-medium">
-            <input
-              type="checkbox"
-              data-testid="staff-access"
-              className="h-4 w-4"
-              checked={biz.staffAccess !== false}
-              disabled={readOnly}
-              onChange={(event) => onBusiness({ staffAccess: event.target.checked })}
-            />
-            {t.staffAccess}
-          </label>
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-sm font-medium text-ink">{t.staffAccess}</span>
+            <div className="inline-flex rounded-full border border-line bg-well p-0.5" role="group" aria-label={t.staffAccess}>
+              <button
+                type="button"
+                data-testid="staff-access-off"
+                aria-pressed={biz.staffAccess === false}
+                disabled={readOnly}
+                className={`h-8 rounded-full px-3 text-xs font-semibold ${biz.staffAccess === false ? "bg-card text-ink shadow-card" : "text-muted"}`}
+                onClick={() => onBusiness({ staffAccess: false })}
+              >
+                OFF
+              </button>
+              <button
+                type="button"
+                data-testid="staff-access"
+                aria-pressed={biz.staffAccess !== false}
+                disabled={readOnly}
+                className={`h-8 rounded-full px-3 text-xs font-semibold ${biz.staffAccess !== false ? "bg-brand text-on-brand shadow-card" : "text-muted"}`}
+                onClick={() => onBusiness({ staffAccess: true })}
+              >
+                ON
+              </button>
+            </div>
+          </div>
           <p className="mt-2 text-sm leading-6 text-muted">{t.staffAccessHint}</p>
           {biz.staffAccess !== false ? (
             <div className="mt-4">
@@ -416,12 +430,41 @@ export function BusinessScreen({
               </div>
             </div>
           ) : null}
+          <div className="mt-5">
+            <label className="inline-flex items-center gap-2">
+              <input
+                type="checkbox"
+                data-testid="block-limit"
+                className="h-4 w-4"
+                checked={biz.blockLimit === true}
+                disabled={readOnly}
+                onChange={(event) => onBusiness({ blockLimit: event.target.checked })}
+              />
+              <span className="text-sm font-medium text-ink">{t.blockLimitTitle}</span>
+            </label>
+            <p className="mt-2 text-sm leading-6 text-muted">{t.blockLimitHint}</p>
+            {biz.blockLimit === true ? (
+              <label className={`${label} mt-4 max-w-xs`}>
+                <span className={labelText}>{t.blockLimitCount}</span>
+                <CommitInput
+                  type="number"
+                  shown={String(biz.maxBlocks ?? 0)}
+                  label={t.blockLimitCount}
+                  testId="max-blocks"
+                  readOnly={readOnly}
+                  onCommit={(value) => onBusiness({ maxBlocks: Number(value) })}
+                />
+              </label>
+            ) : null}
+          </div>
         </div>
         <p className="mt-4 text-sm leading-6 text-muted">{t.lawHint}</p>
       </section>
 
-      {onInvite ? (
+      {onInvite || (onInviteStaff && biz.staffAccess !== false) ? (
         <section className={card}>
+          {onInvite ? (
+          <>
           <h2 className={cardTitle}>{t.usersTitle}</h2>
           <p className={cardHint}>{t.inviteHint}</p>
           {managers.length === 0 ? <p className="mt-4 text-sm text-muted">{t.noShiftManagers}</p> : null}
@@ -492,9 +535,11 @@ export function BusinessScreen({
               </p>
             ) : null}
           </form>
+          </>
+          ) : null}
           {onInviteStaff && biz.staffAccess !== false ? (
             <form
-              className="mt-6 grid gap-3 border-t border-line pt-6 sm:grid-cols-2"
+              className={`${onInvite ? "mt-6 border-t border-line pt-6" : ""} grid gap-3 sm:grid-cols-2`}
               onSubmit={(event) => {
                 event.preventDefault();
                 if (existingLogin) return;
@@ -644,33 +689,6 @@ export function BusinessScreen({
           <button type="button" data-testid="add-shift" className={`${button.quiet} mt-4`} onClick={() => onAddShift(t.newShift)}>
             + {t.addShift}
           </button>
-        ) : null}
-      </section>
-      <section className={card}>
-        <label className="inline-flex items-center gap-2">
-          <input
-            type="checkbox"
-            data-testid="block-limit"
-            className="h-4 w-4"
-            checked={biz.blockLimit === true}
-            disabled={readOnly}
-            onChange={(event) => onBusiness({ blockLimit: event.target.checked })}
-          />
-          <span className={cardTitle}>{t.blockLimitTitle}</span>
-        </label>
-        <p className="mt-2 text-sm leading-6 text-muted">{t.blockLimitHint}</p>
-        {biz.blockLimit === true ? (
-          <label className={`${label} mt-4 max-w-xs`}>
-            <span className={labelText}>{t.blockLimitCount}</span>
-            <CommitInput
-              type="number"
-              shown={String(biz.maxBlocks ?? 0)}
-              label={t.blockLimitCount}
-              testId="max-blocks"
-              readOnly={readOnly}
-              onCommit={(value) => onBusiness({ maxBlocks: Number(value) })}
-            />
-          </label>
         ) : null}
       </section>
     </div>

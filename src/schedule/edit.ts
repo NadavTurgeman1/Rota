@@ -235,8 +235,8 @@ export function placementWarning(state: RotaState, slot: Slot, employeeId: strin
 
 export function proposalsFor(state: RotaState, slot: Slot): Proposal[] {
   return [
-    ...suggest(state, state.week, slot).map((option) => ({ kind: "coverage" as const, option })),
     ...suggestExtra(state, state.week, slot).map((option) => ({ kind: "extra" as const, option })),
+    ...suggest(state, state.week, slot).map((option) => ({ kind: "coverage" as const, option })),
   ];
 }
 

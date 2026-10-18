@@ -78,7 +78,7 @@ import { WeekSummary } from "./week-summary";
 import { button } from "./ui";
 import { downloadBlob, downloadWeekPng } from "./week-png";
 
-const EMPTY: Analysis = { violations: [], overQuota: [], unfilled: [], under: [], hours: {}, counts: {} };
+const EMPTY: Analysis = { violations: [], overQuota: [], unfilled: [], under: [], lawNotes: [], hours: {}, counts: {} };
 const THEME_KEY = "rota.theme";
 const SUPPORT_KEY = "rota.supportOrg";
 
@@ -997,17 +997,23 @@ export function ScheduleApp() {
                 }
                 onEmergency={(slot, choice) => change((current) => approveEmergency(current, actor, slot.key, choice))}
               />
+              {schedule ? null : (
+                <VersionsPanel
+                  state={state}
+                  lang={lang}
+                  canRestore={writer}
+                  onRestore={(versionId) => change((current) => restoreWeekVersion(current, actor, versionId))}
+                />
+              )}
+            </div>
+            {schedule ? <WeekSummary state={state} report={report} lang={lang} /> : null}
+            {schedule ? (
               <VersionsPanel
                 state={state}
                 lang={lang}
                 canRestore={writer}
                 onRestore={(versionId) => change((current) => restoreWeekVersion(current, actor, versionId))}
               />
-            </div>
-            {schedule ? (
-              <div className="min-[1400px]:col-span-2">
-                <WeekSummary state={state} report={report} lang={lang} />
-              </div>
             ) : null}
           </div>
         ) : null}
@@ -1017,7 +1023,7 @@ export function ScheduleApp() {
             lang={lang}
             canWrite={writer}
             selectedId={selectedId}
-            onSelect={setSelectedId}
+            onSelect={(id) => setSelectedId((current) => (current === id ? null : id))}
             onUpdate={(employeeId, patch) => change((current) => updateEmployee(current, actor, employeeId, patch))}
             onAdd={(name) => {
               const id = crypto.randomUUID();
@@ -1102,7 +1108,7 @@ export function ScheduleApp() {
                 pending: member.pending,
               }))}
             onInvite={remote && owner ? inviteManager : undefined}
-            onInviteStaff={remote && owner ? inviteStaff : undefined}
+            onInviteStaff={remote && writer ? inviteStaff : undefined}
           />
         ) : null}
         {screen === "insights" ? <InsightsScreen state={state} lang={lang} /> : null}

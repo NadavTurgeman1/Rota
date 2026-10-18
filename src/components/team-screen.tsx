@@ -36,7 +36,7 @@ export function TeamScreen({
   deletionBlock: (employeeId: string) => string | null;
 }) {
   const t = copy[lang];
-  const employee = state.emps.find((item) => item.id === selectedId) ?? state.emps[0] ?? null;
+  const employee = state.emps.find((item) => item.id === selectedId) ?? null;
   const [newName, setNewName] = useState("");
 
   return (
@@ -124,6 +124,8 @@ function EmployeeCard({
 }) {
   const t = copy[lang];
   const employee = state.emps.find((item) => item.id === employeeId)!;
+  const [agreementLocked, setAgreementLocked] = useState(true);
+  const agreementEditable = canEditAgreement && !agreementLocked;
 
   return (
     <div data-testid="employee-card" className="flex flex-col gap-6">
@@ -148,6 +150,13 @@ function EmployeeCard({
             value={employee.perWeek}
             readOnly={!canEditAgreement}
             onCommit={(perWeek) => onUpdate(employeeId, { perWeek })}
+          />
+          <NumberField
+            label={t.hourlyWage}
+            value={employee.hourlyWage ?? 0}
+            readOnly={!canEditAgreement}
+            testId="hourly-wage"
+            onCommit={(value) => onUpdate(employeeId, { hourlyWage: value })}
           />
           <NumberField
             label={t.hourCap}
@@ -193,22 +202,40 @@ function EmployeeCard({
 
       <section className={card}>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <h2 className={cardTitle}>{t.agreement}</h2>
-          <div className="w-40">
-            <NumberField
-              label={t.hourlyWage}
-              value={employee.hourlyWage ?? 0}
-              readOnly={!canEditAgreement}
-              testId="hourly-wage"
-              onCommit={(value) => onUpdate(employeeId, { hourlyWage: value })}
-            />
+          <div className="flex items-center gap-2">
+            <h2 className={cardTitle}>{t.agreement}</h2>
+            {canEditAgreement ? (
+              <button
+                type="button"
+                data-testid="agreement-lock"
+                aria-pressed={!agreementLocked}
+                aria-label={agreementLocked ? t.unlockAgreement : t.lockAgreement}
+                title={agreementLocked ? t.unlockAgreement : t.lockAgreement}
+                className="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-line bg-card text-ink hover:bg-well"
+                onClick={() => setAgreementLocked((locked) => !locked)}
+              >
+                <LockIcon open={!agreementLocked} />
+              </button>
+            ) : null}
           </div>
           {canEditAgreement ? (
             <div className="flex gap-2">
-              <button type="button" data-testid="agreement-all" className={button.small} onClick={() => onWholeAgreement(employeeId, true)}>
+              <button
+                type="button"
+                data-testid="agreement-all"
+                className={button.small}
+                disabled={!agreementEditable}
+                onClick={() => onWholeAgreement(employeeId, true)}
+              >
                 {t.selectAll}
               </button>
-              <button type="button" data-testid="agreement-clear" className={button.small} onClick={() => onWholeAgreement(employeeId, false)}>
+              <button
+                type="button"
+                data-testid="agreement-clear"
+                className={button.small}
+                disabled={!agreementEditable}
+                onClick={() => onWholeAgreement(employeeId, false)}
+              >
                 {t.clearAll}
               </button>
             </div>
@@ -247,7 +274,7 @@ function EmployeeCard({
           lang={lang}
           employeeId={employeeId}
           mode="agreement"
-          editable={canEditAgreement}
+          editable={agreementEditable}
           onToggle={(day, shiftId, checked) => onAgreement(employeeId, day, shiftId, checked)}
         />
       </section>
@@ -343,6 +370,24 @@ export function WeekGrid({
         </tbody>
       </table>
     </div>
+  );
+}
+
+function LockIcon({ open }: { open: boolean }) {
+  return (
+    <svg viewBox="0 0 16 16" className="h-4 w-4" aria-hidden="true">
+      {open ? (
+        <path
+          fill="currentColor"
+          d="M11.2 7H5.5V4.8a2.2 2.2 0 0 1 4.2-1l1.2-.7A3.5 3.5 0 0 0 4 4.8V7H3.5A1.5 1.5 0 0 0 2 8.5v5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5v-5A1.5 1.5 0 0 0 12.5 7h-1.3ZM8 9.2a1 1 0 0 1 .5 1.87V12.4H7.5v-1.33A1 1 0 0 1 8 9.2Z"
+        />
+      ) : (
+        <path
+          fill="currentColor"
+          d="M5.5 7V4.8a2.5 2.5 0 0 1 5 0V7h2a1.5 1.5 0 0 1 1.5 1.5v5A1.5 1.5 0 0 1 12.5 15h-9A1.5 1.5 0 0 1 2 13.5v-5A1.5 1.5 0 0 1 3.5 7h2Zm1.5 0h2V4.8a1 1 0 0 0-2 0V7Zm1 2.2a1 1 0 0 0-.5 1.87V12.4h1.5v-1.33A1 1 0 0 0 8 9.2Z"
+        />
+      )}
+    </svg>
   );
 }
 

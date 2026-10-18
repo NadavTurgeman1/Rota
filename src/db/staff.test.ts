@@ -42,9 +42,7 @@ describe("a roster employee login", () => {
     );
 
     await asRole(db, "authenticated", manager);
-    await expect(inviteStaffLogin(sql, { orgId: sentinel, employeeId: staff.id, email: "worker.portal@example.com" })).rejects.toBeInstanceOf(
-      SaveError,
-    );
+    expect(await inviteStaffLogin(sql, { orgId: sentinel, employeeId: staff.id, email: "worker.portal@example.com" })).toBe("invited");
 
     await asRole(db, "authenticated", owner);
     expect(await inviteStaffLogin(sql, { orgId: sentinel, employeeId: staff.id, email: "worker.portal@example.com" })).toBe("invited");
