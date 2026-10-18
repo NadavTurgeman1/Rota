@@ -10,6 +10,7 @@ export const VIEWER: Actor = { kind: "viewer" };
 export interface EmployeePatch {
   name?: string;
   contact?: string;
+  phone?: string;
   role?: string;
   quals?: string;
   perWeek?: number;
@@ -142,6 +143,7 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
     next.name = name;
   }
   if (patch.contact !== undefined) next.contact = patch.contact.trim();
+  if (patch.phone !== undefined) next.phone = patch.phone.trim();
   if (patch.role !== undefined) next.role = patch.role.trim();
   if (patch.quals !== undefined) next.quals = patch.quals.trim();
   if (patch.perWeek !== undefined) next.perWeek = Math.floor(nonNegative(patch.perWeek));
@@ -151,6 +153,7 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
   if (
     next.name === employee.name &&
     next.contact === employee.contact &&
+    (next.phone ?? "") === (employee.phone ?? "") &&
     next.role === employee.role &&
     next.quals === employee.quals &&
     next.perWeek === employee.perWeek &&
@@ -183,6 +186,7 @@ export function addEmployeeRecord(state: RotaState, actor: Actor, input: { id: s
     pref: [],
     active: true,
     grid: openGrid(state),
+    ...(state.siteId ? { homeSiteId: state.siteId } : {}),
   });
   draft.emps.sort((left, right) => left.name.localeCompare(right.name, "en"));
   return draft;

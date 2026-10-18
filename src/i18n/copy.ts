@@ -48,6 +48,13 @@ export interface Copy {
   navTeam: string;
   employeeName: string;
   contact: string;
+  phone: string;
+  employeeSites: string;
+  employeeSitesHint: string;
+  primarySite: string;
+  reliefSite: string;
+  reliefRoster: string;
+  reliefHeld: string;
   role: string;
   qualifications: string;
   quota: string;
@@ -315,6 +322,13 @@ export const copy: Record<Lang, Copy> = {
     navTeam: "ניהול עובדים",
     employeeName: "שם",
     contact: "פרטי קשר",
+    phone: "טלפון",
+    employeeSites: "אתרים",
+    employeeSitesHint: "אתר אחד הוא האתר הראשי, והשאר הם תגבור. בסידור העובד מזוהה לפי המזהה שלו והטלפון, גם בלי חשבון משתמש. האילוצים זהים בכל האתרים.",
+    primarySite: "ראשי",
+    reliefSite: "תגבור",
+    reliefRoster: "מתגברים",
+    reliefHeld: "{name} יכול להשלים את המשמרת רק כשהסידור באתר הראשי מוכן לפרסום, בלי הפרות ובלי משמרות פתוחות.",
     role: "תפקיד",
     qualifications: "הסמכות",
     quota: "משמרות בשבוע",
@@ -580,6 +594,13 @@ export const copy: Record<Lang, Copy> = {
     navTeam: "Employees",
     employeeName: "Name",
     contact: "Contact",
+    phone: "Phone",
+    employeeSites: "Sites",
+    employeeSitesHint: "One site is the primary site and the others are reinforcement. Scheduling recognizes the employee by their id and phone, and they do not need a login. Constraints stay the same on every site.",
+    primarySite: "Primary",
+    reliefSite: "Reinforcement",
+    reliefRoster: "Reinforcement",
+    reliefHeld: "{name} can fill this shift only once the primary site's schedule is ready to publish, with no violations and no open shifts.",
     role: "Role",
     qualifications: "Qualifications",
     quota: "Shifts per week",

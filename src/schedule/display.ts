@@ -119,6 +119,9 @@ function changeLine(part: CoveragePart, lang: Lang, state?: RotaState): string {
 }
 
 export function proposalText(proposal: Proposal, lang: Lang, state?: RotaState): string {
+  if (proposal.kind === "relief") {
+    return lang === "he" ? `${proposal.name}: שיבוץ מתגבור` : `${proposal.name}: reinforcement assignment`;
+  }
   if (proposal.kind === "extra") {
     const option = proposal.option;
     const wage = wageNote(option.wage, option.dearerThan, lang);

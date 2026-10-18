@@ -121,31 +121,35 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
   await writeRows(
     sql,
     `insert into public.employees (
-       id, org_id, name, contact, job_title, weekly_shift_quota, max_weekly_hours, active, hourly_wage
+       id, org_id, name, contact, phone, job_title, weekly_shift_quota, max_weekly_hours, active, hourly_wage, home_site_id
      )
-     select id, $1, name, contact, job_title, quota, max_hours, active <> 0, wage
-     from unnest($2::uuid[], $3::text[], $4::text[], $5::text[], $6::int[], $7::numeric[], $8::int[], $9::numeric[])
-       as t(id, name, contact, job_title, quota, max_hours, active, wage)
+     select id, $1, name, contact, phone, job_title, quota, max_hours, active <> 0, wage, home_site
+     from unnest($2::uuid[], $3::text[], $4::text[], $5::text[], $6::text[], $7::int[], $8::numeric[], $9::int[], $10::numeric[], $11::uuid[])
+       as t(id, name, contact, phone, job_title, quota, max_hours, active, wage, home_site)
      on conflict (id) do update set
        name = excluded.name,
        contact = excluded.contact,
+       phone = excluded.phone,
        job_title = excluded.job_title,
        weekly_shift_quota = excluded.weekly_shift_quota,
        max_weekly_hours = excluded.max_weekly_hours,
        active = excluded.active,
-       hourly_wage = excluded.hourly_wage
+       hourly_wage = excluded.hourly_wage,
+       home_site_id = excluded.home_site_id
      where public.employees.org_id = excluded.org_id`,
     [orgId],
     [
       people.map((person) => person.id),
       people.map((person) => person.name),
       people.map((person) => person.contact),
+      people.map((person) => person.phone),
       people.map((person) => person.role),
       people.map((person) => person.perWeek),
       people.map((person) => person.maxHours),
       // A boolean array is sent as one boolean, so the active flag travels as 0 or 1.
       people.map((person) => (person.active ? 1 : 0)),
       people.map((person) => person.hourlyWage),
+      people.map((person) => person.homeSiteId),
     ],
   );
   const rosterIds = people.filter((person) => person.roster).map((person) => person.id);
@@ -352,6 +356,8 @@ interface KeptPerson {
   id: string;
   name: string;
   contact: string;
+  phone: string;
+  homeSiteId: string | null;
   role: string;
   perWeek: number;
   maxHours: number | null;
@@ -375,6 +381,8 @@ function peopleToKeep(state: RotaState): KeptPerson[] {
       id: employee.id,
       name,
       contact: employee.contact ?? "",
+      phone: employee.phone ?? "",
+      homeSiteId: employee.homeSiteId && UUID.test(employee.homeSiteId) ? employee.homeSiteId : null,
       role: employee.role ?? "",
       perWeek: Math.max(0, Math.trunc(perWeek)),
       maxHours: employee.maxHours > 0 ? hours(employee.maxHours) : null,
@@ -403,6 +411,8 @@ function peopleToKeep(state: RotaState): KeptPerson[] {
       id,
       name: name || " ",
       contact: "",
+      phone: "",
+      homeSiteId: null,
       role: "",
       perWeek: 0,
       maxHours: null,

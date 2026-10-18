@@ -241,6 +241,7 @@ export function StaffHome({
   orgName,
   selfId,
   sites,
+  rosterSites,
   activeSiteId,
   toolbar,
   saveNote,
@@ -256,6 +257,7 @@ export function StaffHome({
   orgName: string;
   selfId: string | null;
   sites: { id: string; name: string }[];
+  rosterSites: { id: string; name: string; state: RotaState }[];
   activeSiteId: string;
   toolbar: ReactNode;
   saveNote: string | null;
@@ -269,11 +271,17 @@ export function StaffHome({
   const t = copy[lang];
   const [tab, setTab] = useState<"constraints" | "schedule">("constraints");
   const employee = selfId ? state.emps.find((item) => item.id === selfId) ?? null : null;
-  const schedule = state.sched[state.week];
-  const published = schedule?.status === "published";
   const siteName = siteLabel(state.biz.name, lang);
   const title = calendarTitle(siteName, orgName);
-  const mine = selfId ? ownPublishedShifts(state, selfId) : [];
+  const mine = selfId
+    ? rosterSites.flatMap((site) =>
+        ownPublishedShifts({ ...site.state, week: state.week }, selfId).map((shift) => ({
+          ...shift,
+          title: calendarTitle(siteLabel(site.name, lang), orgName),
+        })),
+      )
+    : [];
+  const boards = selfId ? rosterSites.filter((site) => site.state.emps.some((employee) => employee.id === selfId)) : [];
   const decision = decisions[0] ?? null;
   const tabs = [
     { id: "constraints" as const, label: t.staffConstraints },
@@ -344,59 +352,67 @@ export function StaffHome({
             </button>
           </div>
         </section>
-        {!selfId || !employee ? (
+        {!selfId ? (
           <p className={`${card} text-sm leading-6 text-ink`}>{t.staffUnlinked}</p>
         ) : tab === "constraints" ? (
-          <StaffConstraints
-            key={`${activeSiteId}-${state.week}-${employee.id}-${pending?.id ?? "open"}`}
-            state={state}
-            lang={lang}
-            employeeId={employee.id}
-            pending={pending}
-            onSubmit={onSubmit}
-          />
+          employee ? (
+            <StaffConstraints
+              key={`${activeSiteId}-${state.week}-${employee.id}-${pending?.id ?? "open"}`}
+              state={state}
+              lang={lang}
+              employeeId={employee.id}
+              pending={pending}
+              onSubmit={onSubmit}
+            />
+          ) : (
+            <p className={`${card} text-sm leading-6 text-ink`}>{t.staffUnlinked}</p>
+          )
         ) : (
-          <section data-testid="staff-schedule" className="flex flex-col gap-4">
-            {published ? (
-              <>
-                <div className="flex flex-wrap items-center gap-3">
-                  <button
-                    type="button"
-                    data-testid="add-to-calendar"
-                    className={button.primary}
-                    disabled={mine.length === 0}
-                    onClick={() => {
-                      if (!selfId || mine.length === 0) return;
-                      downloadIcs(
-                        "work.ics",
-                        shiftsIcs({ title, week: state.week, employeeId: selfId, shifts: mine }),
-                      );
-                    }}
-                  >
-                    {t.addToCalendar}
-                  </button>
-                  {mine.length === 0 ? <p className="text-sm text-muted">{t.calendarEmpty}</p> : null}
-                </div>
-                <WeekBoard
-                  state={state}
-                  slots={slots(state, state.week)}
-                  lang={lang}
-                  published
-                  canCallOff={false}
-                  nowHours={null}
-                  selectedToken={null}
-                  focusEmployeeId={selfId}
-                  onAdd={() => undefined}
-                  onRemove={() => undefined}
-                  onMove={() => undefined}
-                  onSwap={() => undefined}
-                  onToggleSelect={() => undefined}
-                  onCallOff={() => undefined}
-                />
-              </>
-            ) : (
-              <p className={`${card} text-sm leading-6 text-ink`}>{t.staffUnpublished}</p>
-            )}
+          <section data-testid="staff-schedule" className="flex flex-col gap-6">
+            <div className="flex flex-wrap items-center gap-3">
+              <button
+                type="button"
+                data-testid="add-to-calendar"
+                className={button.primary}
+                disabled={mine.length === 0}
+                onClick={() => {
+                  if (!selfId || mine.length === 0) return;
+                  downloadIcs("work.ics", shiftsIcs({ title, week: state.week, employeeId: selfId, shifts: mine }));
+                }}
+              >
+                {t.addToCalendar}
+              </button>
+              {mine.length === 0 ? <p className="text-sm text-muted">{t.calendarEmpty}</p> : null}
+            </div>
+            {boards.map((site) => {
+              const view = { ...site.state, week: state.week };
+              const open = view.sched[view.week]?.status === "published";
+              return (
+                <section key={site.id} data-testid={`staff-site-${site.id}`} className="flex flex-col gap-3">
+                  <h2 className={cardTitle}>{siteLabel(site.name, lang)}</h2>
+                  {open ? (
+                    <WeekBoard
+                      state={view}
+                      slots={slots(view, view.week)}
+                      lang={lang}
+                      published
+                      canCallOff={false}
+                      nowHours={null}
+                      selectedToken={null}
+                      focusEmployeeId={selfId}
+                      onAdd={() => undefined}
+                      onRemove={() => undefined}
+                      onMove={() => undefined}
+                      onSwap={() => undefined}
+                      onToggleSelect={() => undefined}
+                      onCallOff={() => undefined}
+                    />
+                  ) : (
+                    <p className={`${card} text-sm leading-6 text-ink`}>{t.staffUnpublished}</p>
+                  )}
+                </section>
+              );
+            })}
           </section>
         )}
       </main>

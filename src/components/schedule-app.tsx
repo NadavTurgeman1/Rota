@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { addDays, analyze, slots, sundayOnOrBefore, type Analysis, type Lang, type RotaState } from "../domain";
+import { peerDuties } from "../domain/peers";
+import { isRelief } from "../domain/relief";
 import { addShift, removeShift, setShiftRequirement, updateBusiness, updateShift } from "../business/edit";
 import { copy, deleteEmployeeBlocked, publishBlocked, selectionHint } from "../i18n/copy";
 import { formatWeekRange, pngFileName, siteLabel } from "../schedule/display";
@@ -46,6 +48,7 @@ import {
   updateEmployee,
   VIEWER,
 } from "../people/edit";
+import { mirrorConstraints, mirrorPerson, setEmployeeSites } from "../people/sites";
 import {
   actorFor,
   activeSite,
@@ -84,6 +87,41 @@ const SUPPORT_KEY = "rota.supportOrg";
 
 function persistable(workspace: Workspace) {
   return { org: workspace.org, sites: workspace.sites, activeSiteId: workspace.activeSiteId };
+}
+
+function viewingContext(current: RotaState, sites: { id: string; state: RotaState }[], siteId: string): RotaState {
+  return {
+    ...current,
+    siteId,
+    peers: peerDuties(sites, siteId, current.week),
+    homeReady: homeReadyFor(sites, siteId, current.week),
+  };
+}
+
+function homeReadyFor(sites: { id: string; state: RotaState }[], siteId: string, week: string): Record<string, boolean> {
+  const here = sites.find((site) => site.id === siteId);
+  const ready: Record<string, boolean> = {};
+  if (!here) return ready;
+  for (const employee of here.state.emps) {
+    if (!isRelief(employee, siteId)) continue;
+    const home = sites.find((site) => site.id === employee.homeSiteId);
+    if (!home) {
+      ready[employee.id] = false;
+      continue;
+    }
+    const viewed = home.state.week === week ? home.state : { ...home.state, week };
+    ready[employee.id] = publishCheck({ ...viewed, peers: peerDuties(sites, home.id, week) }).ready;
+  }
+  return ready;
+}
+
+function withoutContext(next: RotaState): RotaState {
+  if (next.siteId === undefined && next.peers === undefined && next.homeReady === undefined) return next;
+  const rest = { ...next };
+  delete rest.siteId;
+  delete rest.peers;
+  delete rest.homeReady;
+  return rest;
 }
 
 function blankWorkspace(userId: string, email: string): Workspace {
@@ -185,6 +223,10 @@ export function ScheduleApp() {
   const t = copy[lang];
 
   const live = useMemo(() => withSiteState(workspace, workspace.activeSiteId, state), [workspace, state]);
+  const peered = useMemo(
+    () => viewingContext(state, live.sites, live.activeSiteId),
+    [state, live.sites, live.activeSiteId],
+  );
   const user = live.users.find((item) => item.id === userId) ?? null;
   const actor = user ? actorFor(user, live.selfEmployeeId) : VIEWER;
   const writer = Boolean(user && hasWrite(user));
@@ -329,7 +371,19 @@ export function ScheduleApp() {
 
   function change(produce: (current: RotaState) => RotaState) {
     setSelection(null);
-    update(produce);
+    update((current) => {
+      const stamped = viewingContext(current, live.sites, live.activeSiteId);
+      const next = produce(stamped);
+      if (next === stamped) return current;
+      return withoutContext(next);
+    });
+  }
+
+  function applyConstraints(next: RotaState) {
+    if (next === state) return;
+    change(() => next);
+    const siteId = live.activeSiteId;
+    setWorkspace((current) => mirrorConstraints(withSiteState(current, siteId, next), siteId));
   }
 
   /** Workspace edits are not part of undo. Switching or replacing the active site starts a fresh history. */
@@ -516,7 +570,7 @@ export function ScheduleApp() {
       }
       setSaveNote(null);
     }
-    if (approve) change((current) => replaceAvailability(current, actor, request.employeeId, request.week, request.shifts));
+    if (approve) applyConstraints(replaceAvailability(state, actor, request.employeeId, request.week, request.shifts));
     dropRequest(siteId, requestId);
   }
 
@@ -738,6 +792,7 @@ export function ScheduleApp() {
         orgName={live.org.name}
         selfId={live.selfEmployeeId ?? null}
         sites={live.sites.map((site) => ({ id: site.id, name: site.state.biz.name }))}
+        rosterSites={live.sites.map((site) => ({ id: site.id, name: site.state.biz.name, state: site.state }))}
         activeSiteId={live.activeSiteId}
         toolbar={settings}
         saveNote={saveNote}
@@ -758,8 +813,8 @@ export function ScheduleApp() {
   const schedule = state.sched[state.week];
   const published = schedule?.status === "published";
   const readOnly = published || !writer;
-  const report = schedule ? analyze(state, state.week, lang) : EMPTY;
-  const check = schedule ? publishCheck(state) : { ready: false, violations: 0, unfilled: 0 };
+  const report = schedule ? analyze(peered, peered.week, lang) : EMPTY;
+  const check = schedule ? publishCheck(peered) : { ready: false, violations: 0, unfilled: 0 };
   const openSlots = slots(state, state.week);
   const selectedName = selection ? employeeName(state, parseAssignmentToken(selection)?.employeeId ?? "") : null;
 
@@ -776,7 +831,7 @@ export function ScheduleApp() {
           : publishBlocked(lang, check.violations, check.unfilled);
 
   const boardProps = {
-    state,
+    state: peered,
     slots: openSlots,
     lang,
     published: readOnly,
@@ -984,7 +1039,7 @@ export function ScheduleApp() {
             <WeekBoard {...boardProps} />
             <div className="flex min-w-0 flex-col gap-4">
               <IssuesPanel
-                state={state}
+                state={peered}
                 report={report}
                 lang={lang}
                 hasSchedule={Boolean(schedule)}
@@ -1006,7 +1061,7 @@ export function ScheduleApp() {
                 />
               )}
             </div>
-            {schedule ? <WeekSummary state={state} report={report} lang={lang} /> : null}
+            {schedule ? <WeekSummary state={peered} report={report} lang={lang} /> : null}
             {schedule ? (
               <VersionsPanel
                 state={state}
@@ -1024,19 +1079,25 @@ export function ScheduleApp() {
             canWrite={writer}
             selectedId={selectedId}
             onSelect={(id) => setSelectedId((current) => (current === id ? null : id))}
-            onUpdate={(employeeId, patch) => change((current) => updateEmployee(current, actor, employeeId, patch))}
+            onUpdate={(employeeId, patch) => {
+              const next = updateEmployee(state, actor, employeeId, patch);
+              if (next === state) return;
+              change(() => next);
+              const person = next.emps.find((employee) => employee.id === employeeId);
+              if (person) setWorkspace((current) => mirrorPerson(current, current.activeSiteId, person));
+            }}
             onAdd={(name) => {
               const id = crypto.randomUUID();
               change((current) => addEmployeeRecord(current, actor, { id, name }));
               setSelectedId(id);
             }}
             onAgreement={(employeeId, dayIndex, shiftId, allowed) =>
-              change((current) => setAgreement(current, actor, employeeId, dayIndex, shiftId, allowed))
+              applyConstraints(setAgreement(state, actor, employeeId, dayIndex, shiftId, allowed))
             }
             onPreference={(employeeId, shiftId, preferred) =>
-              change((current) => setPreference(current, actor, employeeId, shiftId, preferred))
+              applyConstraints(setPreference(state, actor, employeeId, shiftId, preferred))
             }
-            onWholeAgreement={(employeeId, allowed) => change((current) => setWholeAgreement(current, actor, employeeId, allowed))}
+            onWholeAgreement={(employeeId, allowed) => applyConstraints(setWholeAgreement(state, actor, employeeId, allowed))}
             onDelete={(employeeId) => {
               change((current) => removeEmployeeRecord(current, actor, employeeId, currentWeek));
               setSelectedId(null);
@@ -1045,25 +1106,41 @@ export function ScheduleApp() {
               const weeks = deletionBlockedBy(state, employeeId, currentWeek);
               return weeks.length > 0 ? deleteEmployeeBlocked(lang, weeks.map((week) => formatWeekRange(week, lang)).join(", ")) : null;
             }}
+            sites={live.sites.map((site) => ({ id: site.id, name: site.state.biz.name }))}
+            siteId={live.activeSiteId}
+            assignedSiteIds={
+              selectedId
+                ? live.sites.filter((site) => site.state.emps.some((employee) => employee.id === selectedId)).map((site) => site.id)
+                : []
+            }
+            lockedSiteIds={
+              selectedId
+                ? live.sites
+                    .filter((site) => deletionBlockedBy(site.state, selectedId, currentWeek).length > 0)
+                    .map((site) => site.id)
+                : []
+            }
+            onSites={(employeeId, siteIds, homeSiteId) =>
+              changeWorkspace((current) => setEmployeeSites(current, employeeId, siteIds, currentWeek, homeSiteId))
+            }
           />
         ) : null}
         {screen === "constraints" ? (
           <ConstraintsScreen
             state={state}
             lang={lang}
+            siteId={live.activeSiteId}
             canWrite={writer}
             aiEnabled={aiEnabled}
             requests={live.sites.find((site) => site.id === live.activeSiteId)?.requests ?? []}
             onAvailability={(employeeId, dayIndex, shiftId, available) =>
-              change((current) => setAvailability(current, actor, employeeId, dayIndex, shiftId, available))
+              applyConstraints(setAvailability(state, actor, employeeId, dayIndex, shiftId, available))
             }
-            onWholeAvailability={(employeeId, available) => change((current) => setWholeAvailability(current, actor, employeeId, available))}
-            onCopy={(employeeId) => change((current) => copyAvailability(current, actor, employeeId))}
+            onWholeAvailability={(employeeId, available) => applyConstraints(setWholeAvailability(state, actor, employeeId, available))}
+            onCopy={(employeeId) => applyConstraints(copyAvailability(state, actor, employeeId))}
             onDecide={(requestId, approve) => void decideRequest(requestId, approve)}
             onApply={(raw, overrides) =>
-              change((current) =>
-                applyConstraintText(current, actor, raw, overrides),
-              )
+              applyConstraints(applyConstraintText(state, actor, raw, overrides))
             }
           />
         ) : null}

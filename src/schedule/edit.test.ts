@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { analyze, diffIsEmpty, diffSchedules, planCallOff, slots, weekVersions } from "../domain";
+import { analyze, diffIsEmpty, diffSchedules, ensureSchedule, planCallOff, slots, weekVersions } from "../domain";
 import { SENTINEL, sentinelState } from "../demo/sentinel";
 import { MANAGER } from "../people/edit";
 import {
@@ -126,7 +126,8 @@ describe("schedule edits", () => {
       (slot) => slot.day === 0 && slot.shiftId === SENTINEL.night,
     );
     if (!night) throw new Error("missing night slot");
-    const placed = addEmployee(sentinelState("2026-10-11"), night.key, SENTINEL.dana);
+    const placed = sentinelState("2026-10-11");
+    ensureSchedule(placed, placed.week).assign[night.key] = [SENTINEL.dana];
     const message = analyze(placed, placed.week, "en").violations[0]?.message ?? "";
     expect(message).toContain("Sunday");
     expect(message).toContain("agreement");
@@ -202,7 +203,9 @@ describe("schedule edits", () => {
     expect(isLocked(removeEmployee(again.state, target.key, outsider.id), target.key, outsider.id)).toBe(false);
 
     const sundayNight = `0|${SENTINEL.night}`;
-    const forced = toggleLock(addEmployee(state, sundayNight, SENTINEL.dana), sundayNight, SENTINEL.dana);
+    const illegal = sentinelState("2026-10-11");
+    ensureSchedule(illegal, illegal.week).assign[sundayNight] = [SENTINEL.dana];
+    const forced = toggleLock(illegal, sundayNight, SENTINEL.dana);
     const report = generateWithReport(forced);
     expect(report.dropped).toEqual([
       { token: `${sundayNight}#${SENTINEL.dana}`, why: "rule", reason: expect.objectContaining({ code: "agreement" }) },

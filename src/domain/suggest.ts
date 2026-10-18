@@ -1,5 +1,6 @@
 import { coveredSeats, effectiveSlot } from "./schedule";
 import { approvedExtraShifts, dynamicReason, slots, staticReason } from "./rules";
+import { isRelief } from "./relief";
 import { markDearer, wageRank } from "./wage";
 import type { CoverageOption, ExtraShiftOption, RotaState, Schedule, Slot } from "./types";
 
@@ -156,7 +157,7 @@ export function suggestExtra(state: RotaState, week: string, slot: Slot): ExtraS
   const openSlots = slots(state, week);
   const options: ExtraShiftOption[] = [];
   for (const employee of state.emps) {
-    if (!employee.active || !employee.perWeek) continue;
+    if (!employee.active || !employee.perWeek || isRelief(employee, state.siteId)) continue;
     if ((schedule.assign[slot.key] ?? []).includes(employee.id)) continue;
     if (staticReason(state, employee, slot, week)) continue;
     const mine: Slot[] = [];

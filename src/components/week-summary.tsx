@@ -1,4 +1,5 @@
 import type { Analysis, Lang, RotaState } from "../domain";
+import { isRelief, peerLoad } from "../domain/relief";
 import { copy } from "../i18n/copy";
 import { pill, surface } from "./ui";
 
@@ -24,10 +25,11 @@ function hoursLabel(hours: number): string {
 export function WeekSummary({ state, report, lang }: { state: RotaState; report: Analysis; lang: Lang }) {
   const t = copy[lang];
   const label: Record<Standing, string> = { under: t.underQuota, within: t.withinQuota, over: t.overQuota, none: t.noQuota };
-  const people = state.emps.filter((employee) => employee.active);
+  const people = state.emps.filter((employee) => employee.active && !isRelief(employee, state.siteId));
   const rows = people.map((employee) => {
-    const count = report.counts[employee.id] ?? 0;
-    return { employee, count, hours: report.hours[employee.id] ?? 0, standing: standing(count, employee.perWeek) };
+    const elsewhere = peerLoad(state, employee.id);
+    const count = (report.counts[employee.id] ?? 0) + elsewhere.shifts;
+    return { employee, count, hours: (report.hours[employee.id] ?? 0) + elsewhere.hours, standing: standing(count, employee.perWeek) };
   });
   const totalShifts = rows.reduce((sum, row) => sum + row.count, 0);
   const totalQuota = people.reduce((sum, employee) => sum + (employee.perWeek || 0), 0);

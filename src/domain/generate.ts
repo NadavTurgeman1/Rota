@@ -1,6 +1,7 @@
 import { gapBetween, shiftKind } from "./time";
 import { ensureSchedule, shiftById } from "./schedule";
 import { dynamicReason, slots, staticReason } from "./rules";
+import { isRelief, reliefAllowed } from "./relief";
 import type { Employee, Reason, RotaState, Slot } from "./types";
 
 export type DroppedLock =
@@ -25,6 +26,7 @@ export function generate(state: RotaState, week: string): GenerateResult {
   const previous = schedule.assign;
   const openSlots = slots(state, week);
   const employees = state.emps.filter((employee) => employee.active);
+  const automatic = employees.filter((employee) => !isRelief(employee, state.siteId));
   const assign: Record<string, string[]> = {};
   const mine: Record<string, Slot[]> = {};
   for (const employee of employees) mine[employee.id] = [];
@@ -44,6 +46,10 @@ export function generate(state: RotaState, week: string): GenerateResult {
       dropped.push({ token, why: "full" });
       continue;
     }
+    if (isRelief(employee, state.siteId) && !reliefAllowed(state, employee)) {
+      dropped.push({ token, why: "rule", reason: { code: "home_schedule" } });
+      continue;
+    }
     const reason = staticReason(state, employee, slot, week) ?? dynamicReason(state, employee, slot, mine[employee.id]);
     if (reason) {
       dropped.push({ token, why: "rule", reason });
@@ -56,7 +62,7 @@ export function generate(state: RotaState, week: string): GenerateResult {
   schedule.locked = kept;
 
   const scarcity = (slot: Slot) =>
-    employees.filter((employee) => !staticReason(state, employee, slot, week)).length / slot.required;
+    automatic.filter((employee) => !staticReason(state, employee, slot, week)).length / slot.required;
   const isNight = (slot: Slot) => {
     const shift = shiftById(state, slot.shiftId);
     return shiftKind(shift.start, shift.end) === "n";
@@ -69,7 +75,7 @@ export function generate(state: RotaState, week: string): GenerateResult {
   }
 
   for (const slot of queue) {
-    const candidates = employees.filter(
+    const candidates = automatic.filter(
       (employee) =>
         !assign[slot.key].includes(employee.id) &&
         !staticReason(state, employee, slot, week) &&
@@ -83,13 +89,13 @@ export function generate(state: RotaState, week: string): GenerateResult {
   }
 
   const rebalance = (slot: Slot): boolean => {
-    for (const employee of employees) {
+    for (const employee of automatic) {
       if (assign[slot.key].includes(employee.id) || staticReason(state, employee, slot, week)) continue;
       for (const held of mine[employee.id].slice()) {
         if (schedule.locked.includes(`${held.key}#${employee.id}`)) continue;
         mine[employee.id] = mine[employee.id].filter((item) => item !== held);
         if (!dynamicReason(state, employee, slot, mine[employee.id])) {
-          const replacement = employees.find(
+          const replacement = automatic.find(
             (other) =>
               other.id !== employee.id &&
               !assign[held.key].includes(other.id) &&
@@ -136,9 +142,25 @@ export function generate(state: RotaState, week: string): GenerateResult {
         value += 5;
       }
     }
-    const chain = tightChain(mine[employee.id], slot, state.biz.minRest);
+    const chain = tightChain(heldWithPeers(employee.id), slot, state.biz.minRest);
     if (chain >= 3) value += 6 + (chain - 3) * 3;
     return value;
+  }
+
+  function heldWithPeers(employeeId: string): Slot[] {
+    const extra = (state.peers?.[employeeId] ?? [])
+      .filter((peer) => peer.weekOffset === 0)
+      .map(
+        (peer): Slot => ({
+          key: peer.key,
+          day: peer.day,
+          shiftId: peer.key,
+          start: peer.start,
+          end: peer.end,
+          required: 1,
+        }),
+      );
+    return [...mine[employeeId], ...extra];
   }
 }
 

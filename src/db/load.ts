@@ -87,7 +87,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
         [siteId],
       ),
       sql.query<EmployeeRow>(
-        `select e.id, e.name, e.contact, e.job_title, e.weekly_shift_quota,
+        `select e.id, e.name, e.contact, e.phone, e.home_site_id, e.job_title, e.weekly_shift_quota,
                 e.max_weekly_hours::float8 as max_weekly_hours, e.active,
                 e.hourly_wage::float8 as hourly_wage,
                 coalesce(p.email, open_invite.email, '') as login_email,
@@ -107,7 +107,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
         [siteId],
       ),
       sql.query<EmployeeRow>(
-        `select e.id, e.name, e.contact, e.job_title, e.weekly_shift_quota,
+        `select e.id, e.name, e.contact, e.phone, e.home_site_id, e.job_title, e.weekly_shift_quota,
                 e.max_weekly_hours::float8 as max_weekly_hours, e.active,
                 e.hourly_wage::float8 as hourly_wage,
                 '' as login_email,

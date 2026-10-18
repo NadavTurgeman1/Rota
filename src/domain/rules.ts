@@ -124,6 +124,10 @@ export function dynamicReason(
   mine: Slot[],
   lang: Lang = "he",
 ): Reason | null {
+  const shiftLimit = state.biz.maxShift > 0 ? state.biz.maxShift : 12;
+  if (slot.end - slot.start > shiftLimit + 1e-9) return { code: "shift_length", cap: shiftLimit };
+  const peers = state.peers?.[employee.id] ?? [];
+  const sameWeek = peers.filter((peer) => peer.weekOffset === 0);
   let hours = slot.end - slot.start;
   let count = 1;
   for (const other of mine) {
@@ -134,6 +138,14 @@ export function dynamicReason(
     const label = slotLabel(state, other, lang);
     if (gap < 0) return { code: "overlap", label };
     if (gap < state.biz.minRest) return { code: "rest", hours: gap, label };
+  }
+  for (const peer of sameWeek) {
+    count += 1;
+    hours += peer.end - peer.start;
+    const gap = gapBetween(slot, peer);
+    const needed = Math.max(state.biz.minRest, peer.minRest);
+    if (gap < 0) return { code: "overlap", label: peer.label };
+    if (gap < needed) return { code: "rest", hours: gap, label: peer.label };
   }
   for (const other of boundaryShifts(state, employee.id)) {
     const gap = gapBetween(slot, other);
@@ -149,16 +161,39 @@ export function dynamicReason(
     if (gap < 0) return { code: "overlap", label };
     if (gap < state.biz.minRest) return { code: "rest", hours: gap, label };
   }
-  const dailyCap = state.biz.maxDayHours || 0;
+  for (const peer of peers) {
+    if (peer.weekOffset === 0) continue;
+    const gap = gapBetween(slot, peer);
+    const needed = Math.max(state.biz.minRest, peer.minRest);
+    const when =
+      peer.weekOffset > 0
+        ? lang === "he"
+          ? "השבוע הבא"
+          : "next week"
+        : lang === "he"
+          ? "השבוע הקודם"
+          : "previous week";
+    if (gap < 0) return { code: "overlap", label: `${peer.label} (${when})` };
+    if (gap < needed) return { code: "rest", hours: gap, label: `${peer.label} (${when})` };
+  }
+  let dailyCap = state.biz.maxDayHours || 0;
+  let cap = Math.min(employee.maxHours || 999, state.biz.maxHours);
+  for (const peer of sameWeek) {
+    if (peer.maxDayHours > 0) dailyCap = dailyCap > 0 ? Math.min(dailyCap, peer.maxDayHours) : peer.maxDayHours;
+    cap = Math.min(cap, peer.maxHours);
+  }
   if (dailyCap > 0) {
     let dayHours = slot.end - slot.start;
     for (const other of mine) {
       if (other.key === slot.key || other.day !== slot.day) continue;
       dayHours += other.end - other.start;
     }
+    for (const peer of sameWeek) {
+      if (peer.day !== slot.day) continue;
+      dayHours += peer.end - peer.start;
+    }
     if (dayHours > dailyCap + 1e-9) return { code: "daily_hours", cap: dailyCap };
   }
-  const cap = Math.min(employee.maxHours || 999, state.biz.maxHours);
   if (hours > cap) return { code: "weekly_hours", cap };
   const agreed = employee.perWeek;
   if (agreed && count > agreed + approvedExtraShifts(state, employee.id)) {
@@ -199,5 +234,13 @@ export function formatReason(reason: Reason, lang: "en" | "he" = "he"): string {
       return lang === "he"
         ? `חורג מ-${reason.agreed} המשמרות השבועיות המוסכמות`
         : `exceeds agreed ${reason.agreed} shifts/week`;
+    case "shift_length":
+      return lang === "he"
+        ? `המשמרת ארוכה מ־${reason.cap} שעות`
+        : `shift is longer than ${reason.cap}h`;
+    case "home_schedule":
+      return lang === "he"
+        ? "הסידור באתר הראשי עדיין לא מוכן לפרסום"
+        : "the primary site's schedule is not ready to publish";
   }
 }

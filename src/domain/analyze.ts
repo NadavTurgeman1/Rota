@@ -1,4 +1,5 @@
 import { laborNotes } from "./labor";
+import { isRelief, peerLoad } from "./relief";
 import { coveredSeats, effectiveSlot } from "./schedule";
 import { approvedExtraShifts, dynamicReason, formatReason, slotLabel, slots, staticReason, type Lang } from "./rules";
 import type { Analysis, Employee, OverQuota, RotaState, UnfilledShift } from "./types";
@@ -56,7 +57,9 @@ export function analyze(state: RotaState, week: string, lang: Lang = "he"): Anal
 
   const under: Analysis["under"] = [];
   for (const employee of employees) {
-    if (!employee.perWeek || counts[employee.id] >= employee.perWeek) continue;
+    if (isRelief(employee, state.siteId)) continue;
+    const assigned = (counts[employee.id] ?? 0) + peerLoad(state, employee.id).shifts;
+    if (!employee.perWeek || assigned >= employee.perWeek) continue;
     const possible = openSlots.filter((slot) => !staticReason(state, employee, slot, week)).length;
     const shortfall =
       possible < employee.perWeek
@@ -70,16 +73,17 @@ export function analyze(state: RotaState, week: string, lang: Lang = "he"): Anal
       employee,
       message:
         lang === "he"
-          ? `ל-${employee.name} שובצו ${counts[employee.id]} מתוך ${employee.perWeek} משמרות מוסכמות.`
-          : `${employee.name} is assigned ${counts[employee.id]} of ${employee.perWeek} agreed shifts.`,
+          ? `ל-${employee.name} שובצו ${assigned} מתוך ${employee.perWeek} משמרות מוסכמות.`
+          : `${employee.name} is assigned ${assigned} of ${employee.perWeek} agreed shifts.`,
       why: shortfall,
     });
   }
 
   const overQuota: OverQuota[] = [];
   for (const employee of employees) {
+    if (isRelief(employee, state.siteId)) continue;
     const agreed = employee.perWeek;
-    const count = counts[employee.id];
+    const count = (counts[employee.id] ?? 0) + peerLoad(state, employee.id).shifts;
     if (!agreed || count <= agreed + approvedExtraShifts(state, employee.id)) continue;
     const extra = count - agreed;
     overQuota.push({

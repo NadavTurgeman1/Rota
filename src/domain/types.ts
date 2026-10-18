@@ -16,6 +16,10 @@ export interface Employee {
   id: string;
   name: string;
   contact: string;
+  /** Phone number. Empty is allowed. Together with `id`, this identifies the person across sites. */
+  phone?: string;
+  /** Primary site. Other linked sites are reinforcement. Omitted until a site is chosen. */
+  homeSiteId?: string;
   role: string;
   /** Comma-separated extra qualifications. */
   quals: string;
@@ -154,6 +158,33 @@ export interface RotaState {
   versions?: Record<string, ScheduleVersion[]>;
   /** Names of deleted employees that published weeks and versions still reference. */
   former?: Record<string, string>;
+  /**
+   * Shifts the same employee id already works at other sites.
+   * Computed for the open week. It is not stored.
+   */
+  peers?: Record<string, PeerShift[]>;
+  /** Site these employees are being viewed from. Computed, not stored. */
+  siteId?: string;
+  /**
+   * Whether each reinforcement employee's primary site week is ready to publish.
+   * Computed for the open week. It is not stored.
+   */
+  homeReady?: Record<string, boolean>;
+}
+
+/** Work at another site of the same business, for the same employee id. */
+export interface PeerShift {
+  key: string;
+  day: number;
+  start: number;
+  end: number;
+  label: string;
+  minRest: number;
+  maxHours: number;
+  maxDayHours: number;
+  maxShift: number;
+  /** `0` is this week. `-7` and `7` count for rest only. */
+  weekOffset: number;
 }
 
 /** One staffed seat group on a weekday. Times are hours from Sunday 00:00. */
@@ -175,7 +206,9 @@ export type Reason =
   | { code: "rest"; hours: number; label: string }
   | { code: "weekly_hours"; cap: number }
   | { code: "daily_hours"; cap: number }
-  | { code: "weekly_shifts"; agreed: number };
+  | { code: "weekly_shifts"; agreed: number }
+  | { code: "shift_length"; cap: number }
+  | { code: "home_schedule" };
 
 export interface Violation {
   key?: string;

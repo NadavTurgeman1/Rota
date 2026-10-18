@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { dayName, type Lang, type RotaState } from "../domain";
+import { isRelief } from "../domain/relief";
 import { confirmDeleteEmployee, copy } from "../i18n/copy";
-import { shiftLabel } from "../schedule/display";
+import { shiftLabel, siteLabel } from "../schedule/display";
 import { agreementCell, availabilityCell, type EmployeePatch } from "../people/edit";
 
 import { NameRail } from "./name-rail";
@@ -20,6 +21,11 @@ export function TeamScreen({
   onWholeAgreement,
   onDelete,
   deletionBlock,
+  sites,
+  siteId,
+  assignedSiteIds,
+  lockedSiteIds,
+  onSites,
 }: {
   state: RotaState;
   lang: Lang;
@@ -34,10 +40,22 @@ export function TeamScreen({
   onDelete: (employeeId: string) => void;
   /** Why the employee cannot be deleted right now, or `null`. */
   deletionBlock: (employeeId: string) => string | null;
+  sites: { id: string; name: string }[];
+  siteId: string;
+  assignedSiteIds: string[];
+  lockedSiteIds: string[];
+  onSites: (employeeId: string, siteIds: string[], homeSiteId: string) => void;
 }) {
   const t = copy[lang];
   const employee = state.emps.find((item) => item.id === selectedId) ?? null;
   const [newName, setNewName] = useState("");
+  const railPerson = (item: (typeof state.emps)[number]) => ({
+    id: item.id,
+    name: item.name,
+    hint: item.active ? item.role : t.inactive,
+  });
+  const mainRoster = state.emps.filter((item) => !isRelief(item, siteId));
+  const reliefRoster = state.emps.filter((item) => isRelief(item, siteId));
 
   return (
     <div className="flex flex-col gap-6">
@@ -48,11 +66,8 @@ export function TeamScreen({
             testId="employee"
             selectedId={employee?.id ?? null}
             onSelect={onSelect}
-            people={state.emps.map((item) => ({
-              id: item.id,
-              name: item.name,
-              hint: item.active ? item.role : t.inactive,
-            }))}
+            people={mainRoster.map(railPerson)}
+            trailing={{ title: t.reliefRoster, people: reliefRoster.map(railPerson) }}
           />
           {canWrite ? (
           <form
@@ -90,6 +105,11 @@ export function TeamScreen({
           onWholeAgreement={onWholeAgreement}
           onDelete={onDelete}
           deletionBlock={deletionBlock(employee.id)}
+          sites={sites}
+          assignedSiteIds={assignedSiteIds}
+          homeSiteId={employee.homeSiteId ?? null}
+          lockedSiteIds={lockedSiteIds}
+          onSites={onSites}
         />
       ) : (
         <p className={`${card} text-sm text-muted`}>{t.pickEmployee}</p>
@@ -110,6 +130,11 @@ function EmployeeCard({
   onWholeAgreement,
   onDelete,
   deletionBlock,
+  sites,
+  assignedSiteIds,
+  homeSiteId,
+  lockedSiteIds,
+  onSites,
 }: {
   state: RotaState;
   lang: Lang;
@@ -121,6 +146,11 @@ function EmployeeCard({
   onWholeAgreement: (employeeId: string, allowed: boolean) => void;
   onDelete: (employeeId: string) => void;
   deletionBlock: string | null;
+  sites: { id: string; name: string }[];
+  assignedSiteIds: string[];
+  homeSiteId: string | null;
+  lockedSiteIds: string[];
+  onSites: (employeeId: string, siteIds: string[], homeSiteId: string) => void;
 }) {
   const t = copy[lang];
   const employee = state.emps.find((item) => item.id === employeeId)!;
@@ -138,6 +168,7 @@ function EmployeeCard({
             onCommit={(name) => onUpdate(employeeId, { name })}
           />
           <TextField label={t.contact} value={employee.contact} onCommit={(contact) => onUpdate(employeeId, { contact })} readOnly={!canEditAgreement} />
+          <TextField label={t.phone} value={employee.phone ?? ""} onCommit={(phone) => onUpdate(employeeId, { phone })} readOnly={!canEditAgreement} testId="employee-phone" />
           <TextField label={t.role} value={employee.role} onCommit={(role) => onUpdate(employeeId, { role })} readOnly={!canEditAgreement} />
           <TextField
             label={t.qualifications}
@@ -178,6 +209,43 @@ function EmployeeCard({
           />
           {employee.active ? t.active : t.inactive}
         </label>
+        {sites.length > 0 ? (
+          <fieldset className="mt-5 border-t border-line pt-5">
+            <legend className="text-sm font-medium text-ink">{t.employeeSites}</legend>
+            <p className="mt-1 text-sm leading-6 text-muted">{t.employeeSitesHint}</p>
+            <div className="mt-3 flex flex-col gap-2">
+              {sites.map((site) => {
+                const checked = assignedSiteIds.includes(site.id);
+                const locked = checked && lockedSiteIds.includes(site.id);
+                const primary = homeSiteId === site.id;
+                const nextIds = checked ? assignedSiteIds.filter((id) => id !== site.id) : [...assignedSiteIds, site.id];
+                const nextHome = nextIds.includes(homeSiteId ?? "") ? (homeSiteId ?? nextIds[0] ?? "") : (nextIds[0] ?? "");
+                return (
+                  <div key={site.id} className="flex items-center gap-3 text-sm">
+                    <input
+                      type="checkbox"
+                      data-testid={`employee-site-${site.id}`}
+                      checked={checked}
+                      disabled={!canEditAgreement || locked}
+                      onChange={() => onSites(employeeId, nextIds, nextHome)}
+                    />
+                    <input
+                      type="radio"
+                      name={`employee-home-${employeeId}`}
+                      data-testid={`employee-home-${site.id}`}
+                      aria-label={t.primarySite}
+                      checked={checked && primary}
+                      disabled={!canEditAgreement || !checked}
+                      onChange={() => onSites(employeeId, assignedSiteIds, site.id)}
+                    />
+                    <span>{siteLabel(site.name, lang)}</span>
+                    {checked ? <span className="text-xs text-muted">{primary ? t.primarySite : t.reliefSite}</span> : null}
+                  </div>
+                );
+              })}
+            </div>
+          </fieldset>
+        ) : null}
         {canEditAgreement ? (
           <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-line pt-5">
             <button
@@ -396,11 +464,13 @@ function TextField({
   value,
   onCommit,
   readOnly = false,
+  testId,
 }: {
   label: string;
   value: string;
   onCommit: (value: string) => void;
   readOnly?: boolean;
+  testId?: string;
 }) {
   const [draft, setDraft] = useState(value);
   useEffect(() => setDraft(value), [value]);
@@ -408,6 +478,7 @@ function TextField({
     <label className={labelClass}>
       <span className={labelText}>{label}</span>
       <input
+        data-testid={testId}
         value={draft}
         readOnly={readOnly}
         onChange={(event) => setDraft(event.target.value)}

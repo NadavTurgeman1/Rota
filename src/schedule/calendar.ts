@@ -11,6 +11,8 @@ export interface CalendarShift {
   start: string;
   end: string;
   id: string;
+  /** Overrides the shared calendar title, so each site can name its own events. */
+  title?: string;
 }
 
 /** This employee's shifts on the published week currently open. */
@@ -73,7 +75,7 @@ export function shiftsIcs(input: { title: string; week: string; employeeId: stri
       `UID:${input.employeeId}-${day}-${shift.id}@rota`,
       `DTSTART:${stamp(day, shift.start)}`,
       `DTEND:${stamp(endDay, shift.end)}`,
-      fold(`SUMMARY:${escapeText(input.title)}`),
+      fold(`SUMMARY:${escapeText(shift.title ?? input.title)}`),
       "END:VEVENT",
     ];
     return lines.join("\r\n");

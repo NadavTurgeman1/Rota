@@ -28,11 +28,20 @@ import {
   type Schedule,
   type Slot,
 } from "../domain";
+import { isRelief, reliefAllowed } from "../domain/relief";
 import type { Actor } from "../people/edit";
 
 export type Proposal =
   | { kind: "coverage"; option: CoverageOption }
-  | { kind: "extra"; option: ExtraShiftOption };
+  | { kind: "extra"; option: ExtraShiftOption }
+  | { kind: "relief"; employeeId: string; name: string };
+
+export interface ReliefChoice {
+  employeeId: string;
+  name: string;
+  /** The primary site's week is not ready to publish, so the seat cannot be filled yet. */
+  held: boolean;
+}
 
 export interface PublishCheck {
   ready: boolean;
@@ -170,6 +179,7 @@ export function addEmployee(state: RotaState, slotKey: string, employeeId: strin
   if (!state.emps.some((employee) => employee.id === employeeId)) return state;
   const assigned = state.sched[state.week]?.assign[slotKey] ?? [];
   if (assigned.includes(employeeId)) return state;
+  if (assignmentBlocked(state, slotKey, employeeId)) return state;
   return mutate(state, (draft) => {
     const schedule = ensureSchedule(draft, draft.week);
     schedule.assign[slotKey] = [...(schedule.assign[slotKey] ?? []), employeeId];
@@ -195,6 +205,7 @@ export function moveEmployee(state: RotaState, fromKey: string, employeeId: stri
   if (!from.includes(employeeId)) return state;
   const to = state.sched[state.week]?.assign[toKey] ?? [];
   if (to.includes(employeeId)) return state;
+  if (assignmentBlocked(state, toKey, employeeId, fromKey)) return state;
   return mutate(state, (draft) => {
     const schedule = ensureSchedule(draft, draft.week);
     schedule.assign[fromKey] = (schedule.assign[fromKey] ?? []).filter((id) => id !== employeeId);
@@ -220,9 +231,25 @@ export function swapInSlot(state: RotaState, slotKey: string, employeeId: string
   });
 }
 
+/** Rest, constraints, hours, and shift length, including the same employee id at other sites. */
+function assignmentBlocked(state: RotaState, slotKey: string, employeeId: string, exceptKey?: string): boolean {
+  const slot = slots(state, state.week).find((item) => item.key === slotKey);
+  const employee = state.emps.find((item) => item.id === employeeId);
+  if (!slot || !employee) return true;
+  if (!reliefAllowed(state, employee)) return true;
+  if (staticReason(state, employee, slot, state.week)) return true;
+  const schedule = state.sched[state.week];
+  const mine = slots(state, state.week)
+    .filter((open) => open.key !== exceptKey && (schedule?.assign[open.key] ?? []).includes(employeeId))
+    .map((open) => (schedule ? effectiveSlot(schedule, open, employeeId) : open));
+  const reason = dynamicReason(state, employee, slot, mine);
+  return reason !== null && reason.code !== "weekly_shifts";
+}
+
 export function placementWarning(state: RotaState, slot: Slot, employeeId: string, lang: Lang): string | null {
   const employee = state.emps.find((item) => item.id === employeeId);
   if (!employee) return null;
+  if (!reliefAllowed(state, employee)) return formatReason({ code: "home_schedule" }, lang);
   const blocked = staticReason(state, employee, slot, state.week);
   if (blocked) return formatReason(blocked, lang);
   const schedule = state.sched[state.week];
@@ -234,10 +261,38 @@ export function placementWarning(state: RotaState, slot: Slot, employeeId: strin
 }
 
 export function proposalsFor(state: RotaState, slot: Slot): Proposal[] {
-  return [
+  const regular: Proposal[] = [
     ...suggestExtra(state, state.week, slot).map((option) => ({ kind: "extra" as const, option })),
     ...suggest(state, state.week, slot).map((option) => ({ kind: "coverage" as const, option })),
   ];
+  if (regular.length > 0) return regular;
+  return reliefChoices(state, slot)
+    .filter((choice) => !choice.held)
+    .map((choice) => ({ kind: "relief" as const, employeeId: choice.employeeId, name: choice.name }));
+}
+
+/** Reinforcement staff who could fill a hole nobody else can. They are never placed automatically. */
+export function reliefChoices(state: RotaState, slot: Slot): ReliefChoice[] {
+  if (suggestExtra(state, state.week, slot).length > 0 || suggest(state, state.week, slot).length > 0) return [];
+  const schedule = state.sched[state.week];
+  const choices: ReliefChoice[] = [];
+  for (const employee of state.emps) {
+    if (!employee.active || !isRelief(employee, state.siteId)) continue;
+    if ((schedule?.assign[slot.key] ?? []).includes(employee.id)) continue;
+    if (staticReason(state, employee, slot, state.week)) continue;
+    const mine = slots(state, state.week)
+      .filter((open) => (schedule?.assign[open.key] ?? []).includes(employee.id))
+      .map((open) => (schedule ? effectiveSlot(schedule, open, employee.id) : open));
+    const reason = dynamicReason(state, employee, slot, mine);
+    if (reason && reason.code !== "weekly_shifts") continue;
+    choices.push({
+      employeeId: employee.id,
+      name: employee.name,
+      held: !reliefAllowed(state, employee),
+    });
+  }
+  choices.sort((left, right) => left.name.localeCompare(right.name, "he"));
+  return choices;
 }
 
 /** Hours from local Sunday 00:00 of `week` until `now`. */
@@ -285,6 +340,7 @@ export function approveProposal(state: RotaState, slot: Slot, index: number): Ro
   if (isPublished(state)) return state;
   const proposal = proposalsFor(state, slot)[index];
   if (!proposal) return state;
+  if (proposal.kind === "relief") return addEmployee(state, slot.key, proposal.employeeId);
   return mutate(state, (draft) => {
     const schedule = ensureSchedule(draft, draft.week);
     if (proposal.kind === "extra") applyExtra(schedule, proposal.option);

@@ -77,7 +77,9 @@ describe("saving a site", () => {
     const db = await openTestDatabase();
     await db.exec(
       `insert into auth.users (id) values ('${manager}');
-       insert into public.memberships (org_id, user_id, role) values ('${sentinel}', '${manager}', 'manager');`,
+       insert into public.memberships (org_id, user_id, role) values ('${sentinel}', '${manager}', 'manager');
+       insert into public.site_memberships (org_id, site_id, user_id, role)
+       values ('${sentinel}', '${headquarters}', '${manager}', 'manager');`,
     );
     const sql = client(db);
     const state = await loadSiteWeek(sql, headquarters, week);
@@ -87,7 +89,7 @@ describe("saving a site", () => {
     const nextWeek = "2026-10-18";
     const draft: RotaState = {
       ...state,
-      emps: state.emps.map((employee) => (employee.id === person.id ? { ...employee, active: false } : employee)),
+      emps: state.emps.map((employee) => (employee.id === person.id ? { ...employee, active: false, phone: "0501234567" } : employee)),
       sched: {
         ...state.sched,
         [nextWeek]: { assign: { [`0|${morning.id}`]: [person.id] }, locked: [], status: "draft" },
@@ -101,6 +103,7 @@ describe("saving a site", () => {
     const loaded = await loadSiteWeek(sql, headquarters, nextWeek);
     const inactive = loaded.emps.find((employee) => employee.id === person.id);
     expect(inactive?.active).toBe(false);
+    expect(inactive?.phone).toBe("0501234567");
     expect(inactive?.grid).toEqual(person.grid);
     expect(loaded.former?.[person.id]).toBeUndefined();
     expect(loaded.sched[nextWeek]?.status).toBe("draft");
@@ -112,6 +115,8 @@ describe("saving a site", () => {
     await db.exec(
       `insert into auth.users (id) values ('${manager}');
        insert into public.memberships (org_id, user_id, role) values ('${sentinel}', '${manager}', 'manager');
+       insert into public.site_memberships (org_id, site_id, user_id, role)
+       values ('${sentinel}', '${headquarters}', '${manager}', 'manager');
        insert into public.organizations (id, name, slug) values ('${north}', 'North Gate', 'north-gate');`,
     );
     const sql = client(db);

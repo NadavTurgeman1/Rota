@@ -10,6 +10,7 @@ import { normalizeGrid } from "./availability";
 import { listMemberships, resolveActiveOrg, type Membership, type OrgRole } from "../auth/session";
 import { orgSlug } from "./slug";
 import { deleteOrphanEmployees, SaveError, saveSite } from "./save";
+import { ensurePrimarySites } from "../people/sites";
 import { loadSiteWeek } from "./load";
 import type { SqlClient } from "./types";
 
@@ -89,7 +90,7 @@ export async function loadStoredWorkspace(sql: SqlClient, week: string): Promise
   );
   return {
     org: { id: org.id, name: org.name, type: org.kind },
-    sites: loaded,
+    sites: ensurePrimarySites(loaded),
     activeSiteId: loaded[0]?.id ?? "",
     users,
     selfEmployeeId: self[0]?.id ?? null,

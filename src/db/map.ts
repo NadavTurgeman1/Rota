@@ -52,6 +52,8 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
         id: employee.id,
         name: employee.name,
         contact: employee.contact,
+        phone: employee.phone ?? "",
+        ...(employee.home_site_id ? { homeSiteId: employee.home_site_id } : {}),
         role: employee.job_title,
         quals: quals.join(","),
         perWeek: Number(employee.weekly_shift_quota),

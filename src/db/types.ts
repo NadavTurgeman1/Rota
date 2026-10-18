@@ -39,6 +39,8 @@ export interface EmployeeRow {
   id: string;
   name: string;
   contact: string;
+  phone: string;
+  home_site_id: string | null;
   job_title: string;
   weekly_shift_quota: number;
   max_weekly_hours: number | null;

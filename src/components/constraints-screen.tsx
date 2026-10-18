@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { addDays, type Lang, type RotaState } from "../domain";
+import { isRelief } from "../domain/relief";
 import { copy } from "../i18n/copy";
 import type { LineOverride } from "../parser";
 import { availabilitySubmitted, blockLimitOf, countBlocks, gridWithCell, openAvailabilityGrid, withinBlockLimit } from "../people/edit";
@@ -12,6 +13,7 @@ import { button, card, cardTitle, pill } from "./ui";
 export function ConstraintsScreen({
   state,
   lang,
+  siteId,
   canWrite,
   aiEnabled,
   requests,
@@ -23,6 +25,7 @@ export function ConstraintsScreen({
 }: {
   state: RotaState;
   lang: Lang;
+  siteId: string;
   canWrite: boolean;
   aiEnabled: boolean;
   requests: StaffRequest[];
@@ -33,11 +36,14 @@ export function ConstraintsScreen({
   onDecide: (requestId: string, approve: boolean) => void;
 }) {
   const t = copy[lang];
-  const people = [...state.emps.filter((employee) => employee.active), ...state.emps.filter((employee) => !employee.active)];
+  const ordered = [...state.emps.filter((employee) => employee.active), ...state.emps.filter((employee) => !employee.active)];
+  const people = ordered.filter((employee) => !isRelief(employee, siteId));
+  const relief = ordered.filter((employee) => isRelief(employee, siteId));
+  const everyone = [...people, ...relief];
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [refused, setRefused] = useState(false);
-  const selected = people.find((employee) => employee.id === selectedId) ?? null;
-  const submitted = people.filter((employee) => availabilitySubmitted(state, employee.id)).length;
+  const selected = everyone.find((employee) => employee.id === selectedId) ?? null;
+  const submitted = everyone.filter((employee) => availabilitySubmitted(state, employee.id)).length;
   const pending = requests.filter((request) => request.week === state.week);
 
   return (
@@ -59,13 +65,24 @@ export function ConstraintsScreen({
               availabilitySubmitted(state, item.id) ||
               requests.some((request) => request.employeeId === item.id && request.week === state.week),
           }))}
+          trailing={{
+            title: t.reliefRoster,
+            people: relief.map((item) => ({
+              id: item.id,
+              name: item.name,
+              hint: item.active ? item.role : t.inactive,
+              submitted:
+                availabilitySubmitted(state, item.id) ||
+                requests.some((request) => request.employeeId === item.id && request.week === state.week),
+            })),
+          }}
         />
       </section>
       <div className="flex min-w-0 flex-col gap-6">
         {canWrite ? <ConstraintPaste state={state} lang={lang} aiEnabled={aiEnabled} onApply={onApply} /> : null}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted">
           <span data-testid="submitted-count" className="font-semibold tabular-nums text-ink">
-            {submitted}/{people.length} {t.submittedCount}
+            {submitted}/{everyone.length} {t.submittedCount}
           </span>
           <span>{t.availabilityLocked}</span>
           <ul className="flex flex-wrap gap-2">
@@ -107,8 +124,8 @@ export function ConstraintsScreen({
             </section>
           );
         })}
-        {people.length === 0 ? <p className={`${card} text-sm text-muted`}>{t.noEmployees}</p> : null}
-        {people.length > 0 && !selected ? <p className={`${card} text-sm text-muted`}>{t.pickEmployee}</p> : null}
+        {everyone.length === 0 ? <p className={`${card} text-sm text-muted`}>{t.noEmployees}</p> : null}
+        {everyone.length > 0 && !selected ? <p className={`${card} text-sm text-muted`}>{t.pickEmployee}</p> : null}
         {selected ? (
           <section data-testid={`availability-card-${selected.name}`} className={card}>
             <div className="flex flex-wrap items-center gap-2">

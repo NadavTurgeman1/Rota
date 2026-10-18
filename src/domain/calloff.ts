@@ -1,6 +1,7 @@
 import { addDays, shiftKind } from "./time";
 import { effectiveSlot, shiftById } from "./schedule";
 import { dynamicReason, slots, staticReason } from "./rules";
+import { isRelief, reliefAllowed } from "./relief";
 import { applyCoverage, applyExtra, suggest, suggestExtra } from "./suggest";
 import { markDearer, wageRank } from "./wage";
 import type { CoverageOption, Employee, ExtraShiftOption, Reason, RotaState, Schedule, Slot } from "./types";
@@ -141,13 +142,12 @@ export function planCallOff(state: RotaState, slot: Slot): CallOffPlan {
   const assigned = new Set(schedule.assign[slot.key] ?? []);
   const replacements: ReplacementCandidate[] = [];
   const rejected: RejectedCandidate[] = [];
-
-  for (const employee of state.emps) {
-    if (assigned.has(employee.id) || blocked.has(employee.id)) continue;
+  const deferred: Employee[] = [];
+  const consider = (employee: Employee, ignoreWeekly: boolean) => {
     const reason = blockedReason(state, week, employee, slot);
-    if (reason) {
+    if (reason && !(ignoreWeekly && reason.code === "weekly_shifts")) {
       rejected.push({ employeeId: employee.id, name: employee.name, reason });
-      continue;
+      return;
     }
     const mine = heldShifts(state, week, employee.id);
     const hours = mine.reduce((sum, item) => sum + item.end - item.start, 0) + (slot.end - slot.start);
@@ -163,6 +163,24 @@ export function planCallOff(state: RotaState, slot: Slot): CallOffPlan {
       consecutiveNights: consecutiveNights(state, week, employee.id, slot),
       wage: employee.hourlyWage ?? 0,
     });
+  };
+
+  for (const employee of state.emps) {
+    if (assigned.has(employee.id) || blocked.has(employee.id)) continue;
+    if (isRelief(employee, state.siteId)) {
+      deferred.push(employee);
+      continue;
+    }
+    consider(employee, false);
+  }
+  if (replacements.length === 0) {
+    for (const employee of deferred) {
+      if (!reliefAllowed(state, employee)) {
+        rejected.push({ employeeId: employee.id, name: employee.name, reason: { code: "home_schedule" } });
+        continue;
+      }
+      consider(employee, true);
+    }
   }
 
   replacements.sort(

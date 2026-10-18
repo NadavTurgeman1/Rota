@@ -11,7 +11,7 @@ import {
 } from "../domain";
 import { copy } from "../i18n/copy";
 import { localizeShiftNames, proposalText, replacementText, slotTitle, splitText } from "../schedule/display";
-import { proposalsFor } from "../schedule/edit";
+import { proposalsFor, reliefChoices } from "../schedule/edit";
 import { jsonAuthHeaders } from "../supabase/browser";
 import { button as buttons, cardTitle, surface } from "./ui";
 
@@ -98,6 +98,15 @@ export function IssuesPanel({
                       ))}
                     </div>
                   )}
+                  {manager && !published
+                    ? reliefChoices(state, item.slot)
+                        .filter((choice) => choice.held)
+                        .map((choice) => (
+                          <p key={choice.employeeId} data-testid={`relief-held-${choice.employeeId}`} className="mt-2 text-muted">
+                            {t.reliefHeld.replace("{name}", choice.name)}
+                          </p>
+                        ))
+                    : null}
                   {manager && published ? (
                     <CallOffChoices
                       state={state}
