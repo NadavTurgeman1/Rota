@@ -23,15 +23,24 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
   try {
     await sql.query(
     `insert into public.sites (
-       id, org_id, name, min_rest_hours, max_weekly_hours, max_shift_hours, max_day_hours, assume_available
-     ) values ($1, $2, $3, $4, $5, $6, $7, $8)
+       id, org_id, name, min_rest_hours, max_weekly_hours, max_shift_hours, max_day_hours, assume_available,
+       staff_access, constraint_opens_day, constraint_closes_day, constraint_opens, constraint_closes,
+       constraint_block_limit, constraint_max_blocks
+     ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::time, $13::time, $14, $15)
      on conflict (id) do update set
        name = excluded.name,
        min_rest_hours = excluded.min_rest_hours,
        max_weekly_hours = excluded.max_weekly_hours,
        max_shift_hours = excluded.max_shift_hours,
        max_day_hours = excluded.max_day_hours,
-       assume_available = excluded.assume_available
+       assume_available = excluded.assume_available,
+       staff_access = excluded.staff_access,
+       constraint_opens_day = excluded.constraint_opens_day,
+       constraint_closes_day = excluded.constraint_closes_day,
+       constraint_opens = excluded.constraint_opens,
+       constraint_closes = excluded.constraint_closes,
+       constraint_block_limit = excluded.constraint_block_limit,
+       constraint_max_blocks = excluded.constraint_max_blocks
      where public.sites.org_id = excluded.org_id`,
       [
         siteId,
@@ -42,6 +51,13 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
         hours(state.biz.maxShift),
         hours(state.biz.maxDayHours ?? 0),
         state.biz.assume,
+        state.biz.staffAccess !== false,
+        state.biz.constraintStartDay ?? 0,
+        state.biz.constraintEndDay ?? 6,
+        state.biz.constraintOpens ?? "00:00",
+        state.biz.constraintCloses ?? "23:59",
+        state.biz.blockLimit === true,
+        Math.max(0, Math.floor(state.biz.maxBlocks ?? 0)),
       ],
     );
   } catch (error) {
@@ -105,18 +121,19 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
   await writeRows(
     sql,
     `insert into public.employees (
-       id, org_id, name, contact, job_title, weekly_shift_quota, max_weekly_hours, active
+       id, org_id, name, contact, job_title, weekly_shift_quota, max_weekly_hours, active, hourly_wage
      )
-     select id, $1, name, contact, job_title, quota, max_hours, active <> 0
-     from unnest($2::uuid[], $3::text[], $4::text[], $5::text[], $6::int[], $7::numeric[], $8::int[])
-       as t(id, name, contact, job_title, quota, max_hours, active)
+     select id, $1, name, contact, job_title, quota, max_hours, active <> 0, wage
+     from unnest($2::uuid[], $3::text[], $4::text[], $5::text[], $6::int[], $7::numeric[], $8::int[], $9::numeric[])
+       as t(id, name, contact, job_title, quota, max_hours, active, wage)
      on conflict (id) do update set
        name = excluded.name,
        contact = excluded.contact,
        job_title = excluded.job_title,
        weekly_shift_quota = excluded.weekly_shift_quota,
        max_weekly_hours = excluded.max_weekly_hours,
-       active = excluded.active
+       active = excluded.active,
+       hourly_wage = excluded.hourly_wage
      where public.employees.org_id = excluded.org_id`,
     [orgId],
     [
@@ -128,6 +145,7 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
       people.map((person) => person.maxHours),
       // A boolean array is sent as one boolean, so the active flag travels as 0 or 1.
       people.map((person) => (person.active ? 1 : 0)),
+      people.map((person) => person.hourlyWage),
     ],
   );
   const rosterIds = people.filter((person) => person.roster).map((person) => person.id);
@@ -337,6 +355,7 @@ interface KeptPerson {
   role: string;
   perWeek: number;
   maxHours: number | null;
+  hourlyWage: number;
   active: boolean;
   /** People on the team stay linked to the site. Deleted people are names on old weeks only. */
   roster: boolean;
@@ -359,6 +378,7 @@ function peopleToKeep(state: RotaState): KeptPerson[] {
       role: employee.role ?? "",
       perWeek: Math.max(0, Math.trunc(perWeek)),
       maxHours: employee.maxHours > 0 ? hours(employee.maxHours) : null,
+      hourlyWage: Math.max(0, Number(employee.hourlyWage) || 0),
       active: employee.active !== false,
       roster: true,
       quals: qualificationNames(employee.quals),
@@ -386,6 +406,7 @@ function peopleToKeep(state: RotaState): KeptPerson[] {
       role: "",
       perWeek: 0,
       maxHours: null,
+      hourlyWage: 0,
       active: false,
       roster: false,
       quals: [],

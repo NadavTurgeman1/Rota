@@ -1,6 +1,11 @@
 import { coveredSeats, effectiveSlot } from "./schedule";
 import { approvedExtraShifts, dynamicReason, slots, staticReason } from "./rules";
+import { markDearer, wageRank } from "./wage";
 import type { CoverageOption, ExtraShiftOption, RotaState, Schedule, Slot } from "./types";
+
+function personWage(state: RotaState, employeeId: string): number {
+  return state.emps.find((employee) => employee.id === employeeId)?.hourlyWage ?? 0;
+}
 
 /**
  * Same-day repair for exactly one open seat across three back-to-back shifts.
@@ -96,7 +101,13 @@ export function suggest(state: RotaState, week: string, target: Slot): CoverageO
     }
   };
   search(0);
-  found.sort((a, b) => a.moves - b.moves);
+  const coverCost = (result: { pick: number[] }) => {
+    const wages = people
+      .filter((_, index) => roles[result.pick[index]]?.extend)
+      .map((employeeId) => wageRank(personWage(state, employeeId)));
+    return wages.length ? Math.max(...wages) : Number.POSITIVE_INFINITY;
+  };
+  found.sort((a, b) => coverCost(a) - coverCost(b) || a.moves - b.moves);
 
   const seen = new Set<string>();
   const options: CoverageOption[] = [];
@@ -117,20 +128,24 @@ export function suggest(state: RotaState, week: string, target: Slot): CoverageO
           end,
           from: origin(employeeId),
           extended: Boolean(role.extend),
+          wage: personWage(state, employeeId),
         };
       })
       .sort((a, b) => a.start - b.start);
     const nextAssign: Record<string, string[]> = {};
     for (const slot of daySlots) nextAssign[slot.key] = [];
     for (const part of parts) nextAssign[part.slotKey].push(part.id);
+    const ext = parts.filter((part) => part.extended);
+    const wages = ext.map((part) => part.wage ?? 0).filter((wage) => wage > 0);
     options.push({
       parts,
       assign: nextAssign,
       cover: second.key,
-      ext: parts.filter((part) => part.extended),
+      ext,
+      wage: wages.length ? Math.max(...wages) : 0,
     });
-    if (options.length === 2) break;
   }
+  markDearer(options, (option) => option.wage ?? 0);
   return options;
 }
 
@@ -163,9 +178,12 @@ export function suggestExtra(state: RotaState, week: string, slot: Slot): ExtraS
       n: mine.length + 1,
       agreed: employee.perWeek,
       load: mine.length,
+      wage: employee.hourlyWage ?? 0,
     });
   }
-  return options.sort((a, b) => a.load - b.load).slice(0, 3);
+  options.sort((a, b) => wageRank(a.wage) - wageRank(b.wage) || a.load - b.load);
+  markDearer(options, (option) => option.wage ?? 0);
+  return options;
 }
 
 export function applyCoverage(schedule: Schedule, option: CoverageOption): void {

@@ -19,6 +19,7 @@ function slotActions(props: {
   canCallOff: boolean;
   nowHours: number | null;
   selectedToken: string | null;
+  focusEmployeeId: string | null;
   onAdd: (slotKey: string, employeeId: string) => void;
   onRemove: (slotKey: string, employeeId: string) => void;
   onMove: (fromKey: string, employeeId: string, toKey: string) => void;
@@ -37,6 +38,7 @@ export function WeekBoard({
   canCallOff,
   nowHours,
   selectedToken,
+  focusEmployeeId = null,
   onAdd,
   onRemove,
   onMove,
@@ -51,6 +53,7 @@ export function WeekBoard({
   canCallOff: boolean;
   nowHours: number | null;
   selectedToken: string | null;
+  focusEmployeeId?: string | null;
   onAdd: (slotKey: string, employeeId: string) => void;
   onRemove: (slotKey: string, employeeId: string) => void;
   onMove: (fromKey: string, employeeId: string, toKey: string) => void;
@@ -66,6 +69,7 @@ export function WeekBoard({
     canCallOff,
     nowHours,
     selectedToken,
+    focusEmployeeId,
     onAdd,
     onRemove,
     onMove,

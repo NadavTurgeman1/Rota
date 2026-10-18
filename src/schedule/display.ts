@@ -73,20 +73,31 @@ export function pngFileName(siteName: string, week: string): string {
   return `${safe}-${dotDate(week)}-${dotDate(addDays(week, 6))}.png`;
 }
 
+function wageNote(wage: number | undefined, dearerThan: number | undefined, lang: Lang): string {
+  if (!wage || wage <= 0) return lang === "he" ? " · שכר לא הוגדר" : " · wage not set";
+  const amount = Number.isInteger(wage) ? String(wage) : wage.toFixed(2);
+  const base = lang === "he" ? ` · ${amount} ₪ לשעה` : ` · ${amount} ₪/hour`;
+  if (!dearerThan || wage <= dearerThan) return base;
+  const cheaper = Number.isInteger(dearerThan) ? String(dearerThan) : dearerThan.toFixed(2);
+  return base + (lang === "he" ? ` · יקר יותר מ־${cheaper} ₪` : ` · dearer than ${cheaper} ₪`);
+}
+
 export function proposalText(proposal: Proposal, lang: Lang): string {
   if (proposal.kind === "extra") {
     const option = proposal.option;
+    const wage = wageNote(option.wage, option.dearerThan, lang);
     if (option.n > option.agreed) {
       return lang === "he"
-        ? `${option.name}: משמרת ${option.n} מעבר להסכם של ${option.agreed}`
-        : `${option.name}: shift ${option.n} beyond the agreed ${option.agreed}`;
+        ? `${option.name}: משמרת ${option.n} מעבר להסכם של ${option.agreed}${wage}`
+        : `${option.name}: shift ${option.n} beyond the agreed ${option.agreed}${wage}`;
     }
-    return lang === "he" ? `${option.name}: משמרת נוספת` : `${option.name}: extra shift`;
+    return lang === "he" ? `${option.name}: משמרת נוספת${wage}` : `${option.name}: extra shift${wage}`;
   }
   const parts = proposal.option.ext
-    .map((part) => `${part.name} ${clockLabel(part.start)}–${clockLabel(part.end)}`)
+    .map((part) => `${part.name} ${clockLabel(part.start)}–${clockLabel(part.end)}${wageNote(part.wage, undefined, lang)}`)
     .join(", ");
-  return lang === "he" ? `הארכת משמרות (${parts})` : `Extend shifts (${parts})`;
+  const dearer = wageNote(proposal.option.wage, proposal.option.dearerThan, lang);
+  return lang === "he" ? `הארכת משמרות (${parts})${proposal.option.dearerThan ? dearer : ""}` : `Extend shifts (${parts})${proposal.option.dearerThan ? dearer : ""}`;
 }
 
 export function replacementText(candidate: ReplacementCandidate, lang: Lang): string {
@@ -99,12 +110,12 @@ export function replacementText(candidate: ReplacementCandidate, lang: Lang): st
         : ` · ${candidate.consecutiveNights} nights in a row`
       : "";
   const preference = candidate.prefers ? (lang === "he" ? " · מעדיף" : " · preferred") : "";
-  return `${candidate.name} · ${quota} · ${hours}h${preference}${nights}`;
+  return `${candidate.name} · ${quota} · ${hours}h${preference}${nights}${wageNote(candidate.wage, candidate.dearerThan, lang)}`;
 }
 
 export function splitText(option: CoverageOption, lang: Lang): string {
   const parts = option.ext
-    .map((part) => `${part.name} ${clockLabel(part.start)}–${clockLabel(part.end)}`)
+    .map((part) => `${part.name} ${clockLabel(part.start)}–${clockLabel(part.end)}${wageNote(part.wage, undefined, lang)}`)
     .join(", ");
   return lang === "he" ? `חלוקת המשמרת (${parts})` : `Split the shift (${parts})`;
 }

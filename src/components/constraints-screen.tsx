@@ -1,10 +1,12 @@
-import type { Lang, RotaState } from "../domain";
+import { useState } from "react";
+import { addDays, type Lang, type RotaState } from "../domain";
 import { copy } from "../i18n/copy";
 import type { LineOverride } from "../parser";
-import { availabilitySubmitted } from "../people/edit";
+import { availabilitySubmitted, blockLimitOf, countBlocks, gridWithCell, openAvailabilityGrid, withinBlockLimit } from "../people/edit";
+import type { StaffRequest } from "../workspace/workspace";
 import { ConstraintPaste } from "./constraint-paste";
+import { NameRail } from "./name-rail";
 import { WeekGrid } from "./team-screen";
-
 import { button, card, cardTitle, pill } from "./ui";
 
 export function ConstraintsScreen({
@@ -12,70 +14,183 @@ export function ConstraintsScreen({
   lang,
   canWrite,
   aiEnabled,
+  requests,
   onAvailability,
+  onWholeAvailability,
   onCopy,
   onApply,
+  onDecide,
 }: {
   state: RotaState;
   lang: Lang;
   canWrite: boolean;
   aiEnabled: boolean;
+  requests: StaffRequest[];
   onAvailability: (employeeId: string, day: number, shiftId: string, available: boolean) => void;
+  onWholeAvailability: (employeeId: string, available: boolean) => void;
   onCopy: (employeeId: string) => void;
   onApply: (raw: string, overrides: LineOverride[]) => void;
+  onDecide: (requestId: string, approve: boolean) => void;
 }) {
   const t = copy[lang];
   const people = [...state.emps.filter((employee) => employee.active), ...state.emps.filter((employee) => !employee.active)];
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [refused, setRefused] = useState(false);
+  const selected = people.find((employee) => employee.id === selectedId) ?? null;
   const submitted = people.filter((employee) => availabilitySubmitted(state, employee.id)).length;
+  const pending = requests.filter((request) => request.week === state.week);
 
   return (
-    <div data-testid="constraints-screen" className="flex flex-col gap-6">
-      {canWrite ? <ConstraintPaste state={state} lang={lang} aiEnabled={aiEnabled} onApply={onApply} /> : null}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted">
-        <span data-testid="submitted-count" className="font-semibold tabular-nums text-ink">
-          {submitted}/{people.length} {t.submittedCount}
-        </span>
-        <span>{t.availabilityLocked}</span>
-        <ul className="flex flex-wrap gap-2">
-          <li className={`${pill} bg-brand-soft text-ink`}>{t.availableWeek}</li>
-          <li className={`${pill} bg-danger-soft text-danger-text`}>{t.unavailableWeek}</li>
-          <li className={`${pill} border border-line bg-well text-ink`}>{t.agreementForbids}</li>
-          <li className={`${pill} bg-well-strong text-ink`}>{t.siteClosed}</li>
-        </ul>
-      </div>
-      {people.length === 0 ? <p className={`${card} text-sm text-muted`}>{t.noEmployees}</p> : null}
-      {people.map((employee) => {
-        const done = availabilitySubmitted(state, employee.id);
-        const editable = canWrite;
-        return (
-          <section key={employee.id} data-testid={`availability-card-${employee.name}`} className={card}>
+    <div data-testid="constraints-screen" className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]">
+      <section className="rounded-2xl border border-line bg-card p-2 shadow-card">
+        <NameRail
+          lang={lang}
+          testId="roster"
+          selectedId={selected?.id ?? null}
+          onSelect={(id) => {
+            setRefused(false);
+            setSelectedId((current) => (current === id ? null : id));
+          }}
+          people={people.map((item) => ({
+            id: item.id,
+            name: item.name,
+            hint: item.active ? item.role : t.inactive,
+            submitted:
+              availabilitySubmitted(state, item.id) ||
+              requests.some((request) => request.employeeId === item.id && request.week === state.week),
+          }))}
+        />
+      </section>
+      <div className="flex min-w-0 flex-col gap-6">
+        {canWrite ? <ConstraintPaste state={state} lang={lang} aiEnabled={aiEnabled} onApply={onApply} /> : null}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted">
+          <span data-testid="submitted-count" className="font-semibold tabular-nums text-ink">
+            {submitted}/{people.length} {t.submittedCount}
+          </span>
+          <span>{t.availabilityLocked}</span>
+          <ul className="flex flex-wrap gap-2">
+            <li className={`${pill} bg-brand-soft text-ink`}>{t.availableWeek}</li>
+            <li className={`${pill} bg-danger-soft text-danger-text`}>{t.unavailableWeek}</li>
+            <li className={`${pill} border border-line bg-well text-ink`}>{t.agreementForbids}</li>
+            <li className={`${pill} bg-well-strong text-ink`}>{t.siteClosed}</li>
+          </ul>
+        </div>
+        {pending.map((request) => {
+          const person = state.emps.find((employee) => employee.id === request.employeeId);
+          if (!person) return null;
+          const preview: RotaState = {
+            ...state,
+            avail: {
+              ...state.avail,
+              [request.week]: { ...state.avail[request.week], [request.employeeId]: request.shifts },
+            },
+          };
+          return (
+            <section key={request.id} data-testid={`request-${person.name}`} className={card}>
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 className={cardTitle}>
+                  {t.staffRequestTitle} · {person.name}
+                </h2>
+                <span className={`${pill} bg-well text-muted`}>{t.staffPending}</span>
+                {canWrite ? (
+                  <div className="ms-auto flex gap-2">
+                    <button type="button" data-testid={`approve-request-${person.name}`} className={button.primary} onClick={() => onDecide(request.id, true)}>
+                      {t.approveRequest}
+                    </button>
+                    <button type="button" data-testid={`reject-request-${person.name}`} className={button.quiet} onClick={() => onDecide(request.id, false)}>
+                      {t.rejectRequest}
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+              <WeekGrid state={preview} lang={lang} employeeId={person.id} mode="availability" editable={false} onToggle={() => undefined} />
+            </section>
+          );
+        })}
+        {people.length === 0 ? <p className={`${card} text-sm text-muted`}>{t.noEmployees}</p> : null}
+        {people.length > 0 && !selected ? <p className={`${card} text-sm text-muted`}>{t.pickEmployee}</p> : null}
+        {selected ? (
+          <section data-testid={`availability-card-${selected.name}`} className={card}>
             <div className="flex flex-wrap items-center gap-2">
-              <h2 className={cardTitle}>{employee.name}</h2>
-              <span className={`${pill} ${done ? "bg-ok-soft text-ok-text" : "bg-well text-muted"}`}>
-                {done ? t.submittedShort : t.notSubmittedShort}
+              <h2 className={cardTitle}>{selected.name}</h2>
+              <span className={`${pill} ${availabilitySubmitted(state, selected.id) ? "bg-ok-soft text-ok-text" : "bg-well text-muted"}`}>
+                {availabilitySubmitted(state, selected.id) ? t.submittedShort : t.notSubmittedShort}
               </span>
-              {employee.active ? null : <span className="text-xs font-medium text-subtle">{t.inactive}</span>}
-              <button
-                type="button"
-                data-testid={`copy-availability-${employee.name}`}
-                className={`${button.quiet} ms-auto`}
-                disabled={!editable}
-                onClick={() => onCopy(employee.id)}
-              >
-                {t.copyPrevious}
-              </button>
+              {selected.active ? null : <span className="text-xs font-medium text-subtle">{t.inactive}</span>}
+              <div className="ms-auto flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  data-testid={`mark-all-${selected.name}`}
+                  className={button.small}
+                  disabled={!canWrite}
+                  onClick={() => {
+                    setRefused(false);
+                    onWholeAvailability(selected.id, true);
+                  }}
+                >
+                  {t.markAll}
+                </button>
+                <button
+                  type="button"
+                  data-testid={`clear-all-${selected.name}`}
+                  className={button.small}
+                  disabled={!canWrite}
+                  onClick={() => {
+                    const cleared = [[], [], [], [], [], [], []];
+                    if (!withinBlockLimit(state, selected.id, cleared)) {
+                      setRefused(true);
+                      return;
+                    }
+                    setRefused(false);
+                    onWholeAvailability(selected.id, false);
+                  }}
+                >
+                  {t.clearEverything}
+                </button>
+                <button
+                  type="button"
+                  data-testid={`copy-availability-${selected.name}`}
+                  className={button.quiet}
+                  disabled={!canWrite}
+                  onClick={() => {
+                    const previous = state.avail[addDays(state.week, -7)]?.[selected.id];
+                    if (previous && !withinBlockLimit(state, selected.id, previous)) {
+                      setRefused(true);
+                      return;
+                    }
+                    setRefused(false);
+                    onCopy(selected.id);
+                  }}
+                >
+                  {t.copyPrevious}
+                </button>
+              </div>
             </div>
+            {blockLimitOf(state.biz) !== null ? (
+              <p data-testid="block-limit-note" role={refused ? "alert" : undefined} className={`mt-2 text-sm ${refused ? "font-medium text-danger-text" : "text-muted"}`}>
+                {t.blockLimitStatus(countBlocks(state, selected.id, state.avail[state.week]?.[selected.id]), blockLimitOf(state.biz) ?? 0)}
+                {refused ? ` ${t.blockLimitReached}` : ""}
+              </p>
+            ) : null}
             <WeekGrid
               state={state}
               lang={lang}
-              employeeId={employee.id}
+              employeeId={selected.id}
               mode="availability"
-              editable={editable}
-              onToggle={(day, shiftId, checked) => onAvailability(employee.id, day, shiftId, checked)}
+              editable={canWrite}
+              onToggle={(day, shiftId, checked) => {
+                const next = gridWithCell(state, selected.id, state.avail[state.week]?.[selected.id], day, shiftId, checked);
+                if (!withinBlockLimit(state, selected.id, next)) {
+                  setRefused(true);
+                  return;
+                }
+                setRefused(false);
+                onAvailability(selected.id, day, shiftId, checked);
+              }}
             />
           </section>
-        );
-      })}
+        ) : null}
+      </div>
     </div>
   );
 }

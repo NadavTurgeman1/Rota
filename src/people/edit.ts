@@ -14,6 +14,7 @@ export interface EmployeePatch {
   quals?: string;
   perWeek?: number;
   maxHours?: number;
+  hourlyWage?: number;
   active?: boolean;
 }
 
@@ -26,6 +27,60 @@ function findEmployee(state: RotaState, employeeId: string): Employee | undefine
 }
 
 export const DEFAULT_SHIFTS_PER_WEEK = 5;
+
+/** `null` means the site does not cap weekly blocks. */
+export function blockLimitOf(biz: RotaState["biz"]): number | null {
+  if (biz.blockLimit !== true) return null;
+  const max = biz.maxBlocks ?? 0;
+  if (!Number.isFinite(max) || max < 0) return 0;
+  return Math.floor(max);
+}
+
+/** Shifts the agreement allows on days the site is open. */
+export function openAvailabilityGrid(state: RotaState, employeeId: string): string[][] {
+  const employee = findEmployee(state, employeeId);
+  if (!employee) return [[], [], [], [], [], [], []];
+  return [0, 1, 2, 3, 4, 5, 6].map((day) =>
+    state.biz.shifts
+      .filter((shift) => agreementAllows(employee, day, shift.id) && !siteClosed(state, day, shift.id))
+      .map((shift) => shift.id),
+  );
+}
+
+/** Open shifts missing from `grid`. A missing week is not a submission, so it has no blocks. */
+export function countBlocks(state: RotaState, employeeId: string, grid: string[][] | undefined): number {
+  if (!grid) return 0;
+  const open = openAvailabilityGrid(state, employeeId);
+  let blocks = 0;
+  for (let day = 0; day < 7; day += 1) {
+    const marked = new Set(grid[day] ?? []);
+    for (const shiftId of open[day] ?? []) if (!marked.has(shiftId)) blocks += 1;
+  }
+  return blocks;
+}
+
+export function withinBlockLimit(state: RotaState, employeeId: string, grid: string[][]): boolean {
+  const limit = blockLimitOf(state.biz);
+  if (limit === null) return true;
+  return countBlocks(state, employeeId, grid) <= limit;
+}
+
+export function gridWithCell(
+  state: RotaState,
+  employeeId: string,
+  base: string[][] | undefined,
+  day: number,
+  shiftId: string,
+  available: boolean,
+): string[][] {
+  const source = base ?? openAvailabilityGrid(state, employeeId);
+  const row = source.map((shifts) => [...shifts]);
+  const dayShifts = new Set(row[day] ?? []);
+  if (available) dayShifts.add(shiftId);
+  else dayShifts.delete(shiftId);
+  row[day] = state.biz.shifts.map((shift) => shift.id).filter((id) => dayShifts.has(id));
+  return row;
+}
 
 function siteClosed(state: RotaState, day: number, shiftId: string): boolean {
   const shift = state.biz.shifts.find((item) => item.id === shiftId);
@@ -91,6 +146,7 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
   if (patch.quals !== undefined) next.quals = patch.quals.trim();
   if (patch.perWeek !== undefined) next.perWeek = Math.floor(nonNegative(patch.perWeek));
   if (patch.maxHours !== undefined) next.maxHours = nonNegative(patch.maxHours);
+  if (patch.hourlyWage !== undefined) next.hourlyWage = nonNegative(patch.hourlyWage);
   if (patch.active !== undefined) next.active = patch.active;
   if (
     next.name === employee.name &&
@@ -99,6 +155,7 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
     next.quals === employee.quals &&
     next.perWeek === employee.perWeek &&
     next.maxHours === employee.maxHours &&
+    (next.hourlyWage ?? 0) === (employee.hourlyWage ?? 0) &&
     next.active === employee.active
   ) {
     return state;
@@ -122,6 +179,7 @@ export function addEmployeeRecord(state: RotaState, actor: Actor, input: { id: s
     quals: "",
     perWeek: DEFAULT_SHIFTS_PER_WEEK,
     maxHours: 0,
+    hourlyWage: 0,
     pref: [],
     active: true,
     grid: openGrid(state),
@@ -245,14 +303,6 @@ export function setWholeAgreement(state: RotaState, actor: Actor, employeeId: st
   return draft;
 }
 
-function submittedRow(employee: Employee, shiftIds: string[], state: RotaState): string[][] {
-  return [0, 1, 2, 3, 4, 5, 6].map((day) =>
-    (employee.grid ? (employee.grid[day] ?? []) : shiftIds.filter((shiftId) => agreementAllows(employee, day, shiftId))).filter(
-      (shiftId) => !siteClosed(state, day, shiftId),
-    ),
-  );
-}
-
 /** This week's availability. Cannot add a shift the agreement, or a closed site day, excludes. */
 export function setAvailability(
   state: RotaState,
@@ -270,20 +320,28 @@ export function setAvailability(
   const hasShift = !current || (current[day] ?? []).includes(shiftId);
   if (available === hasShift && (current || available)) return state;
 
+  const row = gridWithCell(state, employeeId, current, day, shiftId, available);
+  if (!withinBlockLimit(state, employeeId, row)) return state;
   const draft = cloneState(state);
-  const week = (draft.avail[draft.week] ??= {});
-  const row = current
-    ? current.map((shifts) => [...shifts])
-    : submittedRow(employee, draft.biz.shifts.map((shift) => shift.id), state);
-  const dayShifts = new Set(row[day] ?? []);
-  if (available) dayShifts.add(shiftId);
-  else dayShifts.delete(shiftId);
-  row[day] = draft.biz.shifts.map((shift) => shift.id).filter((id) => dayShifts.has(id));
-  week[employeeId] = row;
+  (draft.avail[draft.week] ??= {})[employeeId] = row;
   return draft;
 }
 
 /** Copy the previous week's submission. A missing previous week clears this week's row. */
+/** A manager writes the approved request into the official weekly constraints. */
+export function replaceAvailability(
+  state: RotaState,
+  actor: Actor,
+  employeeId: string,
+  week: string,
+  shifts: string[][],
+): RotaState {
+  if (actor.kind !== "manager" || !findEmployee(state, employeeId) || shifts.length !== 7) return state;
+  const draft = cloneState(state);
+  (draft.avail[week] ??= {})[employeeId] = shifts.map((day) => [...day]);
+  return draft;
+}
+
 export function copyAvailability(state: RotaState, actor: Actor, employeeId: string): RotaState {
   if (!canEditAvailability(actor, employeeId) || !findEmployee(state, employeeId)) return state;
   const employee = findEmployee(state, employeeId)!;
@@ -299,9 +357,22 @@ export function copyAvailability(state: RotaState, actor: Actor, employeeId: str
   const copied = [0, 1, 2, 3, 4, 5, 6].map((day) =>
     (previous[day] ?? []).filter((shiftId) => agreementAllows(employee, day, shiftId) && !siteClosed(state, day, shiftId)),
   );
+  if (!withinBlockLimit(state, employeeId, copied)) return state;
   if (sameCells(current, copied)) return state;
   const draft = cloneState(state);
   (draft.avail[draft.week] ??= {})[employeeId] = copied;
+  return draft;
+}
+
+/** Mark every open shift available, or block every open shift when the cap allows it. */
+export function setWholeAvailability(state: RotaState, actor: Actor, employeeId: string, available: boolean): RotaState {
+  if (!canEditAvailability(actor, employeeId) || !findEmployee(state, employeeId)) return state;
+  const grid = available ? openAvailabilityGrid(state, employeeId) : [[], [], [], [], [], [], []];
+  if (!withinBlockLimit(state, employeeId, grid)) return state;
+  const current = state.avail[state.week]?.[employeeId];
+  if (sameCells(current, grid)) return state;
+  const draft = cloneState(state);
+  (draft.avail[draft.week] ??= {})[employeeId] = grid;
   return draft;
 }
 
@@ -358,6 +429,7 @@ export function applyConstraintText(state: RotaState, actor: Actor, raw: string,
         .map((shift) => shift.id)
         .filter((shiftId) => agreementAllows(employee, day, shiftId) && !siteClosed(next, day, shiftId)),
     );
+    if (!withinBlockLimit(next, employeeId, proposal)) continue;
     if (sameCells(week[employeeId] ?? implicit, proposal)) continue;
     week[employeeId] = proposal;
     changed = true;

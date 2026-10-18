@@ -9,6 +9,13 @@ export interface SiteRow {
   max_shift_hours: number;
   max_day_hours: number;
   assume_available: boolean;
+  staff_access: boolean;
+  constraint_opens_day: number;
+  constraint_closes_day: number;
+  constraint_opens: string;
+  constraint_closes: string;
+  constraint_block_limit: boolean;
+  constraint_max_blocks: number;
   org_name: string;
   org_kind: string;
 }
@@ -36,6 +43,9 @@ export interface EmployeeRow {
   weekly_shift_quota: number;
   max_weekly_hours: number | null;
   active: boolean;
+  hourly_wage: number | null;
+  login_email: string;
+  login_confirmed: boolean;
   /** False when the person is only kept so an old week can still show their name. */
   on_roster: boolean;
 }

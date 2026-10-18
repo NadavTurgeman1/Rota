@@ -8,6 +8,13 @@ export interface BusinessPatch {
   maxHours?: number;
   maxShift?: number;
   maxDayHours?: number;
+  staffAccess?: boolean;
+  constraintStartDay?: number;
+  constraintEndDay?: number;
+  constraintOpens?: string;
+  constraintCloses?: string;
+  blockLimit?: boolean;
+  maxBlocks?: number;
 }
 
 export interface ShiftPatch {
@@ -38,6 +45,27 @@ export function updateBusiness(state: RotaState, actor: Actor, patch: BusinessPa
     const value = nonNegative(raw);
     if (value === null) return state;
     next[key] = value;
+  }
+  if (patch.staffAccess !== undefined) next.staffAccess = patch.staffAccess;
+  for (const key of ["constraintStartDay", "constraintEndDay"] as const) {
+    const day = patch[key];
+    if (day === undefined) continue;
+    if (!Number.isInteger(day) || day < 0 || day > 6) return state;
+    next[key] = day;
+  }
+  if (patch.constraintOpens !== undefined) {
+    if (!CLOCK.test(patch.constraintOpens)) return state;
+    next.constraintOpens = patch.constraintOpens;
+  }
+  if (patch.constraintCloses !== undefined) {
+    if (!CLOCK.test(patch.constraintCloses)) return state;
+    next.constraintCloses = patch.constraintCloses;
+  }
+  if (patch.blockLimit !== undefined) next.blockLimit = patch.blockLimit;
+  if (patch.maxBlocks !== undefined) {
+    const value = nonNegative(patch.maxBlocks);
+    if (value === null || !Number.isInteger(value)) return state;
+    next.maxBlocks = value;
   }
   return { ...state, biz: next };
 }

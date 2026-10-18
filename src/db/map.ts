@@ -56,9 +56,13 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
         quals: quals.join(","),
         perWeek: Number(employee.weekly_shift_quota),
         maxHours: employee.max_weekly_hours == null ? 0 : Number(employee.max_weekly_hours),
+        hourlyWage: employee.hourly_wage == null ? 0 : Number(employee.hourly_wage),
         pref,
         active: employee.active,
         grid,
+        ...(employee.login_email
+          ? { loginEmail: employee.login_email, loginConfirmed: employee.login_confirmed === true }
+          : {}),
       };
     });
 
@@ -117,6 +121,13 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
       maxHours,
       maxShift,
       ...(maxDayHours > 0 ? { maxDayHours } : {}),
+      staffAccess: bundle.site.staff_access !== false,
+      constraintStartDay: Number(bundle.site.constraint_opens_day),
+      constraintEndDay: Number(bundle.site.constraint_closes_day),
+      constraintOpens: bundle.site.constraint_opens || "00:00",
+      constraintCloses: bundle.site.constraint_closes || "23:59",
+      blockLimit: bundle.site.constraint_block_limit === true,
+      maxBlocks: Number(bundle.site.constraint_max_blocks) || 0,
       assume: bundle.site.assume_available,
       shifts,
     },

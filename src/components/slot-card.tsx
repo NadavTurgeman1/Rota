@@ -19,6 +19,7 @@ export function SlotCard({
   canCallOff,
   nowHours,
   selectedToken,
+  focusEmployeeId = null,
   onAdd,
   onRemove,
   onMove,
@@ -33,6 +34,7 @@ export function SlotCard({
   canCallOff: boolean;
   nowHours: number | null;
   selectedToken: string | null;
+  focusEmployeeId?: string | null;
   onAdd: (slotKey: string, employeeId: string) => void;
   onRemove: (slotKey: string, employeeId: string) => void;
   onMove: (fromKey: string, employeeId: string, toKey: string) => void;
@@ -158,8 +160,10 @@ export function SlotCard({
                 onSwap(slot.key, parsed.employeeId, employeeId);
               }}
               className={`flex items-center gap-0.5 rounded-md border border-line bg-chip py-0.5 ps-1.5 pe-0.5 text-xs font-medium shadow-card hover:border-field-line ${
-                selectedToken === token || dropTarget === employeeId ? "ring-2 ring-focus" : ""
-              } ${dragging === employeeId ? "opacity-50" : ""} ${published ? "" : "cursor-grab active:cursor-grabbing"}`}
+                selectedToken === token || dropTarget === employeeId || focusEmployeeId === employeeId ? "ring-2 ring-focus" : ""
+              } ${dragging === employeeId ? "opacity-50" : ""} ${
+                focusEmployeeId && focusEmployeeId !== employeeId ? "opacity-40" : ""
+              } ${published ? "" : "cursor-grab active:cursor-grabbing"}`}
             >
               <button
                 type="button"

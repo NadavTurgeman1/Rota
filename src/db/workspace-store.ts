@@ -1,4 +1,12 @@
-import { NEW_SITE_MAX_HOURS, NEW_SITE_MIN_REST, type Workspace, type WorkspaceUser } from "../workspace/workspace";
+import {
+  NEW_SITE_MAX_HOURS,
+  NEW_SITE_MIN_REST,
+  type StaffDecision,
+  type StaffRequest,
+  type Workspace,
+  type WorkspaceUser,
+} from "../workspace/workspace";
+import { normalizeGrid } from "./availability";
 import { listMemberships, resolveActiveOrg, type Membership, type OrgRole } from "../auth/session";
 import { orgSlug } from "./slug";
 import { deleteOrphanEmployees, SaveError, saveSite } from "./save";
@@ -49,7 +57,13 @@ export async function loadStoredWorkspace(sql: SqlClient, week: string): Promise
     [org.id],
   );
   const loaded = [];
-  for (const site of sites) loaded.push({ id: site.id, state: await loadSiteWeek(sql, site.id, week) });
+  for (const site of sites) {
+    loaded.push({
+      id: site.id,
+      state: await loadSiteWeek(sql, site.id, week),
+      requests: await loadPendingRequests(sql, site.id),
+    });
+  }
   let users = await loadMembers(sql, org.id);
   if (support) {
     const self = await sql.query<{ user_id: string; email: string; name: string }>(
@@ -60,7 +74,7 @@ export async function loadStoredWorkspace(sql: SqlClient, week: string): Promise
       users = [
         {
           id: actor.user_id,
-          name: actor.name.trim() || actor.email.split("@")[0] || "Rota",
+          name: memberName(actor.name, actor.email),
           email: actor.email,
           password: "",
           access: "owner",
@@ -69,11 +83,20 @@ export async function loadStoredWorkspace(sql: SqlClient, week: string): Promise
       ];
     }
   }
+  const self = await sql.query<{ id: string }>(
+    `select id from public.employees where user_id = (select auth.uid()) and org_id = $1 limit 1`,
+    [org.id],
+  );
   return {
     org: { id: org.id, name: org.name, type: org.kind },
     sites: loaded,
     activeSiteId: loaded[0]?.id ?? "",
     users,
+    selfEmployeeId: self[0]?.id ?? null,
+    decisions: await loadDecisions(
+      sql,
+      loaded.map((site) => ({ id: site.id, name: site.state.biz.name })),
+    ),
   };
 }
 
@@ -191,6 +214,54 @@ async function currentWeek(sql: SqlClient): Promise<string> {
   return rows[0]?.week ?? "2026-10-11";
 }
 
+function memberName(name: string, email: string): string {
+  const trimmed = name.trim();
+  if (trimmed) return trimmed;
+  const address = email.trim();
+  return address || "משתמש";
+}
+
+async function loadDecisions(sql: SqlClient, sites: { id: string; name: string }[]): Promise<StaffDecision[]> {
+  const rows = await sql.query<{ id: string; site_id: string; week_start: string; status: string }>(
+    `select id, site_id, week_start::text as week_start, status
+     from public.availability_requests
+     where status in ('approved', 'rejected')
+       and acknowledged_at is null
+       and employee_id in (
+         select id from public.employees where user_id = (select auth.uid())
+       )
+     order by decided_at`,
+  );
+  const names = new Map(sites.map((site) => [site.id, site.name]));
+  return rows.flatMap((row) => {
+    if (row.status !== "approved" && row.status !== "rejected") return [];
+    return [
+      {
+        id: row.id,
+        siteId: row.site_id,
+        siteName: names.get(row.site_id) ?? "",
+        week: row.week_start.slice(0, 10),
+        outcome: row.status,
+      },
+    ];
+  });
+}
+
+async function loadPendingRequests(sql: SqlClient, siteId: string): Promise<StaffRequest[]> {
+  const rows = await sql.query<{ id: string; employee_id: string; week_start: string; shifts: unknown }>(
+    `select id, employee_id, week_start::text as week_start, shifts
+     from public.availability_requests
+     where site_id = $1 and status = 'pending'`,
+    [siteId],
+  );
+  return rows.map((row) => ({
+    id: row.id,
+    employeeId: row.employee_id,
+    week: row.week_start.slice(0, 10),
+    shifts: normalizeGrid(row.shifts),
+  }));
+}
+
 async function loadMembers(sql: SqlClient, orgId: string): Promise<WorkspaceUser[]> {
   const rows = await sql.query<{ user_id: string; role: OrgRole; email: string; name: string; site_id: string | null }>(
     `select m.user_id, m.role, coalesce(p.email, '') as email,
@@ -203,14 +274,34 @@ async function loadMembers(sql: SqlClient, orgId: string): Promise<WorkspaceUser
      order by m.created_at, m.user_id, su.site_id`,
     [orgId],
   );
-  return rows.map((row) => ({
-    id: row.user_id,
-    name: row.name || row.email.split("@")[0] || "Rota",
-    email: row.email,
-    password: "",
-    access: accessFor[row.role],
-    siteId: row.site_id,
-  }));
+  const pending = await sql.query<{ id: string; email: string; name: string; site_id: string | null }>(
+    `select i.id, i.email, e.name, es.site_id
+     from public.staff_invitations i
+     join public.employees e on e.id = i.employee_id
+     left join public.employee_sites es on es.employee_id = e.id and es.org_id = e.org_id
+     where i.org_id = $1 and i.consumed_at is null
+     order by e.name, es.site_id`,
+    [orgId],
+  );
+  return [
+    ...rows.map((row) => ({
+      id: row.user_id,
+      name: memberName(row.name, row.email),
+      email: row.email,
+      password: "",
+      access: accessFor[row.role],
+      siteId: row.site_id,
+    })),
+    ...pending.map((row) => ({
+      id: row.id,
+      name: memberName(row.name, row.email),
+      email: row.email,
+      password: "",
+      access: "read" as const,
+      siteId: row.site_id,
+      pending: true,
+    })),
+  ];
 }
 
 export async function platformAdmin(sql: SqlClient): Promise<boolean> {
@@ -329,6 +420,25 @@ export async function approveFounder(sql: SqlClient, input: { fullName: string; 
     const message = error instanceof Error ? error.message : "";
     if (/not allowed|42501/i.test(message)) throw new SaveError("forbidden");
     if (/invalid|23514|duplicate|unique/i.test(message)) throw new SaveError("approval");
+    throw error;
+  }
+}
+
+export async function inviteStaffLogin(
+  sql: SqlClient,
+  input: { orgId: string; employeeId: string; email: string },
+): Promise<"invited" | "linked"> {
+  try {
+    const rows = await sql.query<{ status: string }>(`select public.assign_staff_login($1, $2, $3) as status`, [
+      input.orgId,
+      input.employeeId,
+      input.email,
+    ]);
+    return rows[0]?.status === "linked" ? "linked" : "invited";
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (/not allowed|42501/i.test(message)) throw new SaveError("forbidden");
+    if (/invalid|23514|duplicate|unique/i.test(message)) throw new SaveError("invitation");
     throw error;
   }
 }

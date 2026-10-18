@@ -4,6 +4,7 @@ import { confirmDeleteEmployee, copy } from "../i18n/copy";
 import { shiftLabel } from "../schedule/display";
 import { agreementCell, availabilityCell, type EmployeePatch } from "../people/edit";
 
+import { NameRail } from "./name-rail";
 import { button, card, cardHint, cardTitle, field, label as labelClass, labelText, surface } from "./ui";
 
 export function TeamScreen({
@@ -42,25 +43,17 @@ export function TeamScreen({
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]">
         <section className={`${surface} p-2`}>
-          {state.emps.length === 0 ? <p className="px-3 py-2 text-sm text-muted">{t.noEmployees}</p> : null}
-          <ul className="flex flex-col gap-1">
-            {state.emps.map((item) => (
-              <li key={item.id}>
-                <button
-                  type="button"
-                  data-testid={`employee-${item.id}`}
-                  aria-pressed={item.id === employee?.id}
-                  className={`flex min-h-10 w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-start text-sm ${
-                    item.id === employee?.id ? "bg-brand-soft text-brand-text" : "text-ink hover:bg-well"
-                  }`}
-                  onClick={() => onSelect(item.id)}
-                >
-                  <span className="truncate font-medium">{item.name}</span>
-                  <span className="shrink-0 text-xs text-muted">{item.active ? item.role : t.inactive}</span>
-                </button>
-              </li>
-            ))}
-          </ul>
+          <NameRail
+            lang={lang}
+            testId="employee"
+            selectedId={employee?.id ?? null}
+            onSelect={onSelect}
+            people={state.emps.map((item) => ({
+              id: item.id,
+              name: item.name,
+              hint: item.active ? item.role : t.inactive,
+            }))}
+          />
           {canWrite ? (
           <form
             className="mt-2 flex gap-2 border-t border-line p-2 pt-4"
@@ -201,6 +194,15 @@ function EmployeeCard({
       <section className={card}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className={cardTitle}>{t.agreement}</h2>
+          <div className="w-40">
+            <NumberField
+              label={t.hourlyWage}
+              value={employee.hourlyWage ?? 0}
+              readOnly={!canEditAgreement}
+              testId="hourly-wage"
+              onCommit={(value) => onUpdate(employeeId, { hourlyWage: value })}
+            />
+          </div>
           {canEditAgreement ? (
             <div className="flex gap-2">
               <button type="button" data-testid="agreement-all" className={button.small} onClick={() => onWholeAgreement(employeeId, true)}>
@@ -383,6 +385,7 @@ function NumberField({
   value,
   onCommit,
   readOnly = false,
+  testId,
 }: {
   label: string;
   hint?: string;
@@ -390,6 +393,7 @@ function NumberField({
   value: number;
   onCommit: (value: number) => void;
   readOnly?: boolean;
+  testId?: string;
 }) {
   const shown = noneLabel && value === 0 ? "" : String(value);
   const [draft, setDraft] = useState(shown);
@@ -403,6 +407,7 @@ function NumberField({
       <input
         type="number"
         min={0}
+        data-testid={testId}
         value={draft}
         placeholder={noneLabel}
         readOnly={readOnly}

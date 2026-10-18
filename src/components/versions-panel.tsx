@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import { diffIsEmpty, diffSchedules, weekVersions, type Lang, type RotaState, type ScheduleDiff } from "../domain";
 import { copy, restoredDraftText, restoredFromText, sinceVersionText, versionLabel } from "../i18n/copy";
 import { employeeName } from "../people/edit";
@@ -21,6 +24,10 @@ export function VersionsPanel({
   const versions = weekVersions(state);
   const latest = versions.at(-1);
   const pending = latest && schedule ? diffSchedules(latest.schedule, schedule) : null;
+  const [open, setOpen] = useState<Record<string, boolean>>({});
+  function toggle(id: string) {
+    setOpen((current) => ({ ...current, [id]: !current[id] }));
+  }
 
   return (
     <section data-testid="versions" className={`${surface} p-4 sm:p-5`}>
@@ -32,8 +39,16 @@ export function VersionsPanel({
       ) : null}
       {latest && pending && !diffIsEmpty(pending) ? (
         <div data-testid="pending-diff" className="mb-3 rounded-lg border border-line bg-well px-3 py-2">
-          <p className="text-xs font-medium">{sinceVersionText(lang, latest.number)}</p>
-          <DiffList state={state} lang={lang} diff={pending} />
+          <div className="flex items-center gap-1">
+            <ChangeToggle
+              open={open.pending === true}
+              testId="pending-changes"
+              label={open.pending ? t.hideChanges : t.showChanges}
+              onToggle={() => toggle("pending")}
+            />
+            <p className="text-xs font-medium">{sinceVersionText(lang, latest.number)}</p>
+          </div>
+          {open.pending ? <DiffList state={state} lang={lang} diff={pending} /> : null}
         </div>
       ) : null}
       {versions.length === 0 ? (
@@ -42,9 +57,19 @@ export function VersionsPanel({
         <ol className="flex flex-col gap-2">
           {versions.map((version, index) => ({ version, previous: versions[index - 1] })).reverse().map(({ version, previous }) => {
             const diff = previous ? diffSchedules(previous.schedule, version.schedule) : null;
+            const changes = diff != null && !diffIsEmpty(diff);
+            const shown = open[version.id] === true;
             return (
               <li key={version.id} data-testid={`version-${version.number}`} className="rounded-xl border border-line bg-paper px-3 py-2">
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                  {changes ? (
+                    <ChangeToggle
+                      open={shown}
+                      testId={`version-changes-${version.number}`}
+                      label={shown ? t.hideChanges : t.showChanges}
+                      onToggle={() => toggle(version.id)}
+                    />
+                  ) : null}
                   <span className="font-semibold">{versionLabel(lang, version.number)}</span>
                   <span className={`${pill} bg-ok-soft text-ok-text`}>
                     {version.reason === "publish" ? t.versionPublish : t.versionCalloff}
@@ -68,21 +93,42 @@ export function VersionsPanel({
                     </button>
                   ) : null}
                 </div>
-                {diff ? (
-                  diffIsEmpty(diff) ? (
-                    <p className="mt-1 text-xs text-subtle">{t.noDiff}</p>
-                  ) : (
-                    <DiffList state={state} lang={lang} diff={diff} />
-                  )
-                ) : (
-                  <p className="mt-1 text-xs text-subtle">{t.firstVersion}</p>
-                )}
+                {changes && shown && diff ? <DiffList state={state} lang={lang} diff={diff} /> : null}
+                {diff && !changes ? <p className="mt-1 text-xs text-subtle">{t.noDiff}</p> : null}
+                {!diff ? <p className="mt-1 text-xs text-subtle">{t.firstVersion}</p> : null}
               </li>
             );
           })}
         </ol>
       )}
     </section>
+  );
+}
+
+function ChangeToggle({
+  open,
+  testId,
+  label,
+  onToggle,
+}: {
+  open: boolean;
+  testId: string;
+  label: string;
+  onToggle: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      data-testid={testId}
+      aria-expanded={open}
+      aria-label={label}
+      className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-muted hover:bg-well hover:text-ink"
+      onClick={onToggle}
+    >
+      <span aria-hidden className="text-xs leading-none">
+        {open ? "▴" : "▾"}
+      </span>
+    </button>
   );
 }
 
