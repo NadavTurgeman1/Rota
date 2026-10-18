@@ -13,12 +13,32 @@ export interface WorkspaceUser {
   access: Access;
   /** Empty for the business owner, who covers every site. */
   siteId?: string | null;
+  /** Invited, and has not created the login yet. */
+  pending?: boolean;
+}
+
+/** A constraint request waiting for the shift manager. It is not part of the saved schedule. */
+export interface StaffRequest {
+  id: string;
+  employeeId: string;
+  week: string;
+  shifts: string[][];
+}
+
+/** A decided request the employee has not dismissed yet. */
+export interface StaffDecision {
+  id: string;
+  siteId: string;
+  siteName: string;
+  week: string;
+  outcome: "approved" | "rejected";
 }
 
 /** One site. `state.biz.name` is the site name; the business name lives on `Workspace.org`. */
 export interface WorkspaceSite {
   id: string;
   state: RotaState;
+  requests?: StaffRequest[];
 }
 
 export interface Workspace {
@@ -26,6 +46,10 @@ export interface Workspace {
   sites: WorkspaceSite[];
   activeSiteId: string;
   users: WorkspaceUser[];
+  /** Roster employee linked to the signed-in user, when they are a simple employee. */
+  selfEmployeeId?: string | null;
+  /** Answers the signed-in employee has not dismissed. */
+  decisions?: StaffDecision[];
 }
 
 export type UserInputError = "name" | "email" | "duplicate" | "password";
@@ -45,8 +69,10 @@ export function isOwner(user: WorkspaceUser): boolean {
   return user.access === "owner";
 }
 
-export function actorFor(user: WorkspaceUser): Actor {
-  return canWrite(user) ? MANAGER : VIEWER;
+export function actorFor(user: WorkspaceUser, selfEmployeeId?: string | null): Actor {
+  if (canWrite(user)) return MANAGER;
+  if (user.access === "read" && selfEmployeeId) return { kind: "employee", employeeId: selfEmployeeId };
+  return VIEWER;
 }
 
 export function activeSite(workspace: Workspace): WorkspaceSite | undefined {
@@ -66,7 +92,9 @@ export function selectSite(workspace: Workspace, siteId: string): Workspace {
 
 export function authenticate(workspace: Workspace, email: string, password: string): WorkspaceUser | null {
   const wanted = email.trim().toLowerCase();
-  return workspace.users.find((user) => user.email.toLowerCase() === wanted && user.password === password) ?? null;
+  return (
+    workspace.users.find((user) => !user.pending && user.email.toLowerCase() === wanted && user.password === password) ?? null
+  );
 }
 
 export function updateOrg(workspace: Workspace, user: WorkspaceUser, patch: { name?: string; type?: string }): Workspace {

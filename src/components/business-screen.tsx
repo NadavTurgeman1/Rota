@@ -5,7 +5,7 @@ import { confirmDeleteSite, copy } from "../i18n/copy";
 import { orgTypeLabel, shiftLabel, siteLabel } from "../schedule/display";
 
 import { accessLabel } from "./users-panel";
-import { button, card, cardHint, cardTitle, field, label, labelText } from "./ui";
+import { button, card, cardHint, cardTitle, field, label, labelText, select } from "./ui";
 
 const cell = field.replace("h-10", "h-9");
 
@@ -160,7 +160,9 @@ export function BusinessScreen({
   onAddShift,
   onRemoveShift,
   siteUsers,
+  hideUserId,
   onInvite,
+  onInviteStaff,
 }: {
   state: RotaState;
   lang: Lang;
@@ -179,8 +181,10 @@ export function BusinessScreen({
   onRequirement: (shiftId: string, day: number, count: number) => void;
   onAddShift: (name: string) => void;
   onRemoveShift: (shiftId: string) => void;
-  siteUsers?: { id: string; name: string; email: string; access: "owner" | "write" | "read" }[];
+  siteUsers?: { id: string; name: string; email: string; access: "owner" | "write" | "read"; pending?: boolean }[];
+  hideUserId?: string;
   onInvite?: (input: { fullName: string; email: string; siteIds: string[] }) => Promise<boolean>;
+  onInviteStaff?: (input: { employeeId: string; email: string }) => Promise<boolean>;
 }) {
   const t = copy[lang];
   const biz = state.biz;
@@ -191,6 +195,13 @@ export function BusinessScreen({
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteSites, setInviteSites] = useState<string[]>(activeSiteId ? [activeSiteId] : []);
   const [inviteNote, setInviteNote] = useState<"saved" | "failed" | null>(null);
+  const [staffId, setStaffId] = useState(state.emps[0]?.id ?? "");
+  const [staffEmail, setStaffEmail] = useState("");
+  const [staffNote, setStaffNote] = useState<"saved" | "failed" | null>(null);
+  const managers = (siteUsers ?? []).filter((member) => member.access === "write" && member.id !== hideUserId && !member.pending);
+  const confirmedStaff = state.emps.filter((employee) => employee.loginEmail && employee.loginConfirmed);
+  const chosenStaff = state.emps.find((employee) => employee.id === staffId);
+  const existingLogin = chosenStaff?.loginEmail;
   const numbers: { key: "minRest" | "maxHours" | "maxShift" | "maxDayHours"; label: string }[] = [
     { key: "minRest", label: t.minRest },
     { key: "maxHours", label: t.maxHours },
@@ -282,13 +293,141 @@ export function BusinessScreen({
         ) : null}
       </section>
 
+      <section className={card}>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 className={cardTitle}>
+            {t.siteSettings} · {siteLabel(activeName, lang)}
+          </h2>
+          {canEditOrg ? (
+            <button
+              type="button"
+              data-testid="delete-site"
+              className={`${button.danger} ms-auto`}
+              disabled={sites.length < 2}
+              onClick={() => {
+                if (window.confirm(confirmDeleteSite(lang, siteLabel(activeName, lang)))) onRemoveSite(activeSiteId);
+              }}
+            >
+              {t.deleteSite}
+            </button>
+          ) : null}
+        </div>
+        {readOnly ? <p className={cardHint}>{t.businessReadOnly}</p> : null}
+        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <label className={label}>
+            <span className={labelText}>{t.siteName}</span>
+            <CommitInput
+              shown={siteLabel(biz.name, lang)}
+              label={t.siteName}
+              testId="site-name"
+              readOnly={readOnly}
+              onCommit={(name) => {
+                if (siteNameAllowed(name, activeSiteId)) onBusiness({ name });
+              }}
+            />
+          </label>
+          {numbers.map(({ key, label }) => (
+            <label key={key} className={label}>
+              <span className={labelText}>{label}</span>
+              <CommitInput
+                type="number"
+                shown={String(biz[key] ?? 0)}
+                label={label}
+                testId={`biz-${key}`}
+                readOnly={readOnly}
+                onCommit={(value) => onBusiness({ [key]: Number(value) })}
+              />
+            </label>
+          ))}
+        </div>
+        <div className="mt-5 border-t border-line pt-5">
+          <label className="inline-flex items-center gap-2 text-sm font-medium">
+            <input
+              type="checkbox"
+              data-testid="staff-access"
+              className="h-4 w-4"
+              checked={biz.staffAccess !== false}
+              disabled={readOnly}
+              onChange={(event) => onBusiness({ staffAccess: event.target.checked })}
+            />
+            {t.staffAccess}
+          </label>
+          <p className="mt-2 text-sm leading-6 text-muted">{t.staffAccessHint}</p>
+          {biz.staffAccess !== false ? (
+            <div className="mt-4">
+              <p className="text-sm font-medium text-ink">{t.constraintWindow}</p>
+              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                <label className={label}>
+                  <span className={labelText}>{t.constraintStart}</span>
+                  <select
+                    className={select}
+                    data-testid="constraint-start-day"
+                    value={biz.constraintStartDay ?? 0}
+                    disabled={readOnly}
+                    onChange={(event) => onBusiness({ constraintStartDay: Number(event.target.value) })}
+                  >
+                    {[0, 1, 2, 3, 4, 5, 6].map((day) => (
+                      <option key={day} value={day}>
+                        {dayName(day, lang)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={label}>
+                  <span className={labelText}>{t.constraintStartTime}</span>
+                  <input
+                    type="time"
+                    dir="ltr"
+                    data-testid="constraint-opens"
+                    className={field}
+                    value={(biz.constraintOpens ?? "00:00").slice(0, 5)}
+                    disabled={readOnly}
+                    onChange={(event) => onBusiness({ constraintOpens: event.target.value.slice(0, 5) })}
+                  />
+                </label>
+                <label className={label}>
+                  <span className={labelText}>{t.constraintEnd}</span>
+                  <select
+                    className={select}
+                    data-testid="constraint-end-day"
+                    value={biz.constraintEndDay ?? 6}
+                    disabled={readOnly}
+                    onChange={(event) => onBusiness({ constraintEndDay: Number(event.target.value) })}
+                  >
+                    {[0, 1, 2, 3, 4, 5, 6].map((day) => (
+                      <option key={day} value={day}>
+                        {dayName(day, lang)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className={label}>
+                  <span className={labelText}>{t.constraintEndTime}</span>
+                  <input
+                    type="time"
+                    dir="ltr"
+                    data-testid="constraint-closes"
+                    className={field}
+                    value={(biz.constraintCloses ?? "23:59").slice(0, 5)}
+                    disabled={readOnly}
+                    onChange={(event) => onBusiness({ constraintCloses: event.target.value.slice(0, 5) })}
+                  />
+                </label>
+              </div>
+            </div>
+          ) : null}
+        </div>
+        <p className="mt-4 text-sm leading-6 text-muted">{t.lawHint}</p>
+      </section>
+
       {onInvite ? (
         <section className={card}>
           <h2 className={cardTitle}>{t.usersTitle}</h2>
           <p className={cardHint}>{t.inviteHint}</p>
+          {managers.length === 0 ? <p className="mt-4 text-sm text-muted">{t.noShiftManagers}</p> : null}
           <ul className="mt-4 flex flex-col gap-2 text-sm">
-            {(siteUsers ?? []).map((member) => (
-              <li key={`${member.id}-${member.access}`} className="flex items-center justify-between gap-3">
+            {managers.map((member) => (
+              <li key={member.id} data-testid={`manager-${member.email}`} className="flex items-center justify-between gap-3">
                 <span className="flex items-center gap-6">
                   <span className="font-medium">{member.name}</span>
                   <span dir="ltr" className="text-muted">
@@ -353,58 +492,75 @@ export function BusinessScreen({
               </p>
             ) : null}
           </form>
-        </section>
-      ) : null}
-
-      <section className={card}>
-        <div className="flex flex-wrap items-center gap-2">
-          <h2 className={cardTitle}>
-            {t.siteSettings} · {siteLabel(activeName, lang)}
-          </h2>
-          {canEditOrg ? (
-            <button
-              type="button"
-              data-testid="delete-site"
-              className={`${button.danger} ms-auto`}
-              disabled={sites.length < 2}
-              onClick={() => {
-                if (window.confirm(confirmDeleteSite(lang, siteLabel(activeName, lang)))) onRemoveSite(activeSiteId);
+          {onInviteStaff && biz.staffAccess !== false ? (
+            <form
+              className="mt-6 grid gap-3 border-t border-line pt-6 sm:grid-cols-2"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (existingLogin) return;
+                void (async () => {
+                  const ok = await onInviteStaff({ employeeId: staffId, email: staffEmail });
+                  setStaffNote(ok ? "saved" : "failed");
+                  if (ok) setStaffEmail("");
+                })();
               }}
             >
-              {t.deleteSite}
-            </button>
+              <h3 className={`${cardTitle} sm:col-span-2`}>{t.addEmployeesTitle}</h3>
+              <p className={`${cardHint} sm:col-span-2`}>{t.inviteStaffHint}</p>
+              {confirmedStaff.length === 0 ? <p className="text-sm text-muted sm:col-span-2">{t.noStaffLogins}</p> : null}
+              <ul className="flex flex-col gap-2 text-sm sm:col-span-2">
+                {confirmedStaff.map((employee) => (
+                  <li key={employee.id} data-testid={`staff-login-${employee.loginEmail}`} className="flex items-center justify-between gap-3">
+                    <span className="flex items-center gap-6">
+                      <span className="font-medium">{employee.name}</span>
+                      <span dir="ltr" className="text-muted">
+                        {employee.loginEmail}
+                      </span>
+                    </span>
+                    <span className="text-muted">{employee.role || t.accessRead}</span>
+                  </li>
+                ))}
+              </ul>
+              <label className={label}>
+                <span className={labelText}>{t.summaryEmployee}</span>
+                <select className={select} value={staffId} onChange={(event) => setStaffId(event.target.value)}>
+                  {state.emps.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className={label}>
+                <span className={labelText}>{t.email}</span>
+                <input
+                  dir="ltr"
+                  type="email"
+                  className={field}
+                  value={staffEmail}
+                  onChange={(event) => setStaffEmail(event.target.value)}
+                />
+              </label>
+              {existingLogin ? (
+                <p role="alert" data-testid="login-already-open" className="text-sm font-medium text-danger-text sm:col-span-2">
+                  {t.loginAlreadyOpen(existingLogin)}
+                </p>
+              ) : null}
+              <div className="flex items-end">
+                <button type="submit" className={`${button.primary} h-10`} disabled={!staffId || !staffEmail.trim() || Boolean(existingLogin)}>
+                  {t.inviteStaff}
+                </button>
+              </div>
+              {staffNote === "saved" ? <p className="text-sm text-muted sm:col-span-2">{t.inviteSaved}</p> : null}
+              {staffNote === "failed" ? (
+                <p role="alert" className="text-sm text-danger-text sm:col-span-2">
+                  {t.saveFailed}
+                </p>
+              ) : null}
+            </form>
           ) : null}
-        </div>
-        {readOnly ? <p className={cardHint}>{t.businessReadOnly}</p> : null}
-        <div className="mt-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <label className={label}>
-            <span className={labelText}>{t.siteName}</span>
-            <CommitInput
-              shown={siteLabel(biz.name, lang)}
-              label={t.siteName}
-              testId="site-name"
-              readOnly={readOnly}
-              onCommit={(name) => {
-                if (siteNameAllowed(name, activeSiteId)) onBusiness({ name });
-              }}
-            />
-          </label>
-          {numbers.map(({ key, label }) => (
-            <label key={key} className={label}>
-              <span className={labelText}>{label}</span>
-              <CommitInput
-                type="number"
-                shown={String(biz[key] ?? 0)}
-                label={label}
-                testId={`biz-${key}`}
-                readOnly={readOnly}
-                onCommit={(value) => onBusiness({ [key]: Number(value) })}
-              />
-            </label>
-          ))}
-        </div>
-        <p className="mt-4 text-sm leading-6 text-muted">{t.lawHint}</p>
-      </section>
+        </section>
+      ) : null}
 
       <section className={card}>
         <h2 className={cardTitle}>{t.shiftsTitle}</h2>
@@ -488,6 +644,33 @@ export function BusinessScreen({
           <button type="button" data-testid="add-shift" className={`${button.quiet} mt-4`} onClick={() => onAddShift(t.newShift)}>
             + {t.addShift}
           </button>
+        ) : null}
+      </section>
+      <section className={card}>
+        <label className="inline-flex items-center gap-2">
+          <input
+            type="checkbox"
+            data-testid="block-limit"
+            className="h-4 w-4"
+            checked={biz.blockLimit === true}
+            disabled={readOnly}
+            onChange={(event) => onBusiness({ blockLimit: event.target.checked })}
+          />
+          <span className={cardTitle}>{t.blockLimitTitle}</span>
+        </label>
+        <p className="mt-2 text-sm leading-6 text-muted">{t.blockLimitHint}</p>
+        {biz.blockLimit === true ? (
+          <label className={`${label} mt-4 max-w-xs`}>
+            <span className={labelText}>{t.blockLimitCount}</span>
+            <CommitInput
+              type="number"
+              shown={String(biz.maxBlocks ?? 0)}
+              label={t.blockLimitCount}
+              testId="max-blocks"
+              readOnly={readOnly}
+              onCommit={(value) => onBusiness({ maxBlocks: Number(value) })}
+            />
+          </label>
         ) : null}
       </section>
     </div>

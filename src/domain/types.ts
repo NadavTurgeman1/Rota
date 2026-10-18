@@ -25,6 +25,12 @@ export interface Employee {
   maxHours: number;
   pref: string[];
   active: boolean;
+  /** Hourly wage in shekels. `0` or omitted means it has not been set. */
+  hourlyWage?: number;
+  /** Login email already stored for this person, confirmed or still an open invitation. */
+  loginEmail?: string;
+  /** True only after the person has confirmed the login. */
+  loginConfirmed?: boolean;
   /** Allowed shift ids per weekday. When set, replaces `allowed` + `blocked`. */
   grid?: string[][];
   allowed?: string[];
@@ -44,6 +50,26 @@ export interface Business {
    * `0` or omitted means the prototype rule: no daily cap.
    */
   maxDayHours?: number;
+  /**
+   * When false, employees do not sign in and the shift manager enters constraints.
+   * Omitted means employees may have their own login.
+   */
+  staffAccess?: boolean;
+  /** First weekday of the constraint window. Sunday = 0. Omitted means Sunday. */
+  constraintStartDay?: number;
+  /** Last weekday of the constraint window. Sunday = 0. Omitted means Saturday. */
+  constraintEndDay?: number;
+  /** Clock `HH:mm` when the window opens on the start day. Omitted means `00:00`. */
+  constraintOpens?: string;
+  /** Clock `HH:mm` when the window closes on the end day. Omitted means `23:59`. */
+  constraintCloses?: string;
+  /**
+   * When true, each person may block at most `maxBlocks` open shifts in a week.
+   * Omitted or false means weekly constraints have no block cap.
+   */
+  blockLimit?: boolean;
+  /** How many weekly blocks are allowed while `blockLimit` is on. Omitted means 0. */
+  maxBlocks?: number;
   /**
    * Stored by the prototype when availability was not submitted.
    * The engine still treats a missing week as "available per contract".
@@ -194,6 +220,8 @@ export interface CoveragePart {
   end: number;
   from: string;
   extended: boolean;
+  /** Hourly wage of this person. `0` means it has not been set. */
+  wage?: number;
 }
 
 export interface CoverageOption {
@@ -201,6 +229,10 @@ export interface CoverageOption {
   assign: Record<string, string[]>;
   cover: string;
   ext: CoveragePart[];
+  /** Highest set wage among the people who extend. `0` means none is set. */
+  wage?: number;
+  /** Cheapest set wage among the other suggestions, when this one costs more. */
+  dearerThan?: number;
 }
 
 export interface ExtraShiftOption {
@@ -212,4 +244,6 @@ export interface ExtraShiftOption {
   n: number;
   agreed: number;
   load: number;
+  wage?: number;
+  dearerThan?: number;
 }

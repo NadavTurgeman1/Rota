@@ -12,6 +12,7 @@ import {
   setPreference,
   setWholeAgreement,
   setAvailability,
+  setWholeAvailability,
   updateEmployee,
 } from "./edit";
 
@@ -88,6 +89,19 @@ describe("people edits", () => {
     const own = setAvailability(open, danaActor, SENTINEL.dana, 1, SENTINEL.morning, false);
     expect(own.avail[open.week]?.[SENTINEL.dana]?.[1]).not.toContain(SENTINEL.morning);
     expect(agreementAllows(own.emps.find((employee) => employee.id === SENTINEL.dana)!, 1, SENTINEL.morning)).toBe(true);
+  });
+
+  it("stops a weekly block once the site cap is full", () => {
+    const open = sentinelState("2026-10-11");
+    open.biz.blockLimit = true;
+    open.biz.maxBlocks = 1;
+    const once = setAvailability(open, MANAGER, SENTINEL.dana, 0, SENTINEL.morning, false);
+    expect(availabilityCell(once, SENTINEL.dana, 0, SENTINEL.morning)).toBe("unavailable");
+    expect(setAvailability(once, MANAGER, SENTINEL.dana, 1, SENTINEL.morning, false)).toBe(once);
+    expect(setWholeAvailability(once, MANAGER, SENTINEL.dana, false)).toBe(once);
+    const marked = setWholeAvailability(once, MANAGER, SENTINEL.dana, true);
+    expect(availabilityCell(marked, SENTINEL.dana, 0, SENTINEL.morning)).toBe("available");
+    expect(availabilityCell(marked, SENTINEL.dana, 1, SENTINEL.afternoon)).toBe("available");
   });
 
   it("updates the profile and keeps an inactive employee out of generation", () => {

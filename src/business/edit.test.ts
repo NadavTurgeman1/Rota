@@ -15,8 +15,31 @@ describe("business edits", () => {
     expect(updateBusiness(state, MANAGER, { name: "  " })).toBe(state);
     expect(updateShift(state, MANAGER, SENTINEL.morning, { start: "25:00" })).toBe(state);
 
-    const next = updateBusiness(state, MANAGER, { minRest: 10, maxDayHours: 12, name: " Desk " });
-    expect(next.biz).toMatchObject({ minRest: 10, maxDayHours: 12, name: "Desk" });
+    const next = updateBusiness(state, MANAGER, {
+      minRest: 10,
+      maxDayHours: 12,
+      name: " Desk ",
+      staffAccess: false,
+      constraintStartDay: 0,
+      constraintEndDay: 4,
+      constraintOpens: "08:00",
+      constraintCloses: "18:00",
+    });
+    expect(next.biz).toMatchObject({
+      minRest: 10,
+      maxDayHours: 12,
+      name: "Desk",
+      staffAccess: false,
+      constraintStartDay: 0,
+      constraintEndDay: 4,
+      constraintOpens: "08:00",
+      constraintCloses: "18:00",
+    });
+    expect(updateBusiness(state, MANAGER, { blockLimit: true, maxBlocks: 3 }).biz).toMatchObject({ blockLimit: true, maxBlocks: 3 });
+    expect(updateBusiness(state, MANAGER, { maxBlocks: -1 })).toBe(state);
+    expect(updateBusiness(state, MANAGER, { maxBlocks: 1.5 })).toBe(state);
+    expect(updateBusiness(state, MANAGER, { constraintStartDay: 7 })).toBe(state);
+    expect(updateBusiness(state, MANAGER, { constraintOpens: "25:00" })).toBe(state);
     expect(state.biz.minRest).not.toBe(10);
   });
 

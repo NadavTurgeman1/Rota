@@ -42,6 +42,8 @@ describe("workspace", () => {
     expect(authenticate(workspace, owner.email, "wrong")).toBeNull();
     expect(actorFor(owner)).toEqual(MANAGER);
     expect(actorFor(viewer)).toEqual(VIEWER);
+    expect(actorFor(viewer, "emp-1")).toEqual({ kind: "employee", employeeId: "emp-1" });
+    expect(authenticate({ ...workspace, users: [{ ...viewer, pending: true }] }, viewer.email, DEMO_PASSWORD)).toBeNull();
   });
 
   it("lets only the owner rename the business and manage users", () => {

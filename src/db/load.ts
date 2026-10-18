@@ -34,6 +34,13 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
        s.max_shift_hours::float8 as max_shift_hours,
        s.max_day_hours::float8 as max_day_hours,
        s.assume_available,
+       s.staff_access,
+       s.constraint_opens_day::int as constraint_opens_day,
+       s.constraint_closes_day::int as constraint_closes_day,
+       to_char(s.constraint_opens, 'HH24:MI') as constraint_opens,
+       to_char(s.constraint_closes, 'HH24:MI') as constraint_closes,
+       s.constraint_block_limit,
+       s.constraint_max_blocks::int as constraint_max_blocks,
        o.name as org_name,
        o.kind as org_kind
      from public.sites s
@@ -81,16 +88,31 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
       ),
       sql.query<EmployeeRow>(
         `select e.id, e.name, e.contact, e.job_title, e.weekly_shift_quota,
-                e.max_weekly_hours::float8 as max_weekly_hours, e.active, true as on_roster
+                e.max_weekly_hours::float8 as max_weekly_hours, e.active,
+                e.hourly_wage::float8 as hourly_wage,
+                coalesce(p.email, open_invite.email, '') as login_email,
+                (e.user_id is not null) as login_confirmed,
+                true as on_roster
          from public.employees e
          join public.employee_sites es on es.employee_id = e.id
+         left join public.profiles p on p.user_id = e.user_id
+         left join lateral (
+           select i.email
+           from public.staff_invitations i
+           where i.employee_id = e.id and i.consumed_at is null
+           limit 1
+         ) open_invite on true
          where es.site_id = $1
          order by e.name`,
         [siteId],
       ),
       sql.query<EmployeeRow>(
         `select e.id, e.name, e.contact, e.job_title, e.weekly_shift_quota,
-                e.max_weekly_hours::float8 as max_weekly_hours, e.active, false as on_roster
+                e.max_weekly_hours::float8 as max_weekly_hours, e.active,
+                e.hourly_wage::float8 as hourly_wage,
+                '' as login_email,
+                false as login_confirmed,
+                false as on_roster
          from public.employees e
          where e.id in (
            select a.employee_id

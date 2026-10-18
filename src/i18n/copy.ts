@@ -111,6 +111,8 @@ export interface Copy {
   diffCalledOff: string;
   noDiff: string;
   firstVersion: string;
+  showChanges: string;
+  hideChanges: string;
   exportPng: string;
   exportJson: string;
   exportPublishedOnly: string;
@@ -141,6 +143,13 @@ export interface Copy {
   requiredRole: string;
   anyRole: string;
   staffingHint: string;
+  blockLimitTitle: string;
+  blockLimitHint: string;
+  blockLimitCount: string;
+  blockLimitStatus: (used: number, max: number) => string;
+  blockLimitReached: string;
+  markAll: string;
+  clearEverything: string;
   addShift: string;
   deleteShift: string;
   newShift: string;
@@ -216,6 +225,40 @@ export interface Copy {
   selectAll: string;
   clearAll: string;
   navInsights: string;
+  nameSearch: string;
+  noNameMatches: string;
+  inviteStaff: string;
+  inviteStaffHint: string;
+  invitePending: string;
+  staffConstraints: string;
+  staffSchedule: string;
+  staffConstraintsHint: string;
+  staffUnpublished: string;
+  staffUnlinked: string;
+  addToCalendar: string;
+  calendarEmpty: string;
+  addEmployeesTitle: string;
+  noShiftManagers: string;
+  noStaffLogins: string;
+  loginAlreadyOpen: (email: string) => string;
+  staffAccess: string;
+  staffAccessHint: string;
+  constraintWindow: string;
+  constraintStart: string;
+  constraintEnd: string;
+  constraintStartTime: string;
+  constraintEndTime: string;
+  staffWindowClosed: string;
+  staffAccessOff: string;
+  staffSubmit: string;
+  staffPending: string;
+  requestApproved: string;
+  requestRejected: string;
+  requestDecisionOk: string;
+  staffRequestTitle: string;
+  approveRequest: string;
+  rejectRequest: string;
+  hourlyWage: string;
 }
 
 export const copy: Record<Lang, Copy> = {
@@ -329,6 +372,8 @@ export const copy: Record<Lang, Copy> = {
     diffCalledOff: "חיסור",
     noDiff: "אין שינוי בשיבוץ.",
     firstVersion: "הגרסה הראשונה של השבוע.",
+    showChanges: "הצגת השינויים",
+    hideChanges: "הסתרת השינויים",
     exportPng: "ייצוא PNG",
     exportJson: "גיבוי JSON",
     exportPublishedOnly: "ייצוא PNG זמין אחרי פרסום.",
@@ -359,6 +404,13 @@ export const copy: Record<Lang, Copy> = {
     requiredRole: "תפקיד נדרש",
     anyRole: "כל תפקיד",
     staffingHint: "המספרים הם עובדים נדרשים בכל יום (0 = סגור). משמרת שמסתיימת לפני שעת ההתחלה שלה חוצה חצות.",
+    blockLimitTitle: "הגבלת כמות חסימות באילוצים השבועיים",
+    blockLimitHint: "כבוי: בלי הגבלה. דלוק: לכל עובד יש מספר מרבי של משמרות שאפשר לחסום השבוע.",
+    blockLimitCount: "כמה חסימות מותר",
+    blockLimitStatus: (used, max) => `חסימות השבוע: ${used} מתוך ${max}.`,
+    blockLimitReached: "אי אפשר לחסום עוד משמרת.",
+    markAll: "סמן הכל",
+    clearEverything: "נקה הכל",
     addShift: "הוספת משמרת",
     deleteShift: "מחיקה",
     newShift: "משמרת חדשה",
@@ -407,7 +459,7 @@ export const copy: Record<Lang, Copy> = {
     saveFailed: "השמירה לענן נכשלה.",
     accessOwner: "מנהל עסק",
     accessWrite: "מנהל משמרות",
-    accessRead: "קריאה",
+    accessRead: "עובד",
     readOnlyBanner: "יש לך הרשאת קריאה: אפשר לראות הכול, ושינויים נעולים.",
     site: "אתר",
     sitesTitle: "אתרים",
@@ -420,7 +472,7 @@ export const copy: Record<Lang, Copy> = {
     newSiteName: "שם האתר החדש",
     siteNameTaken: "כבר יש אתר בשם הזה.",
     usersTitle: "הוספת מנהלי משמרת",
-    usersHint: "קריאה: רואה הכול ולא משנה. כתיבה: עורך את כל המסכים. רק בעל העסק מנהל משתמשים.",
+    usersHint: "עובד מגיש אילוצים ורואה סידור אחרי פרסום. מנהל משמרות עורך את האתרים שלו. רק בעל העסק מנהל משתמשים.",
     addUser: "הוספת משתמש",
     removeUser: "הסרה",
     you: "(את/ה)",
@@ -434,6 +486,40 @@ export const copy: Record<Lang, Copy> = {
     selectAll: "בחר הכל",
     clearAll: "נקה",
     navInsights: "תובנות AI",
+    nameSearch: "חיפוש שם",
+    noNameMatches: "אין שמות תואמים",
+    inviteStaff: "פתיחת כניסה",
+    inviteStaffHint: "העובד נכנס רק להגשת האילוצים שלו ולסידור אחרי שהוא מתפרסם.",
+    invitePending: "ממתין לכניסה",
+    staffConstraints: "האילוצים שלי",
+    staffSchedule: "הסידור",
+    staffConstraintsHint: "הבקשה ממתינה לאישור מנהל המשמרות. האילוצים השבועיים לא משתנים עד האישור.",
+    staffUnpublished: "הסידור לשבוע הזה עוד לא פורסם.",
+    staffUnlinked: "החשבון הזה עדיין לא מקושר לעובד בסידור.",
+    addToCalendar: "הוספה ללוח שנה",
+    calendarEmpty: "אין משמרות שלך בסידור הזה.",
+    addEmployeesTitle: "הוספת עובדים",
+    noShiftManagers: "עדיין אין מנהלי משמרות באתר הזה.",
+    noStaffLogins: "עדיין אין עובדים עם כניסה מאושרת.",
+    loginAlreadyOpen: (email) => `למשתמש זה כבר נפתחה כניסה במייל: ${email}`,
+    staffAccess: "גישה לעובדים",
+    staffAccessHint: "כבוי: מנהל המשמרות מזין את האילוצים. דלוק: לעובד יש משתמש, והוא מגיש בקשה רק בחלון הזמן.",
+    constraintWindow: "חלון הגשת אילוצים",
+    constraintStart: "יום התחלה",
+    constraintEnd: "יום סיום",
+    constraintStartTime: "שעת התחלה",
+    constraintEndTime: "שעת סיום",
+    staffWindowClosed: "אפשר להגיש אילוצים רק בחלון הזמן של האתר",
+    staffAccessOff: "מנהל המשמרות מזין את האילוצים. אין כניסה עצמאית לאתר הזה.",
+    staffSubmit: "שליחת בקשה",
+    staffPending: "הבקשה ממתינה לאישור מנהל המשמרות",
+    requestApproved: "בקשת האילוצים שלך אושרה",
+    requestRejected: "בקשת האילוצים שלך נדחתה",
+    requestDecisionOk: "הבנתי",
+    staffRequestTitle: "בקשת אילוצים",
+    approveRequest: "אישור",
+    rejectRequest: "דחייה",
+    hourlyWage: "שכר שעתי",
   },
   en: {
     demo: "Local demo",
@@ -545,6 +631,8 @@ export const copy: Record<Lang, Copy> = {
     diffCalledOff: "Call-off",
     noDiff: "No assignment changed.",
     firstVersion: "First version of the week.",
+    showChanges: "Show changes",
+    hideChanges: "Hide changes",
     exportPng: "Export PNG",
     exportJson: "JSON backup",
     exportPublishedOnly: "PNG export is available after publishing.",
@@ -575,6 +663,13 @@ export const copy: Record<Lang, Copy> = {
     requiredRole: "Required role",
     anyRole: "Any role",
     staffingHint: "Numbers are employees required per day (0 = closed). A shift ending at or before its start crosses midnight.",
+    blockLimitTitle: "Limit weekly constraint blocks",
+    blockLimitHint: "Off: no cap. On: each person can block only this many shifts in a week.",
+    blockLimitCount: "Allowed blocks",
+    blockLimitStatus: (used, max) => `Blocks this week: ${used} of ${max}.`,
+    blockLimitReached: "No more shifts can be blocked.",
+    markAll: "Select all",
+    clearEverything: "Clear all",
     addShift: "Add shift",
     deleteShift: "Delete",
     newShift: "New shift",
@@ -623,7 +718,7 @@ export const copy: Record<Lang, Copy> = {
     saveFailed: "Saving to the cloud failed.",
     accessOwner: "Company admin",
     accessWrite: "Shift manager",
-    accessRead: "Read",
+    accessRead: "Employee",
     readOnlyBanner: "You have read access: you can see everything, and changes are locked.",
     site: "Site",
     sitesTitle: "Sites",
@@ -636,7 +731,7 @@ export const copy: Record<Lang, Copy> = {
     newSiteName: "New site name",
     siteNameTaken: "A site with this name already exists.",
     usersTitle: "Add shift managers",
-    usersHint: "Read: sees everything, changes nothing. Write: edits every screen. Only the owner manages users.",
+    usersHint: "An employee submits constraints and sees a schedule after it is published. A shift manager edits their sites. Only the owner manages users.",
     addUser: "Add user",
     removeUser: "Remove",
     you: "(you)",
@@ -650,6 +745,40 @@ export const copy: Record<Lang, Copy> = {
     selectAll: "Select all",
     clearAll: "Clear",
     navInsights: "AI insights",
+    nameSearch: "Search names",
+    noNameMatches: "No matching names",
+    inviteStaff: "Open a login",
+    inviteStaffHint: "The employee can only submit their constraints and see a schedule after it is published.",
+    invitePending: "Waiting to sign in",
+    staffConstraints: "My constraints",
+    staffSchedule: "Schedule",
+    staffConstraintsHint: "The request waits for the shift manager. Weekly constraints stay as they are until it is approved.",
+    staffUnpublished: "This week's schedule is not published yet.",
+    staffUnlinked: "This account is not linked to anyone on the schedule yet.",
+    addToCalendar: "Add to calendar",
+    calendarEmpty: "You have no shifts on this schedule.",
+    addEmployeesTitle: "Add employees",
+    noShiftManagers: "This site has no shift managers yet.",
+    noStaffLogins: "No employees have a confirmed login yet.",
+    loginAlreadyOpen: (email) => `This person already has a login at: ${email}`,
+    staffAccess: "Employee access",
+    staffAccessHint: "Off: the shift manager enters constraints. On: the employee has a login and submits a request only inside the time window.",
+    constraintWindow: "Constraint window",
+    constraintStart: "Start day",
+    constraintEnd: "End day",
+    constraintStartTime: "Start time",
+    constraintEndTime: "End time",
+    staffWindowClosed: "Constraints can be submitted only inside the site's time window",
+    staffAccessOff: "The shift manager enters constraints. This site has no employee login.",
+    staffSubmit: "Send request",
+    staffPending: "The request is waiting for the shift manager",
+    requestApproved: "Your constraint request was approved",
+    requestRejected: "Your constraint request was rejected",
+    requestDecisionOk: "Got it",
+    staffRequestTitle: "Constraint request",
+    approveRequest: "Approve",
+    rejectRequest: "Reject",
+    hourlyWage: "Hourly wage",
   },
 };
 

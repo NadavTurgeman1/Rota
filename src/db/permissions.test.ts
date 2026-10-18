@@ -31,6 +31,8 @@ describe("role permissions", () => {
        update public.employees set user_id = '${danaUser}' where name = 'Dana';
        insert into public.memberships (org_id, user_id, role) values
          ('${sentinel}', '${danaUser}', 'employee');
+       insert into public.site_memberships (org_id, site_id, user_id, role)
+       values ('${sentinel}', '${headquarters}', '${danaUser}', 'employee');
        insert into public.schedules (id, org_id, site_id, week_start, status) values
          ('66666666-6666-4666-8666-666666666611', '${sentinel}', '${headquarters}', '2026-10-11', 'published'),
          ('66666666-6666-4666-8666-666666666618', '${sentinel}', '${headquarters}', '2026-10-18', 'draft');
@@ -117,18 +119,27 @@ describe("role permissions", () => {
     const drafts = await db.query(`select id from public.schedules where status = 'draft'`);
     expect(drafts.rows).toEqual([]);
 
-    const ownWeek = await db.query<{ id: string }>(
-      `insert into public.availability_weeks (org_id, site_id, employee_id, week_start)
-       select '${sentinel}', '${headquarters}', id, '2026-10-11'
-       from public.employees
-       where name = 'Dana'
-       returning id`,
-    );
-    expect(ownWeek.rows).toHaveLength(1);
     await expect(
       db.query(
         `insert into public.availability_weeks (org_id, site_id, employee_id, week_start)
          select '${sentinel}', '${headquarters}', id, '2026-10-11'
+         from public.employees
+         where name = 'Dana'
+         returning id`,
+      ),
+    ).rejects.toThrow(/row-level security/i);
+    const ownRequest = await db.query<{ id: string }>(
+      `insert into public.availability_requests (org_id, site_id, employee_id, week_start, status, shifts)
+       select '${sentinel}', '${headquarters}', id, '2026-10-11', 'pending', '[[],[],[],[],[],[],[]]'::jsonb
+       from public.employees
+       where name = 'Dana'
+       returning id`,
+    );
+    expect(ownRequest.rows).toHaveLength(1);
+    await expect(
+      db.query(
+        `insert into public.availability_requests (org_id, site_id, employee_id, week_start, status, shifts)
+         select '${sentinel}', '${headquarters}', id, '2026-10-11', 'pending', '[[],[],[],[],[],[],[]]'::jsonb
          from public.employees
          where name = 'Yossi'`,
       ),

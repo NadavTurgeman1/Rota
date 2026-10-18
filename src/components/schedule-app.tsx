@@ -40,7 +40,9 @@ import {
   setAgreement,
   setPreference,
   setWholeAgreement,
+  replaceAvailability,
   setAvailability,
+  setWholeAvailability,
   updateEmployee,
   VIEWER,
 } from "../people/edit";
@@ -55,6 +57,7 @@ import {
   selectSite,
   updateOrg,
   withSiteState,
+  type StaffRequest,
   type Workspace,
 } from "../workspace/workspace";
 import { BusinessScreen } from "./business-screen";
@@ -66,6 +69,7 @@ import { BrandMark, CreateOrgScreen, CreateSiteScreen, LoginScreen, SignupScreen
 import { browserClient } from "../supabase/browser";
 import { remoteConfigured } from "../supabase/public-env";
 import { WeekBoard } from "./schedule-board";
+import { StaffHome } from "./staff-home";
 import { TeamScreen } from "./team-screen";
 import { useAiEnabled } from "./use-ai";
 import { SettingsMenu, type Theme } from "./settings-menu";
@@ -174,6 +178,7 @@ export function ScheduleApp() {
   const [selection, setSelection] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>("schedule");
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const staffChain = useRef(Promise.resolve());
   const [nowHours, setNowHours] = useState<number | null>(null);
   const [currentWeek, setCurrentWeek] = useState("2026-10-11");
   const aiEnabled = useAiEnabled();
@@ -181,7 +186,7 @@ export function ScheduleApp() {
 
   const live = useMemo(() => withSiteState(workspace, workspace.activeSiteId, state), [workspace, state]);
   const user = live.users.find((item) => item.id === userId) ?? null;
-  const actor = user ? actorFor(user) : VIEWER;
+  const actor = user ? actorFor(user, live.selfEmployeeId) : VIEWER;
   const writer = Boolean(user && hasWrite(user));
   const owner = Boolean(user && isOwner(user));
 
@@ -445,6 +450,139 @@ export function ScheduleApp() {
     return response.ok;
   }
 
+  function storeRequest(siteId: string, request: StaffRequest) {
+    setWorkspace((current) => ({
+      ...current,
+      sites: current.sites.map((site) =>
+        site.id === siteId
+          ? {
+              ...site,
+              requests: [...(site.requests ?? []).filter((item) => !(item.employeeId === request.employeeId && item.week === request.week)), request],
+            }
+          : site,
+      ),
+    }));
+  }
+
+  function dropRequest(siteId: string, requestId: string) {
+    setWorkspace((current) => ({
+      ...current,
+      sites: current.sites.map((site) =>
+        site.id === siteId ? { ...site, requests: (site.requests ?? []).filter((item) => item.id !== requestId) } : site,
+      ),
+    }));
+  }
+
+  function submitStaffRequest(shifts: string[][]) {
+    const selfId = live.selfEmployeeId;
+    if (!selfId) return;
+    const siteId = live.activeSiteId;
+    const week = state.week;
+    if (!remote) {
+      storeRequest(siteId, { id: crypto.randomUUID(), employeeId: selfId, week, shifts });
+      return;
+    }
+    staffChain.current = staffChain.current.catch(() => undefined).then(async () => {
+      const token = tokenRef.current;
+      if (!token) return;
+      const response = await fetch("/api/availability", {
+        method: "PUT",
+        headers: authHeaders(true),
+        body: JSON.stringify({ siteId, week, shifts }),
+      });
+      const body = (await response.json().catch(() => null)) as { request?: StaffRequest; error?: string } | null;
+      if (!response.ok || !body?.request) {
+        setSaveNote(body?.error === "blocks" ? "blocks" : "failed");
+        return;
+      }
+      setSaveNote(null);
+      storeRequest(siteId, body.request);
+    });
+  }
+
+  async function decideRequest(requestId: string, approve: boolean) {
+    const siteId = live.activeSiteId;
+    const request = live.sites.find((site) => site.id === siteId)?.requests?.find((item) => item.id === requestId);
+    if (!request) return;
+    if (remote) {
+      const response = await fetch("/api/availability", {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({ requestId, approve }),
+      });
+      if (!response.ok) {
+        setSaveNote("failed");
+        return;
+      }
+      setSaveNote(null);
+    }
+    if (approve) change((current) => replaceAvailability(current, actor, request.employeeId, request.week, request.shifts));
+    dropRequest(siteId, requestId);
+  }
+
+  async function acknowledgeDecision(requestId: string): Promise<boolean> {
+    if (remote) {
+      const response = await fetch("/api/availability", {
+        method: "PATCH",
+        headers: authHeaders(true),
+        body: JSON.stringify({ requestId }),
+      });
+      if (!response.ok) {
+        setSaveNote("failed");
+        return false;
+      }
+      setSaveNote(null);
+    }
+    setWorkspace((current) => ({
+      ...current,
+      decisions: (current.decisions ?? []).filter((item) => item.id !== requestId),
+    }));
+    return true;
+  }
+
+  async function inviteStaff(input: { employeeId: string; email: string }): Promise<boolean> {
+    const token = tokenRef.current;
+    if (!token || !live.org.id) return false;
+    const response = await fetch("/api/staff", {
+      method: "POST",
+      headers: authHeaders(true),
+      body: JSON.stringify({ ...input, orgId: live.org.id }),
+    });
+    if (!response.ok) return false;
+    const body = (await response.json().catch(() => null)) as { status?: string } | null;
+    const address = input.email.trim().toLowerCase();
+    const person = state.emps.find((employee) => employee.id === input.employeeId);
+    change((current) => {
+      const employee = current.emps.find((item) => item.id === input.employeeId);
+      if (!employee || employee.loginEmail === address) return current;
+      const next = structuredClone(current);
+      const target = next.emps.find((item) => item.id === input.employeeId);
+      if (!target) return current;
+      target.loginEmail = address;
+      target.loginConfirmed = body?.status === "linked";
+      return next;
+    });
+    setWorkspace((current) => {
+      if (current.users.some((member) => member.email.toLowerCase() === address)) return current;
+      return {
+        ...current,
+        users: [
+          ...current.users,
+          {
+            id: crypto.randomUUID(),
+            name: person?.name || address,
+            email: address,
+            password: "",
+            access: "read",
+            siteId: current.activeSiteId,
+            pending: body?.status !== "linked",
+          },
+        ],
+      };
+    });
+    return true;
+  }
+
   async function inviteManager(input: { fullName: string; email: string; siteIds: string[] }): Promise<boolean> {
     const token = tokenRef.current;
     if (!token || !live.org.id) return false;
@@ -592,6 +730,31 @@ export function ScheduleApp() {
     );
   }
 
+  if (user.access === "read") {
+    return (
+      <StaffHome
+        state={state}
+        lang={lang}
+        orgName={live.org.name}
+        selfId={live.selfEmployeeId ?? null}
+        sites={live.sites.map((site) => ({ id: site.id, name: site.state.biz.name }))}
+        activeSiteId={live.activeSiteId}
+        toolbar={settings}
+        saveNote={saveNote}
+        onSelectSite={switchSite}
+        pending={
+          live.sites
+            .find((site) => site.id === live.activeSiteId)
+            ?.requests?.find((request) => request.employeeId === live.selfEmployeeId && request.week === state.week) ?? null
+        }
+        onSubmit={submitStaffRequest}
+        onWeek={(days) => change((current) => goToWeek(current, addDays(current.week, days)))}
+        decisions={live.decisions ?? []}
+        onAcknowledge={acknowledgeDecision}
+      />
+    );
+  }
+
   const schedule = state.sched[state.week];
   const published = schedule?.status === "published";
   const readOnly = published || !writer;
@@ -620,6 +783,7 @@ export function ScheduleApp() {
     canCallOff: writer && published,
     nowHours,
     selectedToken: selection,
+    focusEmployeeId: null,
     onAdd: (slotKey: string, employeeId: string) => change((current) => addEmployee(current, slotKey, employeeId)),
     onRemove: (slotKey: string, employeeId: string) => change((current) => removeEmployee(current, slotKey, employeeId)),
     onMove: (fromKey: string, employeeId: string, toKey: string) =>
@@ -883,10 +1047,13 @@ export function ScheduleApp() {
             lang={lang}
             canWrite={writer}
             aiEnabled={aiEnabled}
+            requests={live.sites.find((site) => site.id === live.activeSiteId)?.requests ?? []}
             onAvailability={(employeeId, dayIndex, shiftId, available) =>
               change((current) => setAvailability(current, actor, employeeId, dayIndex, shiftId, available))
             }
+            onWholeAvailability={(employeeId, available) => change((current) => setWholeAvailability(current, actor, employeeId, available))}
             onCopy={(employeeId) => change((current) => copyAvailability(current, actor, employeeId))}
+            onDecide={(requestId, approve) => void decideRequest(requestId, approve)}
             onApply={(raw, overrides) =>
               change((current) =>
                 applyConstraintText(current, actor, raw, overrides),
@@ -924,10 +1091,18 @@ export function ScheduleApp() {
             onRequirement={(shiftId, dayIndex, count) => change((current) => setShiftRequirement(current, actor, shiftId, dayIndex, count))}
             onAddShift={(name) => change((current) => addShift(current, actor, { id: crypto.randomUUID(), name }))}
             onRemoveShift={(shiftId) => change((current) => removeShift(current, actor, shiftId))}
+            hideUserId={supportOrg ? user?.id : undefined}
             siteUsers={live.users
-              .filter((member) => member.access === "owner" || !member.siteId || member.siteId === live.activeSiteId)
-              .map((member) => ({ id: member.id, name: member.name, email: member.email, access: member.access }))}
+              .filter((member) => member.access === "owner" || member.pending || !member.siteId || member.siteId === live.activeSiteId)
+              .map((member) => ({
+                id: member.id,
+                name: member.name,
+                email: member.email,
+                access: member.access,
+                pending: member.pending,
+              }))}
             onInvite={remote && owner ? inviteManager : undefined}
+            onInviteStaff={remote && owner ? inviteStaff : undefined}
           />
         ) : null}
         {screen === "insights" ? <InsightsScreen state={state} lang={lang} /> : null}

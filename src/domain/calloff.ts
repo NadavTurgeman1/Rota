@@ -2,6 +2,7 @@ import { addDays, shiftKind } from "./time";
 import { effectiveSlot, shiftById } from "./schedule";
 import { dynamicReason, slots, staticReason } from "./rules";
 import { applyCoverage, applyExtra, suggest, suggestExtra } from "./suggest";
+import { markDearer, wageRank } from "./wage";
 import type { CoverageOption, Employee, ExtraShiftOption, Reason, RotaState, Schedule, Slot } from "./types";
 
 export interface ReplacementCandidate {
@@ -14,6 +15,8 @@ export interface ReplacementCandidate {
   atQuota: boolean;
   prefers: boolean;
   consecutiveNights: number;
+  wage?: number;
+  dearerThan?: number;
 }
 
 export interface RejectedCandidate {
@@ -158,17 +161,20 @@ export function planCallOff(state: RotaState, slot: Slot): CallOffPlan {
       atQuota: employee.perWeek > 0 && shifts >= employee.perWeek,
       prefers: (employee.pref ?? []).includes(slot.shiftId),
       consecutiveNights: consecutiveNights(state, week, employee.id, slot),
+      wage: employee.hourlyWage ?? 0,
     });
   }
 
   replacements.sort(
     (left, right) =>
       Number(left.atQuota) - Number(right.atQuota) ||
+      wageRank(left.wage) - wageRank(right.wage) ||
       left.hours - right.hours ||
       Number(right.prefers) - Number(left.prefers) ||
       left.consecutiveNights - right.consecutiveNights ||
       left.name.localeCompare(right.name, "en"),
   );
+  markDearer(replacements, (candidate) => candidate.wage ?? 0);
 
   if (replacements.length > 0) return { replacements, rejected, extensions: [], splits: [], extras: [] };
   const stillOut = (employeeId: string) => blocked.has(employeeId);
