@@ -42,6 +42,9 @@ export async function openTestDatabase(): Promise<PGlite> {
     .filter((name) => name.endsWith(".sql"))
     .sort();
   for (const name of files) {
+    if (!/^\d{14}_[a-z0-9_]+\.sql$/.test(name)) {
+      throw new Error(`Invalid migration filename: ${name}`);
+    }
     await db.exec(readFileSync(join(directory, name), "utf8"));
   }
   await db.exec(readFileSync(join(root, "supabase/seed.sql"), "utf8"));
