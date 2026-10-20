@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { addDays, analyze, slots, sundayOnOrBefore, type Analysis, type Lang, type RotaState } from "../domain";
+import { addDays, analyze, applyTrade, slots, sundayOnOrBefore, type Analysis, type Lang, type RotaState, type TradeMove, type TradeSeat } from "../domain";
+import type { VersionStamp } from "../domain/versions";
 import { peerDuties } from "../domain/peers";
 import { isRelief } from "../domain/relief";
 import { addShift, removeShift, setShiftRequirement, updateBusiness, updateShift } from "../business/edit";
@@ -74,9 +75,11 @@ import { remoteConfigured } from "../supabase/public-env";
 import { WeekBoard } from "./schedule-board";
 import { StaffHome } from "./staff-home";
 import { TeamScreen } from "./team-screen";
+import { ManagerTradePrompt, tradeStillHeld, useSetAside, type ShiftTrade, type TradeApi, type TradeSite } from "./trades";
 import { useAiEnabled } from "./use-ai";
 import { SettingsMenu, type Theme } from "./settings-menu";
 import { VersionsPanel } from "./versions-panel";
+import { WeekPicker } from "./week-picker";
 import { WeekSummary } from "./week-summary";
 import { button } from "./ui";
 import { downloadBlob, downloadWeekPng } from "./week-png";
@@ -239,6 +242,101 @@ export function ScheduleApp() {
   const actor = user ? actorFor(user, live.selfEmployeeId) : VIEWER;
   const writer = Boolean(user && hasWrite(user));
   const owner = Boolean(user && isOwner(user));
+  const [trades, setTrades] = useState<{ trades: ShiftTrade[]; takeable: string[] }>({ trades: [], takeable: [] });
+  const approvedSeen = useRef<Set<string> | null>(null);
+  const tradeLater = useSetAside("later");
+  const tradeSites: TradeSite[] = live.sites.map((site) => ({ id: site.id, name: site.state.biz.name, state: site.state }));
+
+  const loadTrades = useCallback(async () => {
+    const token = tokenRef.current;
+    if (!token) return;
+    const headers: Record<string, string> = { authorization: `Bearer ${token}` };
+    if (supportRef.current) headers["x-rota-support-org"] = supportRef.current;
+    const response = await fetch("/api/trades", { headers }).catch(() => null);
+    if (!response?.ok) return;
+    const body = (await response.json().catch(() => null)) as { trades?: ShiftTrade[]; takeable?: string[] } | null;
+    setTrades({ trades: body?.trades ?? [], takeable: body?.takeable ?? [] });
+  }, []);
+
+  const signedIn = Boolean(remote && hydrated && userId && live.sites.length > 0);
+  useEffect(() => {
+    if (!signedIn) return;
+    void loadTrades();
+    function onVisible() {
+      if (document.visibilityState === "visible") void loadTrades();
+    }
+    document.addEventListener("visibilitychange", onVisible);
+    window.addEventListener("focus", onVisible);
+    const poll = window.setInterval(onVisible, 60_000);
+    return () => {
+      document.removeEventListener("visibilitychange", onVisible);
+      window.removeEventListener("focus", onVisible);
+      window.clearInterval(poll);
+    };
+  }, [signedIn, loadTrades]);
+
+  useEffect(() => {
+    const approved = new Set(trades.trades.filter((trade) => trade.status === "approved").map((trade) => trade.id));
+    const seen = approvedSeen.current;
+    approvedSeen.current = approved;
+    if (!seen || writer || ![...approved].some((id) => !seen.has(id))) return;
+    reloadWorkspace();
+  }, [trades]);
+
+  function reloadWorkspace() {
+    const token = tokenRef.current;
+    if (token && userId) void adopt(token, userId, emailRef.current);
+  }
+
+  async function postTrade(body: Record<string, unknown>): Promise<{ ok: true; data: Record<string, unknown> } | { ok: false; code: string }> {
+    if (!tokenRef.current) return { ok: false, code: "failed" };
+    const response = await fetch("/api/trades", { method: "POST", headers: authHeaders(true), body: JSON.stringify(body) }).catch(() => null);
+    const data = ((await response?.json().catch(() => null)) ?? {}) as Record<string, unknown>;
+    if (!response?.ok) return { ok: false, code: typeof data.error === "string" ? data.error : "failed" };
+    return { ok: true, data };
+  }
+
+  async function tradeAction(body: Record<string, unknown>): Promise<string | null> {
+    const result = await postTrade(body);
+    void loadTrades();
+    return result.ok ? null : result.code;
+  }
+
+  const tradeApi: TradeApi = {
+    async options(siteId, week, slotKey) {
+      const result = await postTrade({ action: "options", siteId, week, slotKey });
+      return result.ok ? ((result.data.seats as TradeSeat[] | undefined) ?? []) : result.code;
+    },
+    create: (input) => tradeAction({ action: "create", ...input }),
+    answer: (tradeId, accept) => tradeAction({ action: "answer", tradeId, accept }),
+    cancel: (tradeId) => tradeAction({ action: "cancel", tradeId }),
+  };
+
+  /** The server already rewrote the week. Mirror it here, or reload when this copy has drifted. */
+  function mirrorTrade(siteId: string, week: string, move: TradeMove, stamp: VersionStamp) {
+    if (siteId === live.activeSiteId) {
+      const next = applyTrade(state, week, move, stamp);
+      if (next === state) reloadWorkspace();
+      else change(() => next);
+      return;
+    }
+    const site = live.sites.find((item) => item.id === siteId);
+    const next = site ? applyTrade(site.state, week, move, stamp) : null;
+    if (!site || !next || next === site.state) reloadWorkspace();
+    else setWorkspace((current) => withSiteState(current, siteId, next));
+  }
+
+  async function decideTrade(trade: ShiftTrade, approve: boolean): Promise<string | null> {
+    const result = await postTrade({ action: "decide", tradeId: trade.id, approve, by: user?.name ?? "" });
+    void loadTrades();
+    if (!result.ok) return result.code;
+    if (approve) mirrorTrade(trade.siteId, trade.week, result.data.move as TradeMove, result.data.stamp as VersionStamp);
+    return null;
+  }
+
+  const reviewable = writer ? trades.trades.filter((trade) => trade.status === "accepted" && tradeSites.some((site) => site.id === trade.siteId) && tradeStillHeld(trade, tradeSites)) : [];
+  const review = reviewable.find((trade) => !tradeLater.ids.includes(trade.id)) ?? null;
+  const reviewSite = review ? tradeSites.find((site) => site.id === review.siteId) ?? null : null;
 
   function rememberSupport(orgId: string | null) {
     supportRef.current = orgId;
@@ -929,6 +1027,9 @@ export function ScheduleApp() {
         onWeek={(days) => change((current) => goToWeek(current, addDays(current.week, days)))}
         decisions={live.decisions ?? []}
         onAcknowledge={acknowledgeDecision}
+        trades={trades.trades}
+        takeable={trades.takeable}
+        tradeApi={remote ? tradeApi : undefined}
       />
     );
   }
@@ -1020,6 +1121,11 @@ export function ScheduleApp() {
                 ))}
               </select>
             </label>
+            {reviewable.length > 0 ? (
+              <button type="button" data-testid="trade-queue" className={button.quiet} onClick={() => tradeLater.clear()}>
+                {t.tradeManagerQueue(reviewable.length)}
+              </button>
+            ) : null}
             {supportOrg ? (
               <button type="button" className={button.quiet} onClick={() => void leaveSupport()}>
                 {t.leaveSupport}
@@ -1084,9 +1190,7 @@ export function ScheduleApp() {
               >
                 ‹
               </button>
-              <span data-testid="week-range" className="min-w-36 px-2 text-center text-sm font-semibold tabular-nums">
-                {formatWeekRange(state.week, lang)}
-              </span>
+              <WeekPicker lang={lang} week={state.week} onPick={(sunday) => change((current) => goToWeek(current, sunday))} />
               <button
                 type="button"
                 data-testid="next-week"
@@ -1332,6 +1436,16 @@ export function ScheduleApp() {
             </button>
           </div>
         </div>
+      ) : null}
+      {review && reviewSite ? (
+        <ManagerTradePrompt
+          key={review.id}
+          trade={review}
+          site={reviewSite}
+          lang={lang}
+          onDecide={(approve) => decideTrade(review, approve)}
+          onLater={() => tradeLater.add(review.id)}
+        />
       ) : null}
     </div>
   );

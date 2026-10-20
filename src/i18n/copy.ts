@@ -6,6 +6,12 @@ export interface Copy {
   manager: string;
   previousWeek: string;
   nextWeek: string;
+  pickWeek: string;
+  thisWeek: string;
+  previousMonth: string;
+  nextMonth: string;
+  monthLabel: string;
+  yearLabel: string;
   generate: string;
   regenerate: string;
   publish: string;
@@ -291,6 +297,33 @@ export interface Copy {
   requestApproved: string;
   requestRejected: string;
   requestDecisionOk: string;
+  tradeSwap: string;
+  tradeGiveaway: string;
+  tradePickMine: string;
+  tradePickTarget: string;
+  tradePickGiveaway: string;
+  tradeChecking: string;
+  tradeNoTargets: string;
+  tradeNoSeats: string;
+  tradeSend: string;
+  tradeOffer: string;
+  tradeBack: string;
+  tradeClose: string;
+  tradeApprove: string;
+  tradeReject: string;
+  tradeTake: string;
+  tradeLater: string;
+  tradeNotNow: string;
+  tradeBothAgreed: string;
+  tradeGiveawayAsk: string;
+  tradeSwapAsk: string;
+  tradeAnyone: string;
+  tradeMine: string;
+  tradeWithdraw: string;
+  tradeManagerQueue: (count: number) => string;
+  tradeStatus: Record<"open" | "accepted" | "approved" | "rejected" | "declined" | "cancelled", string>;
+  tradeError: Record<"conflict" | "stale" | "duplicate" | "forbidden" | "failed", string>;
+  versionTrade: string;
   staffRequestTitle: string;
   approveRequest: string;
   rejectRequest: string;
@@ -303,6 +336,12 @@ export const copy: Record<Lang, Copy> = {
     manager: "מנהל",
     previousWeek: "השבוע הקודם",
     nextWeek: "השבוע הבא",
+    pickWeek: "בחירת שבוע מלוח השנה",
+    thisWeek: "השבוע",
+    previousMonth: "החודש הקודם",
+    nextMonth: "החודש הבא",
+    monthLabel: "חודש",
+    yearLabel: "שנה",
     generate: "יצירת סידור",
     regenerate: "יצירה מחדש",
     publish: "פרסום",
@@ -589,6 +628,46 @@ export const copy: Record<Lang, Copy> = {
     requestApproved: "בקשת האילוצים שלך אושרה",
     requestRejected: "בקשת האילוצים שלך נדחתה",
     requestDecisionOk: "הבנתי",
+    tradeSwap: "בקשת החלפה",
+    tradeGiveaway: "בקשת מסירה",
+    tradePickMine: "בחר/י משמרת שלך מהסידור.",
+    tradePickTarget: "בחר/י משמרת של עובד אחר. מסומנות רק משמרות שאפשר להחליף בלי להפר אילוץ או חוק של העסק או האתר.",
+    tradePickGiveaway: "בחר/י את המשמרת שברצונך למסור. היא תוצע לכל עובד שיכול לקחת אותה.",
+    tradeChecking: "בודק אילו משמרות מתאימות…",
+    tradeNoTargets: "אין משמרת שאפשר להחליף איתה בלי להפר אילוץ או חוק.",
+    tradeNoSeats: "אין לך משמרות עתידיות בסידור שפורסם לשבוע הזה.",
+    tradeSend: "שליחת הבקשה",
+    tradeOffer: "פרסום המסירה",
+    tradeBack: "חזרה",
+    tradeClose: "סגירה",
+    tradeApprove: "אישור",
+    tradeReject: "דחייה",
+    tradeTake: "לקחת את המשמרת",
+    tradeLater: "אחר כך",
+    tradeNotNow: "לא תודה",
+    tradeBothAgreed: "שני העובדים אישרו את הבקשה",
+    tradeGiveawayAsk: "המשמרת הזו מוצעת למסירה ואפשר לקחת אותה.",
+    tradeSwapAsk: "מבקשים להחליף איתך משמרת.",
+    tradeAnyone: "עובד שיקח",
+    tradeMine: "בקשות החלפה ומסירה",
+    tradeWithdraw: "ביטול הבקשה",
+    tradeManagerQueue: (count) => `בקשות החלפה (${count})`,
+    tradeStatus: {
+      open: "ממתין לעובד",
+      accepted: "ממתין למנהל המשמרת",
+      approved: "אושר",
+      rejected: "נדחה על ידי המנהל",
+      declined: "העובד דחה",
+      cancelled: "בוטל",
+    },
+    tradeError: {
+      conflict: "הבקשה כבר לא עומדת באילוצים או בחוקי העסק והאתר.",
+      stale: "הבקשה כבר לא בתוקף. הסידור השתנה או שמישהו כבר טיפל בה.",
+      duplicate: "כבר יש בקשה פתוחה על המשמרת הזו.",
+      forbidden: "אין לך הרשאה לפעולה הזו.",
+      failed: "הפעולה נכשלה. נסו שוב.",
+    },
+    versionTrade: "החלפה או מסירה",
     staffRequestTitle: "בקשת אילוצים",
     approveRequest: "אישור",
     rejectRequest: "דחייה",
@@ -599,6 +678,12 @@ export const copy: Record<Lang, Copy> = {
     manager: "Manager",
     previousWeek: "Previous week",
     nextWeek: "Next week",
+    pickWeek: "Pick a week from the calendar",
+    thisWeek: "This week",
+    previousMonth: "Previous month",
+    nextMonth: "Next month",
+    monthLabel: "Month",
+    yearLabel: "Year",
     generate: "Generate",
     regenerate: "Regenerate",
     publish: "Publish",
@@ -885,6 +970,46 @@ export const copy: Record<Lang, Copy> = {
     requestApproved: "Your constraint request was approved",
     requestRejected: "Your constraint request was rejected",
     requestDecisionOk: "Got it",
+    tradeSwap: "Request a swap",
+    tradeGiveaway: "Give away a shift",
+    tradePickMine: "Pick one of your shifts.",
+    tradePickTarget: "Pick another employee's shift. Only shifts that break no constraint or business or site rule are marked.",
+    tradePickGiveaway: "Pick the shift to give away. Anyone who can take it will be offered it.",
+    tradeChecking: "Checking which shifts fit…",
+    tradeNoTargets: "No shift can be swapped without breaking a constraint or rule.",
+    tradeNoSeats: "You have no upcoming shifts in this week's published schedule.",
+    tradeSend: "Send request",
+    tradeOffer: "Offer the shift",
+    tradeBack: "Back",
+    tradeClose: "Close",
+    tradeApprove: "Approve",
+    tradeReject: "Reject",
+    tradeTake: "Take the shift",
+    tradeLater: "Later",
+    tradeNotNow: "No thanks",
+    tradeBothAgreed: "Both employees agreed",
+    tradeGiveawayAsk: "This shift is up for grabs and you can take it.",
+    tradeSwapAsk: "Someone wants to swap a shift with you.",
+    tradeAnyone: "Whoever takes it",
+    tradeMine: "Swaps and giveaways",
+    tradeWithdraw: "Withdraw",
+    tradeManagerQueue: (count) => `Swap requests (${count})`,
+    tradeStatus: {
+      open: "Waiting for the employee",
+      accepted: "Waiting for the shift manager",
+      approved: "Approved",
+      rejected: "Rejected by the manager",
+      declined: "Declined",
+      cancelled: "Cancelled",
+    },
+    tradeError: {
+      conflict: "The request no longer fits the constraints or the business and site rules.",
+      stale: "The request is no longer valid. The schedule changed or someone already handled it.",
+      duplicate: "This shift already has an open request.",
+      forbidden: "You are not allowed to do that.",
+      failed: "That didn't work. Try again.",
+    },
+    versionTrade: "Swap or giveaway",
     staffRequestTitle: "Constraint request",
     approveRequest: "Approve",
     rejectRequest: "Reject",

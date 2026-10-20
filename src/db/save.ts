@@ -475,7 +475,8 @@ function isSunday(iso: string): boolean {
   return /^\d{4}-\d{2}-\d{2}$/.test(iso) && new Date(`${iso}T00:00:00Z`).getUTCDay() === 0;
 }
 
-async function writeSchedule(
+/** Rewrite one week's seats, extensions, locks, overages and call-offs, and add new versions. */
+export async function writeSchedule(
   sql: SqlClient,
   input: {
     orgId: string;
@@ -619,12 +620,12 @@ async function writeSchedule(
 
   for (const version of input.versions) {
     if (!UUID.test(version.id) || version.number <= 0) throw new SaveError("version");
-    if (version.reason !== "publish" && version.reason !== "calloff") throw new SaveError("version");
+    if (version.reason !== "publish" && version.reason !== "calloff" && version.reason !== "trade") throw new SaveError("version");
     await sql.query(
       `insert into public.schedule_versions (
          id, org_id, schedule_id, number, reason, restored_from, author_name, snapshot, created_at
        ) values ($1, $2, $3, $4, $5, $6, $7, $8::text::jsonb, $9)
-       on conflict (schedule_id, number) do nothing`,
+       on conflict do nothing`,
       [
         version.id,
         input.orgId,

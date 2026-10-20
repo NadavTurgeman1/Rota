@@ -106,7 +106,7 @@ export interface Schedule {
   restoredFrom?: number;
 }
 
-export type VersionReason = "publish" | "calloff";
+export type VersionReason = "publish" | "calloff" | "trade";
 
 /** A frozen copy of a published week. Versions are never edited. */
 export interface ScheduleVersion {

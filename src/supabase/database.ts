@@ -25,6 +25,26 @@ export function supportOrgFrom(request: Request): string | null {
   return SUPPORT_ORG.test(value) ? value : null;
 }
 
+/**
+ * A read-only transaction that row-level security does not limit.
+ * Only for checking a request against rules the signed-in person may not read.
+ * Call it after the person's own access was checked, and never return its rows.
+ */
+export async function withRulesReader<T>(run: (sql: SqlClient) => Promise<T>): Promise<T> {
+  const db = database();
+  if (!db) throw new SaveError("db_unconfigured");
+  return db.begin(async (tx) => {
+    await tx.unsafe("set transaction read only");
+    const sql: SqlClient = {
+      async query<Row>(text: string, params?: readonly unknown[]): Promise<Row[]> {
+        const rows = await tx.unsafe(text, (params ? [...params] : []) as never[]);
+        return [...rows] as Row[];
+      },
+    };
+    return run(sql);
+  }) as Promise<T>;
+}
+
 export async function withUserDb<T>(userId: string, run: (sql: SqlClient) => Promise<T>, supportOrgId?: string | null): Promise<T> {
   const db = database();
   if (!db) throw new SaveError("db_unconfigured");

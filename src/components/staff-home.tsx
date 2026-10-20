@@ -10,6 +10,8 @@ import { WeekGrid } from "./team-screen";
 import { WeekBoard } from "./schedule-board";
 import { BrandMark, Wordmark } from "./login-screen";
 import { downloadBlob, downloadWeekPng } from "./week-png";
+import { StaffTrades, type ShiftTrade, type TradeApi } from "./trades";
+import { WeekPicker } from "./week-picker";
 import { availabilitySubmitted, blockLimitOf, countBlocks, gridWithCell, openAvailabilityGrid, withinBlockLimit } from "../people/edit";
 import { button, card, cardTitle, pill } from "./ui";
 
@@ -268,6 +270,9 @@ export function StaffHome({
   onWeek,
   decisions,
   onAcknowledge,
+  trades = [],
+  takeable = [],
+  tradeApi,
 }: {
   state: RotaState;
   lang: Lang;
@@ -284,6 +289,10 @@ export function StaffHome({
   onWeek: (days: number) => void;
   decisions: StaffDecision[];
   onAcknowledge: (requestId: string) => Promise<boolean>;
+  trades?: ShiftTrade[];
+  takeable?: string[];
+  /** Swaps and giveaways go through the server, so they are off without one. */
+  tradeApi?: TradeApi;
 }) {
   const t = copy[lang];
   const [tab, setTab] = useState<"schedule" | "constraints">("schedule");
@@ -372,12 +381,29 @@ export function StaffHome({
             <button type="button" data-testid="prev-week" aria-label={t.previousWeek} className="grid h-8 w-8 place-items-center rounded-lg text-lg leading-none text-ink-soft hover:bg-well hover:text-ink" onClick={() => onWeek(-7)}>
               ‹
             </button>
-            <p className="min-w-36 px-2 text-center text-sm font-medium tabular-nums">{formatWeekRange(state.week, lang)}</p>
+            <WeekPicker
+              lang={lang}
+              week={state.week}
+              onPick={(sunday) => onWeek(Math.round((Date.parse(`${sunday}T00:00:00Z`) - Date.parse(`${state.week}T00:00:00Z`)) / 86_400_000))}
+            />
             <button type="button" data-testid="next-week" aria-label={t.nextWeek} className="grid h-8 w-8 place-items-center rounded-lg text-lg leading-none text-ink-soft hover:bg-well hover:text-ink" onClick={() => onWeek(7)}>
               ›
             </button>
           </div>
         </section>
+        {selfId && tradeApi ? (
+          <StaffTrades
+            lang={lang}
+            selfId={selfId}
+            week={state.week}
+            sites={boards}
+            trades={trades}
+            takeable={takeable}
+            panel={tab === "schedule"}
+            quiet={Boolean(decision)}
+            api={tradeApi}
+          />
+        ) : null}
         {!selfId ? (
           <p className={`${card} text-sm leading-6 text-ink`}>{t.staffUnlinked}</p>
         ) : tab === "constraints" ? (

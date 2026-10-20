@@ -72,7 +72,7 @@ export function VersionsPanel({
                   ) : null}
                   <span className="font-semibold">{versionLabel(lang, version.number)}</span>
                   <span className={`${pill} bg-ok-soft text-ok-text`}>
-                    {version.reason === "publish" ? t.versionPublish : t.versionCalloff}
+                    {version.reason === "publish" ? t.versionPublish : version.reason === "trade" ? t.versionTrade : t.versionCalloff}
                   </span>
                   <time dateTime={version.at} className="text-subtle">
                     {new Date(version.at).toLocaleString(lang === "he" ? "he-IL" : "en-GB", {
