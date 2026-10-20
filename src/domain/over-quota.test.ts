@@ -40,6 +40,14 @@ describe("shifts past the agreed weekly count", () => {
     expect(publishCheck(weekWith([0, 1, 2, 3, 4, 5])).violations).toBe(0);
   });
 
+  it("still lists an approved over-quota shift, marked as approved", () => {
+    const state = weekWith([0, 1, 2, 3, 4, 5]);
+    state.sched[week].over = { [`5|${morning}#g`]: true };
+    const report = analyze(state, week);
+    expect(report.overQuota).toHaveLength(1);
+    expect(report.overQuota[0].message).toContain("אושר");
+  });
+
   it("stays quiet at the agreed count", () => {
     expect(analyze(weekWith([0, 1, 2, 3, 4]), week).overQuota).toEqual([]);
   });

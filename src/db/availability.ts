@@ -167,6 +167,18 @@ export async function submitAvailabilityRequest(
       );
       if ((counted[0]?.blocks ?? 0) > cap[0].max_blocks) throw new SaveError("blocks");
     }
+    const current = await sql.query<{ weekday: number | null; shift_id: string | null }>(
+      `select e.weekday, e.shift_id::text as shift_id
+       from public.availability_weeks w
+       left join public.availability_entries e on e.availability_week_id = w.id
+       where w.site_id = $1 and w.employee_id = $2 and w.week_start = $3::date`,
+      [input.siteId, employee.id, input.week],
+    );
+    if (current.length > 0) {
+      const official = new Set(current.filter((row) => row.shift_id).map((row) => `${row.weekday}|${row.shift_id}`));
+      const requested = new Set(shiftIds.map((shiftId, index) => `${weekdays[index]}|${shiftId}`));
+      if (official.size === requested.size && [...requested].every((cell) => official.has(cell))) throw new SaveError("same");
+    }
     await sql.query(
       `delete from public.availability_requests
        where site_id = $1 and employee_id = $2 and week_start = $3::date and status = 'pending'`,

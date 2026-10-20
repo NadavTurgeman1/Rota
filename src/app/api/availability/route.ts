@@ -11,7 +11,7 @@ function gridFrom(value: unknown): string[][] | null {
 }
 
 function statusFor(error: unknown): Response {
-  if (error instanceof SaveError && (error.message === "forbidden" || error.message === "window" || error.message === "blocks")) {
+  if (error instanceof SaveError && (error.message === "forbidden" || error.message === "window" || error.message === "blocks" || error.message === "same")) {
     return Response.json({ error: error.message }, { status: 403 });
   }
   if (error instanceof SaveError) return Response.json({ error: error.message }, { status: 400 });

@@ -546,7 +546,7 @@ export function ScheduleApp() {
       });
       const body = (await response.json().catch(() => null)) as { request?: StaffRequest; error?: string } | null;
       if (!response.ok || !body?.request) {
-        setSaveNote(body?.error === "blocks" ? "blocks" : "failed");
+        setSaveNote(body?.error === "blocks" || body?.error === "same" ? body.error : "failed");
         return;
       }
       setSaveNote(null);

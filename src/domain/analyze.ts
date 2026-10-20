@@ -84,16 +84,17 @@ export function analyze(state: RotaState, week: string, lang: Lang = "he"): Anal
     if (isRelief(employee, state.siteId)) continue;
     const agreed = employee.perWeek;
     const count = (counts[employee.id] ?? 0) + peerLoad(state, employee.id).shifts;
-    if (!agreed || count <= agreed + approvedExtraShifts(state, employee.id)) continue;
+    if (!agreed || count <= agreed) continue;
     const extra = count - agreed;
+    const approved = approvedExtraShifts(state, employee.id) >= extra;
     overQuota.push({
       employee,
       count,
       agreed,
       message:
         lang === "he"
-          ? `${employee.name}: ${count} משמרות השבוע, ${extra} מעבר להסכם של ${agreed}.`
-          : `${employee.name}: ${count} shifts this week, ${extra} over the agreed ${agreed}.`,
+          ? `${employee.name}: ${count} משמרות השבוע, ${extra} מעבר להסכם של ${agreed}${approved ? " (אושר)" : ""}.`
+          : `${employee.name}: ${count} shifts this week, ${extra} over the agreed ${agreed}${approved ? " (approved)" : ""}.`,
     });
   }
 

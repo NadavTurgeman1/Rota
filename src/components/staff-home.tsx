@@ -22,6 +22,14 @@ function officialGrid(state: RotaState, employeeId: string): string[][] {
   );
 }
 
+function sameGrid(left: string[][], right: string[][]): boolean {
+  return [0, 1, 2, 3, 4, 5, 6].every((day) => {
+    const a = new Set(left[day] ?? []);
+    const b = right[day] ?? [];
+    return a.size === new Set(b).size && b.every((id) => a.has(id));
+  });
+}
+
 function withGrid(state: RotaState, employeeId: string, grid: string[][]): RotaState {
   return {
     ...state,
@@ -51,6 +59,8 @@ function StaffConstraints({
   const [refused, setRefused] = useState(false);
   const limit = blockLimitOf(state.biz);
   const shown = withGrid(state, employeeId, pending ? pending.shifts : draft);
+  const approved = state.avail[state.week]?.[employeeId];
+  const unchanged = Boolean(approved) && sameGrid(approved ?? [], draft);
   if (!employee) return null;
   return (
     <section data-testid="staff-constraints" className={card}>
@@ -148,11 +158,16 @@ function StaffConstraints({
           setDraft(next);
         }}
       />
+      {!locked && unchanged ? (
+        <p data-testid="staff-same-request" className="mt-4 text-sm text-muted">
+          {t.staffSameRequest}
+        </p>
+      ) : null}
       <button
         type="button"
         data-testid="submit-request"
         className={`${button.primary} mt-4`}
-        disabled={locked}
+        disabled={locked || unchanged}
         onClick={() => {
           if (!withinBlockLimit(state, employeeId, draft)) {
             setRefused(true);
@@ -298,7 +313,13 @@ export function StaffHome({
       <header className="sticky top-0 z-30 border-b border-line bg-page/80 backdrop-blur-xl">
         {saveNote ? (
           <p role="alert" className="mx-auto max-w-[1440px] px-4 pt-2 text-sm text-danger-text sm:px-6">
-            {saveNote === "db" ? t.remoteDbMissing : saveNote === "blocks" ? t.blockLimitReached : t.saveFailed}
+            {saveNote === "db"
+              ? t.remoteDbMissing
+              : saveNote === "blocks"
+                ? t.blockLimitReached
+                : saveNote === "same"
+                  ? t.staffSameRequest
+                  : t.saveFailed}
           </p>
         ) : null}
         <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6">

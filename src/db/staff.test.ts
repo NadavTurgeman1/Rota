@@ -108,6 +108,9 @@ describe("a roster employee login", () => {
     const seen = await loadStoredWorkspace(sql, constraintWeek);
     expect(seen?.sites[0]?.state.avail[constraintWeek]?.[staff.id]?.[0]).toEqual([morning.id]);
     expect(seen?.sites[0]?.requests ?? []).toEqual([]);
+    await asRole(db, "authenticated", worker);
+    await expect(submitAvailabilityRequest(sql, { siteId: headquarters, week: constraintWeek, shifts: grid })).rejects.toThrow("same");
+    await asRole(db, "authenticated", owner);
     expect(seen?.decisions ?? []).toEqual([]);
     expect(seen?.users.some((user) => user.email === "worker.portal@example.com" && user.pending)).toBe(false);
     const withDraft = seen?.sites[0]?.state;

@@ -276,6 +276,7 @@ export interface Copy {
   staffAccessOff: string;
   staffSubmit: string;
   staffPending: string;
+  staffSameRequest: string;
   requestApproved: string;
   requestRejected: string;
   requestDecisionOk: string;
@@ -562,6 +563,7 @@ export const copy: Record<Lang, Copy> = {
     staffAccessOff: "מנהל המשמרות מזין את האילוצים. אין כניסה עצמאית לאתר הזה.",
     staffSubmit: "שליחת בקשה",
     staffPending: "הבקשה ממתינה לאישור מנהל המשמרות",
+    staffSameRequest: "האילוצים זהים לאילוצים שכבר אושרו לשבוע הזה. שנו לפחות משמרת אחת כדי לשלוח בקשה חדשה.",
     requestApproved: "בקשת האילוצים שלך אושרה",
     requestRejected: "בקשת האילוצים שלך נדחתה",
     requestDecisionOk: "הבנתי",
@@ -846,6 +848,7 @@ export const copy: Record<Lang, Copy> = {
     staffAccessOff: "The shift manager enters constraints. This site has no employee login.",
     staffSubmit: "Send request",
     staffPending: "The request is waiting for the shift manager",
+    staffSameRequest: "These constraints match the ones already approved for this week. Change at least one shift to send a new request.",
     requestApproved: "Your constraint request was approved",
     requestRejected: "Your constraint request was rejected",
     requestDecisionOk: "Got it",
