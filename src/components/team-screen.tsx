@@ -6,7 +6,7 @@ import { shiftLabel, siteLabel } from "../schedule/display";
 import { agreementCell, availabilityCell, type EmployeePatch } from "../people/edit";
 
 import { NameRail } from "./name-rail";
-import { button, card, cardHint, cardTitle, field, label as labelClass, labelText, surface } from "./ui";
+import { button, card, cardHint, cardTitle, field, label as labelClass, labelText, select, surface } from "./ui";
 
 export function TeamScreen({
   state,
@@ -212,38 +212,68 @@ function EmployeeCard({
         {sites.length > 0 ? (
           <fieldset className="mt-5 border-t border-line pt-5">
             <legend className="text-sm font-medium text-ink">{t.employeeSites}</legend>
-            <p className="mt-1 text-sm leading-6 text-muted">{t.employeeSitesHint}</p>
-            <div className="mt-3 flex flex-col gap-2">
-              {sites.map((site) => {
-                const checked = assignedSiteIds.includes(site.id);
-                const locked = checked && lockedSiteIds.includes(site.id);
-                const primary = homeSiteId === site.id;
-                const nextIds = checked ? assignedSiteIds.filter((id) => id !== site.id) : [...assignedSiteIds, site.id];
-                const nextHome = nextIds.includes(homeSiteId ?? "") ? (homeSiteId ?? nextIds[0] ?? "") : (nextIds[0] ?? "");
-                return (
-                  <div key={site.id} className="flex items-center gap-3 text-sm">
-                    <input
-                      type="checkbox"
-                      data-testid={`employee-site-${site.id}`}
-                      checked={checked}
-                      disabled={!canEditAgreement || locked}
-                      onChange={() => onSites(employeeId, nextIds, nextHome)}
-                    />
-                    <input
-                      type="radio"
-                      name={`employee-home-${employeeId}`}
-                      data-testid={`employee-home-${site.id}`}
-                      aria-label={t.primarySite}
-                      checked={checked && primary}
-                      disabled={!canEditAgreement || !checked}
-                      onChange={() => onSites(employeeId, assignedSiteIds, site.id)}
-                    />
-                    <span>{siteLabel(site.name, lang)}</span>
-                    {checked ? <span className="text-xs text-muted">{primary ? t.primarySite : t.reliefSite}</span> : null}
+            {(() => {
+              const home = homeSiteId && assignedSiteIds.includes(homeSiteId) ? homeSiteId : (assignedSiteIds[0] ?? "");
+              const others = sites.filter((site) => site.id !== home);
+              return (
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                  <label className={labelClass}>
+                    <span className={labelText}>{t.primarySiteTitle}</span>
+                    <select
+                      className={select}
+                      data-testid="employee-home-site"
+                      value={home}
+                      disabled={!canEditAgreement}
+                      onChange={(event) => {
+                        const next = event.target.value;
+                        onSites(employeeId, assignedSiteIds.includes(next) ? assignedSiteIds : [...assignedSiteIds, next], next);
+                      }}
+                    >
+                      {sites.map((site) => (
+                        <option key={site.id} value={site.id}>
+                          {siteLabel(site.name, lang)}
+                        </option>
+                      ))}
+                    </select>
+                    <span className="text-xs leading-5 text-muted">{t.primarySiteHint}</span>
+                  </label>
+                  <div className={labelClass}>
+                    <span className={labelText}>{t.reliefSitesTitle}</span>
+                    {others.length === 0 ? (
+                      <span className="text-sm text-muted">{t.noReliefSites}</span>
+                    ) : (
+                      <div className="flex flex-col gap-2">
+                        {others.map((site) => {
+                          const checked = assignedSiteIds.includes(site.id);
+                          const locked = checked && lockedSiteIds.includes(site.id);
+                          return (
+                            <label key={site.id} className="flex items-center gap-2 text-sm">
+                              <input
+                                type="checkbox"
+                                data-testid={`employee-site-${site.id}`}
+                                className="h-4 w-4"
+                                checked={checked}
+                                disabled={!canEditAgreement || locked}
+                                onChange={() =>
+                                  onSites(
+                                    employeeId,
+                                    checked ? assignedSiteIds.filter((id) => id !== site.id) : [...assignedSiteIds, site.id],
+                                    home,
+                                  )
+                                }
+                              />
+                              <span>{siteLabel(site.name, lang)}</span>
+                            </label>
+                          );
+                        })}
+                      </div>
+                    )}
+                    <span className="text-xs leading-5 text-muted">{t.reliefSitesHint}</span>
                   </div>
-                );
-              })}
-            </div>
+                </div>
+              );
+            })()}
+            <p className="mt-3 text-xs leading-5 text-muted">{t.employeeSitesHint}</p>
           </fieldset>
         ) : null}
         {canEditAgreement ? (

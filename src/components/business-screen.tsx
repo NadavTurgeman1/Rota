@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { dayName, type Lang, type RotaState } from "../domain";
 import type { BusinessPatch, ShiftPatch } from "../business/edit";
-import { confirmDeleteSite, copy } from "../i18n/copy";
+import { confirmDeleteManager, confirmDeleteSite, confirmDeleteStaffLogin, copy } from "../i18n/copy";
 import { orgTypeLabel, shiftLabel, siteLabel } from "../schedule/display";
 
 import { accessLabel } from "./users-panel";
@@ -165,6 +165,9 @@ export function BusinessScreen({
   onInviteStaff,
   onBackupJson,
   onRestoreJson,
+  onEditManagerSites,
+  onDeleteManager,
+  onDeleteStaffLogin,
 }: {
   state: RotaState;
   lang: Lang;
@@ -183,12 +186,15 @@ export function BusinessScreen({
   onRequirement: (shiftId: string, day: number, count: number) => void;
   onAddShift: (name: string) => void;
   onRemoveShift: (shiftId: string) => void;
-  siteUsers?: { id: string; name: string; email: string; access: "owner" | "write" | "read"; pending?: boolean }[];
+  siteUsers?: { id: string; name: string; email: string; access: "owner" | "write" | "read"; pending?: boolean; siteIds?: string[] }[];
   hideUserId?: string;
   onInvite?: (input: { fullName: string; email: string; siteIds: string[] }) => Promise<boolean>;
   onInviteStaff?: (input: { employeeId: string; email: string }) => Promise<boolean>;
   onBackupJson?: () => void;
   onRestoreJson?: (raw: string) => boolean;
+  onEditManagerSites?: (email: string, siteIds: string[]) => Promise<boolean>;
+  onDeleteManager?: (email: string) => Promise<boolean>;
+  onDeleteStaffLogin?: (employeeId: string) => Promise<boolean>;
 }) {
   const t = copy[lang];
   const biz = state.biz;
@@ -203,8 +209,10 @@ export function BusinessScreen({
   const [staffEmail, setStaffEmail] = useState("");
   const [staffNote, setStaffNote] = useState<"saved" | "failed" | null>(null);
   const [backupNote, setBackupNote] = useState<"restored" | "invalid" | null>(null);
+  const [editing, setEditing] = useState<{ email: string; siteIds: string[] } | null>(null);
+  const [accessNote, setAccessNote] = useState<"failed" | "sites" | null>(null);
   const managers = (siteUsers ?? []).filter((member) => member.access === "write" && member.id !== hideUserId && !member.pending);
-  const confirmedStaff = state.emps.filter((employee) => employee.loginEmail && employee.loginConfirmed);
+  const staffLogins = state.emps.filter((employee) => employee.loginEmail);
   const chosenStaff = state.emps.find((employee) => employee.id === staffId);
   const existingLogin = chosenStaff?.loginEmail;
   const numbers: { key: "minRest" | "maxHours" | "maxShift" | "maxDayHours"; label: string }[] = [
@@ -474,18 +482,103 @@ export function BusinessScreen({
           <p className={cardHint}>{t.inviteHint}</p>
           {managers.length === 0 ? <p className="mt-4 text-sm text-muted">{t.noShiftManagers}</p> : null}
           <ul className="mt-4 flex flex-col gap-2 text-sm">
-            {managers.map((member) => (
-              <li key={member.id} data-testid={`manager-${member.email}`} className="flex items-center justify-between gap-3">
-                <span className="flex items-center gap-6">
-                  <span className="font-medium">{member.name}</span>
-                  <span dir="ltr" className="text-muted">
-                    {member.email}
-                  </span>
-                </span>
-                <span className="text-muted">{accessLabel(lang, member.access)}</span>
-              </li>
-            ))}
+            {managers.map((member) => {
+              const open = editing?.email === member.email;
+              return (
+                <li key={member.id} data-testid={`manager-${member.email}`} className="flex flex-col gap-2">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <span className="flex items-center gap-6">
+                      <span className="font-medium">{member.name}</span>
+                      <span dir="ltr" className="text-muted">
+                        {member.email}
+                      </span>
+                    </span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-muted">{accessLabel(lang, member.access)}</span>
+                      {onEditManagerSites ? (
+                        <button
+                          type="button"
+                          data-testid={`edit-manager-${member.email}`}
+                          className={button.small}
+                          onClick={() => {
+                            setAccessNote(null);
+                            setEditing(open ? null : { email: member.email, siteIds: member.siteIds ?? [] });
+                          }}
+                        >
+                          {t.editAccess}
+                        </button>
+                      ) : null}
+                      {onDeleteManager ? (
+                        <button
+                          type="button"
+                          data-testid={`delete-manager-${member.email}`}
+                          className={`${button.danger} h-8 px-3`}
+                          onClick={() => {
+                            if (!window.confirm(confirmDeleteManager(lang, member.name))) return;
+                            setAccessNote(null);
+                            void onDeleteManager(member.email).then((ok) => setAccessNote(ok ? null : "failed"));
+                          }}
+                        >
+                          {t.deleteAccess}
+                        </button>
+                      ) : null}
+                    </span>
+                  </div>
+                  {open && editing && onEditManagerSites ? (
+                    <div className="rounded-xl border border-line bg-well p-3">
+                      <p className={labelText}>{t.sitesTitle}</p>
+                      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
+                        {sites.map((site) => (
+                          <label key={site.id} className="flex items-center gap-2">
+                            <input
+                              type="checkbox"
+                              checked={editing.siteIds.includes(site.id)}
+                              onChange={() =>
+                                setEditing({
+                                  ...editing,
+                                  siteIds: editing.siteIds.includes(site.id)
+                                    ? editing.siteIds.filter((id) => id !== site.id)
+                                    : [...editing.siteIds, site.id],
+                                })
+                              }
+                            />
+                            <span>{siteLabel(site.name, lang)}</span>
+                          </label>
+                        ))}
+                      </div>
+                      <div className="mt-3 flex gap-2">
+                        <button
+                          type="button"
+                          data-testid={`save-manager-${member.email}`}
+                          className={button.primary}
+                          onClick={() => {
+                            if (editing.siteIds.length === 0) {
+                              setAccessNote("sites");
+                              return;
+                            }
+                            void onEditManagerSites(member.email, editing.siteIds).then((ok) => {
+                              setAccessNote(ok ? null : "failed");
+                              if (ok) setEditing(null);
+                            });
+                          }}
+                        >
+                          {t.saveAccess}
+                        </button>
+                        <button type="button" className={button.quiet} onClick={() => setEditing(null)}>
+                          {t.cancelEdit}
+                        </button>
+                      </div>
+                    </div>
+                  ) : null}
+                </li>
+              );
+            })}
           </ul>
+          {accessNote ? (
+            <p role="alert" className="mt-2 text-sm text-danger-text">
+              {accessNote === "sites" ? t.managerSitesRequired : t.saveFailed}
+            </p>
+          ) : null}
           <form
             className="mt-4 grid gap-3 sm:grid-cols-2"
             onSubmit={(event) => {
@@ -557,17 +650,32 @@ export function BusinessScreen({
             >
               <h3 className={`${cardTitle} sm:col-span-2`}>{t.addEmployeesTitle}</h3>
               <p className={`${cardHint} sm:col-span-2`}>{t.inviteStaffHint}</p>
-              {confirmedStaff.length === 0 ? <p className="text-sm text-muted sm:col-span-2">{t.noStaffLogins}</p> : null}
+              {staffLogins.length === 0 ? <p className="text-sm text-muted sm:col-span-2">{t.noStaffLogins}</p> : null}
               <ul className="flex flex-col gap-2 text-sm sm:col-span-2">
-                {confirmedStaff.map((employee) => (
-                  <li key={employee.id} data-testid={`staff-login-${employee.loginEmail}`} className="flex items-center justify-between gap-3">
+                {staffLogins.map((employee) => (
+                  <li key={employee.id} data-testid={`staff-login-${employee.loginEmail}`} className="flex flex-wrap items-center justify-between gap-3">
                     <span className="flex items-center gap-6">
                       <span className="font-medium">{employee.name}</span>
                       <span dir="ltr" className="text-muted">
                         {employee.loginEmail}
                       </span>
                     </span>
-                    <span className="text-muted">{employee.role || t.accessRead}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-muted">{employee.loginConfirmed ? employee.role || t.accessRead : t.loginPending}</span>
+                      {onDeleteStaffLogin ? (
+                        <button
+                          type="button"
+                          data-testid={`delete-staff-login-${employee.loginEmail}`}
+                          className={`${button.danger} h-8 px-3`}
+                          onClick={() => {
+                            if (!window.confirm(confirmDeleteStaffLogin(lang, employee.name))) return;
+                            void onDeleteStaffLogin(employee.id).then((ok) => setStaffNote(ok ? null : "failed"));
+                          }}
+                        >
+                          {t.deleteAccess}
+                        </button>
+                      ) : null}
+                    </span>
                   </li>
                 ))}
               </ul>

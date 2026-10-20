@@ -1,5 +1,12 @@
 export type SaveResult = "ok" | "retry" | "stop";
 
+/** Browsers reject a keepalive request whose body is over 64 KiB, before it is sent. */
+const KEEPALIVE_LIMIT = 60 * 1024;
+
+export function keepaliveFits(json: string): boolean {
+  return new TextEncoder().encode(json).length <= KEEPALIVE_LIMIT;
+}
+
 /**
  * One cloud write at a time. A newer snapshot waits.
  * An older request is never sent again after a newer one has been queued,

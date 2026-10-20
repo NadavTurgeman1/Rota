@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { createSaveQueue, type SaveResult } from "./save-queue";
+import { createSaveQueue, keepaliveFits, type SaveResult } from "./save-queue";
+
+describe("keepaliveFits", () => {
+  it("drops keepalive for a body the browser would reject before sending", () => {
+    expect(keepaliveFits(JSON.stringify({ a: "x".repeat(1000) }))).toBe(true);
+    expect(keepaliveFits(JSON.stringify({ a: "x".repeat(70 * 1024) }))).toBe(false);
+    expect(keepaliveFits(JSON.stringify({ a: "ש".repeat(35 * 1024) }))).toBe(false);
+  });
+});
 
 describe("createSaveQueue", () => {
   it("sends a newer snapshot after the one already in flight, and does not send the old one again", async () => {

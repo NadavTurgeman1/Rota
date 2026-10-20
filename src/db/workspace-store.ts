@@ -444,6 +444,29 @@ export async function inviteStaffLogin(
   }
 }
 
+async function runAccessChange(sql: SqlClient, text: string, params: unknown[]): Promise<void> {
+  try {
+    await sql.query(text, params);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (/not allowed|42501/i.test(message)) throw new SaveError("forbidden");
+    if (/invalid|23514/i.test(message)) throw new SaveError("invitation");
+    throw error;
+  }
+}
+
+export async function setShiftManagerSites(sql: SqlClient, input: { orgId: string; email: string; siteIds: string[] }): Promise<void> {
+  await runAccessChange(sql, `select public.set_shift_manager_sites($1, $2, $3::uuid[])`, [input.orgId, input.email, input.siteIds]);
+}
+
+export async function removeShiftManager(sql: SqlClient, input: { orgId: string; email: string }): Promise<void> {
+  await runAccessChange(sql, `select public.remove_shift_manager($1, $2)`, [input.orgId, input.email]);
+}
+
+export async function removeStaffLogin(sql: SqlClient, input: { orgId: string; employeeId: string }): Promise<void> {
+  await runAccessChange(sql, `select public.remove_staff_login($1, $2)`, [input.orgId, input.employeeId]);
+}
+
 export async function inviteShiftManager(sql: SqlClient, input: { orgId: string; siteIds: string[]; fullName: string; email: string }): Promise<void> {
   try {
     await sql.query(`select public.assign_shift_manager($1, $2, $3, $4::uuid[])`, [input.orgId, input.fullName, input.email, input.siteIds]);

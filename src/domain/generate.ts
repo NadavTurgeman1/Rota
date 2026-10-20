@@ -121,6 +121,34 @@ export function generate(state: RotaState, week: string): GenerateResult {
       // Each success fills exactly one open seat.
     }
   }
+
+  const pinned = (slot: Slot, employeeId: string) => schedule.locked.includes(`${slot.key}#${employeeId}`);
+  const trade = (employee: Employee, given: Slot): boolean => {
+    const kept = mine[employee.id].filter((item) => item !== given);
+    for (const other of automatic) {
+      if (other.id === employee.id || assign[given.key].includes(other.id) || staticReason(state, other, given, week)) continue;
+      for (const taken of mine[other.id]) {
+        if (pinned(taken, other.id) || assign[taken.key].includes(employee.id) || staticReason(state, employee, taken, week)) continue;
+        const otherKept = mine[other.id].filter((item) => item !== taken);
+        if (dynamicReason(state, other, given, otherKept) || dynamicReason(state, employee, taken, kept)) continue;
+        if (sameDayTight(heldWithPeers(other.id, otherKept), given, state.biz.minRest)) continue;
+        if (sameDayTight(heldWithPeers(employee.id, kept), taken, state.biz.minRest)) continue;
+        assign[given.key] = assign[given.key].filter((id) => id !== employee.id).concat(other.id);
+        assign[taken.key] = assign[taken.key].filter((id) => id !== other.id).concat(employee.id);
+        mine[employee.id] = [...kept, taken];
+        mine[other.id] = [...otherKept, given];
+        return true;
+      }
+    }
+    return false;
+  };
+  for (const employee of automatic) {
+    for (const given of mine[employee.id].slice()) {
+      if (pinned(given, employee.id) || !mine[employee.id].includes(given)) continue;
+      const rest = heldWithPeers(employee.id, mine[employee.id].filter((item) => item !== given));
+      if (sameDayTight(rest, given, state.biz.minRest)) trade(employee, given);
+    }
+  }
   const nameOf = (id: string) => employees.find((employee) => employee.id === id)?.name ?? "";
   for (const ids of Object.values(assign)) {
     ids.sort((left, right) => nameOf(left).localeCompare(nameOf(right), "he", { sensitivity: "base" }));
@@ -142,12 +170,14 @@ export function generate(state: RotaState, week: string): GenerateResult {
         value += 5;
       }
     }
-    const chain = tightChain(heldWithPeers(employee.id), slot, state.biz.minRest);
+    const held = heldWithPeers(employee.id);
+    const chain = tightChain(held, slot, state.biz.minRest);
     if (chain >= 3) value += 6 + (chain - 3) * 3;
+    if (sameDayTight(held, slot, state.biz.minRest)) value += 12;
     return value;
   }
 
-  function heldWithPeers(employeeId: string): Slot[] {
+  function heldWithPeers(employeeId: string, held: Slot[] = mine[employeeId]): Slot[] {
     const extra = (state.peers?.[employeeId] ?? [])
       .filter((peer) => peer.weekOffset === 0)
       .map(
@@ -160,8 +190,18 @@ export function generate(state: RotaState, week: string): GenerateResult {
           required: 1,
         }),
       );
-    return [...mine[employeeId], ...extra];
+    return [...held, ...extra];
   }
+}
+
+/** Another held shift starts on the same date and only the minimum rest separates them. A soft penalty. */
+function sameDayTight(held: Slot[], slot: Slot, minRest: number): boolean {
+  const date = Math.floor(slot.start / 24);
+  return held.some((other) => {
+    if (Math.floor(other.start / 24) !== date) return false;
+    const gap = gapBetween(other, slot);
+    return gap >= -1e-9 && gap <= minRest + 0.01;
+  });
 }
 
 /** Shifts joined only by the site's minimum rest. Two are fine. Three is a soft penalty. */

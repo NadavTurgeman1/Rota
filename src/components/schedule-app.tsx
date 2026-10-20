@@ -31,7 +31,7 @@ import {
   undo,
   type History,
 } from "../schedule/edit";
-import { createSaveQueue } from "../schedule/save-queue";
+import { createSaveQueue, keepaliveFits } from "../schedule/save-queue";
 import {
   addEmployeeRecord,
   applyConstraintText,
@@ -195,13 +195,21 @@ export function ScheduleApp() {
     createSaveQueue(async (json, signal) => {
       const token = tokenRef.current;
       if (!token) return "retry";
-      const response = await fetch("/api/workspace", {
-        method: "PUT",
-        headers: authHeaders(true),
-        body: json,
-        keepalive: true,
-        signal,
-      });
+      let response: Response;
+      try {
+        response = await fetch("/api/workspace", {
+          method: "PUT",
+          headers: authHeaders(true),
+          body: json,
+          keepalive: keepaliveFits(json),
+          signal,
+        });
+      } catch (error) {
+        if (signal.aborted) throw error;
+        retrySave.current = true;
+        setSaveNote("save");
+        return "retry";
+      }
       if (response.ok) {
         retrySave.current = false;
         setSaveNote(null);
@@ -606,20 +614,26 @@ export function ScheduleApp() {
     const body = (await response.json().catch(() => null)) as { status?: string } | null;
     const address = input.email.trim().toLowerCase();
     const person = state.emps.find((employee) => employee.id === input.employeeId);
-    change((current) => {
+    const confirmed = body?.status === "linked";
+    const link = (current: RotaState): RotaState => {
       const employee = current.emps.find((item) => item.id === input.employeeId);
-      if (!employee || employee.loginEmail === address) return current;
-      const next = structuredClone(current);
-      const target = next.emps.find((item) => item.id === input.employeeId);
-      if (!target) return current;
-      target.loginEmail = address;
-      target.loginConfirmed = body?.status === "linked";
-      return next;
-    });
-    setWorkspace((current) => {
-      if (current.users.some((member) => member.email.toLowerCase() === address)) return current;
+      if (!employee || (employee.loginEmail === address && employee.loginConfirmed === confirmed && employee.contact === address)) {
+        return current;
+      }
       return {
         ...current,
+        emps: current.emps.map((item) =>
+          item.id === input.employeeId ? { ...item, loginEmail: address, loginConfirmed: confirmed, contact: address } : item,
+        ),
+      };
+    };
+    change(link);
+    setWorkspace((current) => {
+      const sites = current.sites.map((site) => (site.id === current.activeSiteId ? site : { ...site, state: link(site.state) }));
+      if (current.users.some((member) => member.email.toLowerCase() === address)) return { ...current, sites };
+      return {
+        ...current,
+        sites,
         users: [
           ...current.users,
           {
@@ -646,6 +660,69 @@ export function ScheduleApp() {
       body: JSON.stringify({ ...input, orgId: live.org.id }),
     });
     return response.ok;
+  }
+
+  async function accessRequest(path: string, method: "PATCH" | "DELETE", body: Record<string, unknown>): Promise<boolean> {
+    if (!tokenRef.current || !live.org.id) return false;
+    const response = await fetch(path, {
+      method,
+      headers: authHeaders(true),
+      body: JSON.stringify({ ...body, orgId: live.org.id }),
+    });
+    return response.ok;
+  }
+
+  async function editManagerSites(email: string, siteIds: string[]): Promise<boolean> {
+    if (!(await accessRequest("/api/invitations", "PATCH", { email, siteIds }))) return false;
+    const address = email.toLowerCase();
+    setWorkspace((current) => {
+      const rows = current.users.filter((member) => member.email.toLowerCase() === address && member.access === "write");
+      const first = rows[0];
+      if (!first) return current;
+      return {
+        ...current,
+        users: [
+          ...current.users.filter((member) => !rows.includes(member)),
+          ...siteIds.map((siteId) => ({ ...first, siteId })),
+        ],
+      };
+    });
+    return true;
+  }
+
+  async function deleteManager(email: string): Promise<boolean> {
+    if (!(await accessRequest("/api/invitations", "DELETE", { email }))) return false;
+    const address = email.toLowerCase();
+    setWorkspace((current) => ({
+      ...current,
+      users: current.users.filter((member) => !(member.email.toLowerCase() === address && member.access === "write")),
+    }));
+    return true;
+  }
+
+  async function deleteStaffLogin(employeeId: string): Promise<boolean> {
+    const address = state.emps.find((employee) => employee.id === employeeId)?.loginEmail?.toLowerCase();
+    if (!(await accessRequest("/api/staff", "DELETE", { employeeId }))) return false;
+    const unlink = (current: RotaState): RotaState => {
+      if (!current.emps.some((employee) => employee.id === employeeId && employee.loginEmail)) return current;
+      return {
+        ...current,
+        emps: current.emps.map((employee) => {
+          if (employee.id !== employeeId) return employee;
+          const { loginEmail: _email, loginConfirmed: _confirmed, ...rest } = employee;
+          return rest;
+        }),
+      };
+    };
+    change(unlink);
+    setWorkspace((current) => ({
+      ...current,
+      sites: current.sites.map((site) => (site.id === current.activeSiteId ? site : { ...site, state: unlink(site.state) })),
+      users: address
+        ? current.users.filter((member) => !(member.email.toLowerCase() === address && member.access === "read"))
+        : current.users,
+    }));
+    return true;
   }
 
   async function enterCompany(orgId: string) {
@@ -690,7 +767,6 @@ export function ScheduleApp() {
     const next = publishWeek(state, freshStamp(user.name));
     if (next === state) return;
     change(() => next);
-    savePng(next);
   }
 
   function exportPng() {
@@ -1232,9 +1308,15 @@ export function ScheduleApp() {
                 email: member.email,
                 access: member.access,
                 pending: member.pending,
+                siteIds: live.users
+                  .filter((row) => row.id === member.id && row.siteId)
+                  .map((row) => row.siteId as string),
               }))}
             onInvite={remote && owner ? inviteManager : undefined}
             onInviteStaff={remote && writer ? inviteStaff : undefined}
+            onEditManagerSites={remote && owner ? editManagerSites : undefined}
+            onDeleteManager={remote && owner ? deleteManager : undefined}
+            onDeleteStaffLogin={remote && writer ? deleteStaffLogin : undefined}
             onBackupJson={operator ? exportJson : undefined}
             onRestoreJson={operator ? restoreJson : undefined}
           />

@@ -53,6 +53,11 @@ export interface Copy {
   employeeSitesHint: string;
   primarySite: string;
   reliefSite: string;
+  primarySiteTitle: string;
+  primarySiteHint: string;
+  reliefSitesTitle: string;
+  reliefSitesHint: string;
+  noReliefSites: string;
   reliefRoster: string;
   reliefHeld: string;
   role: string;
@@ -265,6 +270,12 @@ export interface Copy {
   noShiftManagers: string;
   noStaffLogins: string;
   loginAlreadyOpen: (email: string) => string;
+  editAccess: string;
+  deleteAccess: string;
+  saveAccess: string;
+  cancelEdit: string;
+  loginPending: string;
+  managerSitesRequired: string;
   staffAccess: string;
   staffAccessHint: string;
   constraintWindow: string;
@@ -333,12 +344,17 @@ export const copy: Record<Lang, Copy> = {
     navSchedule: "סידור שבועי",
     navTeam: "ניהול עובדים",
     employeeName: "שם",
-    contact: "פרטי קשר",
+    contact: "אימייל",
     phone: "טלפון",
     employeeSites: "אתרים",
-    employeeSitesHint: "אתר אחד הוא האתר הראשי, והשאר הם תגבור. בסידור העובד מזוהה לפי המזהה שלו והטלפון, גם בלי חשבון משתמש. האילוצים זהים בכל האתרים.",
+    employeeSitesHint: "האילוצים וההסכם זהים בכל האתרים, והעובד מזוהה לפי המזהה והטלפון שלו גם בלי חשבון משתמש.",
     primarySite: "ראשי",
     reliefSite: "תגבור",
+    primarySiteTitle: "אתר ראשי",
+    primarySiteHint: "כאן העובד משובץ אוטומטית, וכאן נספרות המכסה וכל המשמרות שלו.",
+    reliefSitesTitle: "אתרי תגבור (לא חובה)",
+    reliefSitesHint: "באתרי תגבור העובד לא משובץ אוטומטית. אפשר לשבץ אותו ידנית רק אחרי שהסידור באתר הראשי מוכן לפרסום.",
+    noReliefSites: "אין אתרים נוספים בעסק.",
     reliefRoster: "מתגברים",
     reliefHeld: "{name} יכול להשלים את המשמרת רק כשהסידור באתר הראשי מוכן לפרסום, בלי הפרות ובלי משמרות פתוחות.",
     role: "תפקיד",
@@ -550,8 +566,14 @@ export const copy: Record<Lang, Copy> = {
     calendarEmpty: "אין משמרות שלך בסידור הזה.",
     addEmployeesTitle: "הוספת עובדים",
     noShiftManagers: "עדיין אין מנהלי משמרות באתר הזה.",
-    noStaffLogins: "עדיין אין עובדים עם כניסה מאושרת.",
+    noStaffLogins: "עדיין אין עובדים עם כניסה.",
     loginAlreadyOpen: (email) => `למשתמש זה כבר נפתחה כניסה במייל: ${email}`,
+    editAccess: "עריכה",
+    deleteAccess: "מחיקה",
+    saveAccess: "שמירה",
+    cancelEdit: "ביטול",
+    loginPending: "ממתין להרשמה",
+    managerSitesRequired: "צריך לבחור לפחות אתר אחד.",
     staffAccess: "גישה לעובדים",
     staffAccessHint: "כבוי: מנהל המשמרות מזין את האילוצים. דלוק: לעובד יש משתמש, והוא מגיש בקשה רק בחלון הזמן.",
     constraintWindow: "חלון הגשת אילוצים",
@@ -618,12 +640,17 @@ export const copy: Record<Lang, Copy> = {
     navSchedule: "Weekly schedule",
     navTeam: "Employees",
     employeeName: "Name",
-    contact: "Contact",
+    contact: "Email",
     phone: "Phone",
     employeeSites: "Sites",
-    employeeSitesHint: "One site is the primary site and the others are reinforcement. Scheduling recognizes the employee by their id and phone, and they do not need a login. Constraints stay the same on every site.",
+    employeeSitesHint: "Constraints and the agreement are the same on every site, and the employee is recognized by id and phone even without a login.",
     primarySite: "Primary",
     reliefSite: "Reinforcement",
+    primarySiteTitle: "Primary site",
+    primarySiteHint: "The employee is scheduled automatically here, and their quota and all their shifts count here.",
+    reliefSitesTitle: "Reinforcement sites (optional)",
+    reliefSitesHint: "On reinforcement sites the employee is never scheduled automatically. They can be placed by hand only after the primary site's schedule is ready to publish.",
+    noReliefSites: "The business has no other sites.",
     reliefRoster: "Reinforcement",
     reliefHeld: "{name} can fill this shift only once the primary site's schedule is ready to publish, with no violations and no open shifts.",
     role: "Role",
@@ -835,8 +862,14 @@ export const copy: Record<Lang, Copy> = {
     calendarEmpty: "You have no shifts on this schedule.",
     addEmployeesTitle: "Add employees",
     noShiftManagers: "This site has no shift managers yet.",
-    noStaffLogins: "No employees have a confirmed login yet.",
+    noStaffLogins: "No employees have a login yet.",
     loginAlreadyOpen: (email) => `This person already has a login at: ${email}`,
+    editAccess: "Edit",
+    deleteAccess: "Delete",
+    saveAccess: "Save",
+    cancelEdit: "Cancel",
+    loginPending: "Waiting for sign-up",
+    managerSitesRequired: "Pick at least one site.",
     staffAccess: "Employee access",
     staffAccessHint: "Off: the shift manager enters constraints. On: the employee has a login and submits a request only inside the time window.",
     constraintWindow: "Constraint window",
@@ -890,6 +923,18 @@ export function deleteEmployeeBlocked(lang: Lang, weeks: string): string {
   return lang === "he"
     ? `אי אפשר למחוק עכשיו: העובד משובץ בסידור שפורסם (${weeks}). החזירו את השבוע לטיוטה או דווחו חיסור, ואז מחקו.`
     : `Can't delete yet: they're seated in a published week (${weeks}). Return it to draft or report a call-off first.`;
+}
+
+export function confirmDeleteManager(lang: Lang, name: string): string {
+  return lang === "he"
+    ? `למחוק את מנהל המשמרות ${name}? המשתמש שלו יימחק והוא לא יוכל להיכנס.`
+    : `Delete the shift manager ${name}? Their login is removed and they can no longer sign in.`;
+}
+
+export function confirmDeleteStaffLogin(lang: Lang, name: string): string {
+  return lang === "he"
+    ? `למחוק את הכניסה של ${name}? המשתמש יימחק, אבל ${name} יישאר בניהול העובדים ובסידורים.`
+    : `Delete ${name}'s login? The login is removed, but ${name} stays on the team and in schedules.`;
 }
 
 export function confirmDeleteSite(lang: Lang, name: string): string {

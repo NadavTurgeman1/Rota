@@ -48,6 +48,32 @@ describe("generation avoids a third tight shift", () => {
     expect(analyze(state, week).violations).toEqual([]);
   });
 
+  function sameDate(): RotaState {
+    const dana = { ...person("dana", "דנה"), pref: ["n"] };
+    const state = ready([dana, person("noa", "נועה")]);
+    state.biz.shifts = [
+      { ...shifts[0], req: [1, 0, 1, 0, 0, 0, 0] },
+      { ...shifts[2], req: [1, 0, 0, 0, 0, 0, 0] },
+    ];
+    state.sched[week].locked = ["0|m#dana", "2|m#noa"];
+    return state;
+  }
+
+  it("avoids two shifts that start on the same date with only the minimum rest between them", () => {
+    const state = sameDate();
+    generate(state, week);
+    expect(state.sched[week].assign["0|n"]).toEqual(["noa"]);
+    expect(analyze(state, week).violations).toEqual([]);
+  });
+
+  it("still uses the same date when nobody else can take the shift", () => {
+    const state = sameDate();
+    state.avail = { [week]: { noa: [[], [], ["m"], [], [], [], []] } };
+    generate(state, week);
+    expect(state.sched[week].assign["0|n"]).toEqual(["dana"]);
+    expect(analyze(state, week).violations).toEqual([]);
+  });
+
   it("still assigns the only legal person, even on a third tight shift", () => {
     const state = ready([person("dana", "דנה"), person("noa", "נועה")]);
     state.avail = { [week]: { noa: [["m"], ["m"], [], [], [], [], []] } };
