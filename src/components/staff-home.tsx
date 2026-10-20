@@ -1,13 +1,15 @@
 import { useState, type ReactNode } from "react";
 import { addDays, agreementAllows, slots, type Lang, type RotaState } from "../domain";
 import { copy } from "../i18n/copy";
-import { formatWeekRange, siteLabel } from "../schedule/display";
+import { exportFileName, formatWeekRange, pngFileName, siteLabel } from "../schedule/display";
 import { calendarTitle, ownPublishedShifts, shiftsIcs } from "../schedule/calendar";
 import { constraintWindowOpen, constraintWindowText } from "../schedule/constraint-window";
+import { weekCsv, weekExcelXml, weekExport, weekText } from "../schedule/export";
 import type { StaffDecision, StaffRequest } from "../workspace/workspace";
 import { WeekGrid } from "./team-screen";
 import { WeekBoard } from "./schedule-board";
 import { BrandMark, Wordmark } from "./login-screen";
+import { downloadBlob, downloadWeekPng } from "./week-png";
 import { availabilitySubmitted, blockLimitOf, countBlocks, gridWithCell, openAvailabilityGrid, withinBlockLimit } from "../people/edit";
 import { button, card, cardTitle, pill } from "./ui";
 
@@ -269,7 +271,8 @@ export function StaffHome({
   onAcknowledge: (requestId: string) => Promise<boolean>;
 }) {
   const t = copy[lang];
-  const [tab, setTab] = useState<"constraints" | "schedule">("constraints");
+  const [tab, setTab] = useState<"schedule" | "constraints">("schedule");
+  const [copied, setCopied] = useState(false);
   const employee = selfId ? state.emps.find((item) => item.id === selfId) ?? null : null;
   const siteName = siteLabel(state.biz.name, lang);
   const title = calendarTitle(siteName, orgName);
@@ -282,10 +285,12 @@ export function StaffHome({
       )
     : [];
   const boards = selfId ? rosterSites.filter((site) => site.state.emps.some((employee) => employee.id === selfId)) : [];
+  const publishedStates = boards.map((site) => ({ ...site.state, week: state.week })).filter((view) => view.sched[view.week]?.status === "published");
+  const hasPublished = publishedStates.length > 0;
   const decision = decisions[0] ?? null;
   const tabs = [
-    { id: "constraints" as const, label: t.staffConstraints },
     { id: "schedule" as const, label: t.staffSchedule },
+    { id: "constraints" as const, label: t.staffConstraints },
   ];
 
   return (
@@ -369,7 +374,7 @@ export function StaffHome({
           )
         ) : (
           <section data-testid="staff-schedule" className="flex flex-col gap-6">
-            <div className="flex flex-wrap items-center gap-3">
+            <div className="flex flex-wrap items-center gap-2">
               <button
                 type="button"
                 data-testid="add-to-calendar"
@@ -381,6 +386,71 @@ export function StaffHome({
                 }}
               >
                 {t.addToCalendar}
+              </button>
+              <button
+                type="button"
+                data-testid="staff-export-excel"
+                className={button.quiet}
+                disabled={!hasPublished}
+                onClick={() => {
+                  const xml = weekExcelXml(publishedStates, lang, orgName, selfId ?? undefined);
+                  if (!xml) return;
+                  downloadBlob(new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" }), exportFileName(siteName, state.week, "xls"));
+                }}
+              >
+                {t.exportExcel}
+              </button>
+              <button
+                type="button"
+                data-testid="staff-export-csv"
+                className={button.quiet}
+                disabled={!hasPublished}
+                onClick={() => {
+                  const csv = weekCsv(publishedStates, lang, selfId ?? undefined);
+                  if (!csv) return;
+                  downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), exportFileName(siteName, state.week, "csv"));
+                }}
+              >
+                {t.exportCsv}
+              </button>
+              <button
+                type="button"
+                data-testid="staff-export-png"
+                className={button.quiet}
+                disabled={!hasPublished}
+                onClick={() => {
+                  for (const view of publishedStates) {
+                    const data = weekExport(view, lang, orgName);
+                    if (!data) continue;
+                    downloadWeekPng(
+                      data,
+                      { open: t.exportOpen, closed: t.exportClosed, covered: t.covered, overQuota: t.overQuota, legend: t.exportLegend },
+                      pngFileName(siteLabel(view.biz.name, lang), view.week),
+                    );
+                  }
+                }}
+              >
+                {t.exportPng}
+              </button>
+              <button
+                type="button"
+                data-testid="staff-export-text"
+                className={button.quiet}
+                disabled={!hasPublished}
+                onClick={() => {
+                  const text = weekText(publishedStates, lang, orgName, selfId ?? undefined);
+                  if (!text) return;
+                  if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+                    void navigator.clipboard.writeText(text).then(() => {
+                      setCopied(true);
+                      setTimeout(() => setCopied(false), 1800);
+                    });
+                  } else {
+                    downloadBlob(new Blob([text], { type: "text/plain;charset=utf-8" }), exportFileName(siteName, state.week, "txt"));
+                  }
+                }}
+              >
+                {copied ? t.exportTextCopied : t.exportText}
               </button>
               {mine.length === 0 ? <p className="text-sm text-muted">{t.calendarEmpty}</p> : null}
             </div>

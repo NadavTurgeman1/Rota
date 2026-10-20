@@ -6,8 +6,8 @@ import { peerDuties } from "../domain/peers";
 import { isRelief } from "../domain/relief";
 import { addShift, removeShift, setShiftRequirement, updateBusiness, updateShift } from "../business/edit";
 import { copy, deleteEmployeeBlocked, publishBlocked, selectionHint } from "../i18n/copy";
-import { formatWeekRange, pngFileName, siteLabel } from "../schedule/display";
-import { backupJson, weekExport } from "../schedule/export";
+import { exportFileName, formatWeekRange, pngFileName, siteLabel } from "../schedule/display";
+import { backupJson, parseBackupJson, siteShiftsIcs, weekCsv, weekExcelXml, weekExport, weekText } from "../schedule/export";
 import {
   addEmployee,
   approveProposal,
@@ -697,9 +697,56 @@ export function ScheduleApp() {
     savePng(state);
   }
 
+  function exportExcel() {
+    const xml = weekExcelXml(state, lang, live.org.name);
+    if (!xml) return;
+    downloadBlob(
+      new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" }),
+      exportFileName(siteLabel(state.biz.name, lang), state.week, "xls"),
+    );
+  }
+
+  function exportCsv() {
+    const csv = weekCsv(state, lang);
+    if (!csv) return;
+    downloadBlob(
+      new Blob([csv], { type: "text/csv;charset=utf-8" }),
+      exportFileName(siteLabel(state.biz.name, lang), state.week, "csv"),
+    );
+  }
+
+  function exportIcs() {
+    const ics = siteShiftsIcs(state, lang, live.org.name);
+    if (!ics) return;
+    downloadBlob(
+      new Blob([ics], { type: "text/calendar;charset=utf-8" }),
+      exportFileName(siteLabel(state.biz.name, lang), state.week, "ics"),
+    );
+  }
+
+  async function exportText() {
+    const text = weekText(state, lang, live.org.name);
+    if (!text) return;
+    if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+    } else {
+      downloadBlob(
+        new Blob([text], { type: "text/plain;charset=utf-8" }),
+        exportFileName(siteLabel(state.biz.name, lang), state.week, "txt"),
+      );
+    }
+  }
+
   function exportJson() {
     const text = backupJson(state, { org: live.org.name, at: new Date().toISOString() });
     downloadBlob(new Blob([text], { type: "application/json" }), `rota-backup-${state.week}.json`);
+  }
+
+  function restoreJson(raw: string): boolean {
+    const restored = parseBackupJson(raw);
+    if (!restored) return false;
+    change(() => restored);
+    return true;
   }
 
   const settings = (
@@ -989,10 +1036,12 @@ export function ScheduleApp() {
                   lang={lang}
                   canPublish={writer && Boolean(schedule) && !published && check.ready}
                   published={Boolean(published)}
-                  canBackup={writer}
                   onPublish={publish}
                   onPng={exportPng}
-                  onJson={exportJson}
+                  onExcel={exportExcel}
+                  onCsv={exportCsv}
+                  onIcs={exportIcs}
+                  onText={exportText}
                 />
                 <button type="button" data-testid="revert" className={button.quiet} disabled={!writer || !published} onClick={() => change(revertToDraft)}>
                   {t.revert}
@@ -1186,6 +1235,8 @@ export function ScheduleApp() {
               }))}
             onInvite={remote && owner ? inviteManager : undefined}
             onInviteStaff={remote && writer ? inviteStaff : undefined}
+            onBackupJson={operator ? exportJson : undefined}
+            onRestoreJson={operator ? restoreJson : undefined}
           />
         ) : null}
         {screen === "insights" ? <InsightsScreen state={state} lang={lang} /> : null}
@@ -1218,21 +1269,26 @@ function PublishButton({
   lang,
   canPublish,
   published,
-  canBackup,
   onPublish,
   onPng,
-  onJson,
+  onExcel,
+  onCsv,
+  onIcs,
+  onText,
 }: {
   lang: Lang;
   canPublish: boolean;
   published: boolean;
-  canBackup: boolean;
   onPublish: () => void;
   onPng: () => void;
-  onJson: () => void;
+  onExcel: () => void;
+  onCsv: () => void;
+  onIcs: () => void;
+  onText: () => Promise<void> | void;
 }) {
   const t = copy[lang];
   const [open, setOpen] = useState(false);
+  const [copied, setCopied] = useState(false);
   const root = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -1275,7 +1331,7 @@ function PublishButton({
         </svg>
       </button>
       {open ? (
-        <div role="menu" className="absolute start-0 top-full z-30 mt-2 w-60 rounded-xl border border-line bg-card p-1.5 shadow-pop">
+        <div role="menu" className="absolute start-0 top-full z-30 mt-2 w-64 rounded-xl border border-line bg-card p-1.5 shadow-pop">
           <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted">{t.exportMenu}</p>
           <button
             type="button"
@@ -1288,24 +1344,67 @@ function PublishButton({
               onPng();
             }}
           >
-            PNG
+            {t.exportPng}
             {published ? null : <span className="block text-xs font-normal text-subtle">{t.exportPublishedOnly}</span>}
           </button>
-          {canBackup ? (
-            <button
-              type="button"
-              role="menuitem"
-              data-testid="export-json"
-              className={item}
-              onClick={() => {
-                setOpen(false);
-                onJson();
-              }}
-            >
-              JSON
-              <span className="block text-xs font-normal text-subtle">{t.exportJson}</span>
-            </button>
-          ) : null}
+          <button
+            type="button"
+            role="menuitem"
+            data-testid="export-excel"
+            className={item}
+            disabled={!published}
+            onClick={() => {
+              setOpen(false);
+              onExcel();
+            }}
+          >
+            {t.exportExcel}
+            {published ? null : <span className="block text-xs font-normal text-subtle">{t.exportPublishedOnly}</span>}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            data-testid="export-csv"
+            className={item}
+            disabled={!published}
+            onClick={() => {
+              setOpen(false);
+              onCsv();
+            }}
+          >
+            {t.exportCsv}
+            {published ? null : <span className="block text-xs font-normal text-subtle">{t.exportPublishedOnly}</span>}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            data-testid="export-ics"
+            className={item}
+            disabled={!published}
+            onClick={() => {
+              setOpen(false);
+              onIcs();
+            }}
+          >
+            {t.exportCalendar}
+            {published ? null : <span className="block text-xs font-normal text-subtle">{t.exportPublishedOnly}</span>}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            data-testid="export-text"
+            className={item}
+            disabled={!published}
+            onClick={() => {
+              void Promise.resolve(onText()).then(() => {
+                setCopied(true);
+                setTimeout(() => setCopied(false), 1800);
+              });
+            }}
+          >
+            {copied ? t.exportTextCopied : t.exportText}
+            {published ? null : <span className="block text-xs font-normal text-subtle">{t.exportPublishedOnly}</span>}
+          </button>
         </div>
       ) : null}
     </div>

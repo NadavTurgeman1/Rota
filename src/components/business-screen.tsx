@@ -163,6 +163,8 @@ export function BusinessScreen({
   hideUserId,
   onInvite,
   onInviteStaff,
+  onBackupJson,
+  onRestoreJson,
 }: {
   state: RotaState;
   lang: Lang;
@@ -185,6 +187,8 @@ export function BusinessScreen({
   hideUserId?: string;
   onInvite?: (input: { fullName: string; email: string; siteIds: string[] }) => Promise<boolean>;
   onInviteStaff?: (input: { employeeId: string; email: string }) => Promise<boolean>;
+  onBackupJson?: () => void;
+  onRestoreJson?: (raw: string) => boolean;
 }) {
   const t = copy[lang];
   const biz = state.biz;
@@ -198,6 +202,7 @@ export function BusinessScreen({
   const [staffId, setStaffId] = useState(state.emps[0]?.id ?? "");
   const [staffEmail, setStaffEmail] = useState("");
   const [staffNote, setStaffNote] = useState<"saved" | "failed" | null>(null);
+  const [backupNote, setBackupNote] = useState<"restored" | "invalid" | null>(null);
   const managers = (siteUsers ?? []).filter((member) => member.access === "write" && member.id !== hideUserId && !member.pending);
   const confirmedStaff = state.emps.filter((employee) => employee.loginEmail && employee.loginConfirmed);
   const chosenStaff = state.emps.find((employee) => employee.id === staffId);
@@ -691,6 +696,56 @@ export function BusinessScreen({
           </button>
         ) : null}
       </section>
+
+      {onBackupJson && onRestoreJson ? (
+        <section data-testid="backup-section" className={card}>
+          <h2 className={cardTitle}>
+            {t.backupSectionTitle} · {siteLabel(activeName, lang)}
+          </h2>
+          <p className="mt-2 text-sm leading-6 text-muted">{t.backupSectionHint}</p>
+          <div className="mt-4 flex flex-wrap items-center gap-3">
+            <button
+              type="button"
+              data-testid="export-json"
+              className={button.primary}
+              onClick={() => {
+                setBackupNote(null);
+                onBackupJson();
+              }}
+            >
+              {t.downloadBackupJson}
+            </button>
+            <label data-testid="restore-json" className={`${button.quiet} cursor-pointer`}>
+              {t.restoreBackupJson}
+              <input
+                type="file"
+                accept=".json,application/json"
+                data-testid="restore-json-input"
+                className="sr-only"
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  event.target.value = "";
+                  if (!file) return;
+                  void file.text().then((raw) => {
+                    const ok = onRestoreJson(raw);
+                    setBackupNote(ok ? "restored" : "invalid");
+                  });
+                }}
+              />
+            </label>
+          </div>
+          {backupNote === "restored" ? (
+            <p data-testid="backup-restored" className="mt-3 text-sm font-medium text-ok-text">
+              {t.backupRestored}
+            </p>
+          ) : null}
+          {backupNote === "invalid" ? (
+            <p role="alert" data-testid="backup-invalid" className="mt-3 text-sm font-medium text-danger-text">
+              {t.backupInvalid}
+            </p>
+          ) : null}
+        </section>
+      ) : null}
     </div>
   );
 }

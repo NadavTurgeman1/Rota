@@ -127,7 +127,18 @@ export interface Copy {
   showChanges: string;
   hideChanges: string;
   exportPng: string;
+  exportExcel: string;
+  exportCsv: string;
+  exportCalendar: string;
+  exportText: string;
+  exportTextCopied: string;
   exportJson: string;
+  backupSectionTitle: string;
+  backupSectionHint: string;
+  downloadBackupJson: string;
+  restoreBackupJson: string;
+  backupRestored: string;
+  backupInvalid: string;
   exportPublishedOnly: string;
   exportOpen: string;
   exportClosed: string;
@@ -401,8 +412,20 @@ export const copy: Record<Lang, Copy> = {
     showChanges: "הצגת השינויים",
     hideChanges: "הסתרת השינויים",
     exportPng: "ייצוא PNG",
+    exportExcel: "ייצוא Excel",
+    exportCsv: "ייצוא CSV",
+    exportCalendar: "ייצוא ללוח שנה (ICS)",
+    exportText: "העתקה לוואטסאפ",
+    exportTextCopied: "הועתק ללוח",
     exportJson: "גיבוי JSON",
-    exportPublishedOnly: "ייצוא PNG זמין אחרי פרסום.",
+    backupSectionTitle: "גיבוי ושחזור אתר (JSON — מנהל מערכת)",
+    backupSectionHint:
+      "קובץ ה-JSON שומר עותק מלא של האתר הפעיל: הגדרות האתר, משמרות ותקן, רשימת העובדים וההסכמים שלהם, אילוצים שבועיים וכל סידורי העבודה והגרסאות. העלאת קובץ גיבוי תשחזר את כל הנתונים האלה לאתר הפעיל ותשמור אותם לענן.",
+    downloadBackupJson: "הורדת גיבוי JSON",
+    restoreBackupJson: "שחזור מקובץ JSON",
+    backupRestored: "הגיבוי שוחזר לאתר הפעיל ונשמר.",
+    backupInvalid: "קובץ הגיבוי לא תקין או שלא נוצר ב-Rota.",
+    exportPublishedOnly: "זמין אחרי פרסום הסידור.",
     exportOpen: "חסר",
     exportClosed: "סגור",
     exportLegend: "אדום: הארכה או מושב חסר",
@@ -673,8 +696,20 @@ export const copy: Record<Lang, Copy> = {
     showChanges: "Show changes",
     hideChanges: "Hide changes",
     exportPng: "Export PNG",
+    exportExcel: "Export Excel",
+    exportCsv: "Export CSV",
+    exportCalendar: "Calendar (ICS)",
+    exportText: "Copy for WhatsApp",
+    exportTextCopied: "Copied to clipboard",
     exportJson: "JSON backup",
-    exportPublishedOnly: "PNG export is available after publishing.",
+    backupSectionTitle: "Site backup & restore (JSON — platform admin)",
+    backupSectionHint:
+      "The JSON file saves a full snapshot of the active site: site settings, shifts and staffing, employees and agreements, weekly constraints, and all schedules and versions. Uploading a backup file restores all of this data into the active site and saves it to the cloud.",
+    downloadBackupJson: "Download JSON backup",
+    restoreBackupJson: "Restore from JSON file",
+    backupRestored: "Backup restored to the active site and saved.",
+    backupInvalid: "The backup file is invalid or was not created by Rota.",
+    exportPublishedOnly: "Available after publishing.",
     exportOpen: "Open",
     exportClosed: "Closed",
     exportLegend: "Red: extension or open seat",

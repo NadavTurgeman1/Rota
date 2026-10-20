@@ -68,10 +68,14 @@ function dotDate(iso: string): string {
   return `${Number(date)}.${Number(month)}`;
 }
 
-/** Default PNG name: site and the week, like ברן-18.10-24.10.png */
-export function pngFileName(siteName: string, week: string): string {
+/** File name for a weekly export: site and the week, like ברן-18.10-24.10.png */
+export function exportFileName(siteName: string, week: string, ext: string): string {
   const safe = siteName.replace(/[\\/:*?"<>|]/g, "").trim() || "rota";
-  return `${safe}-${dotDate(week)}-${dotDate(addDays(week, 6))}.png`;
+  return `${safe}-${dotDate(week)}-${dotDate(addDays(week, 6))}.${ext}`;
+}
+
+export function pngFileName(siteName: string, week: string): string {
+  return exportFileName(siteName, week, "png");
 }
 
 function wageNote(wage: number | undefined, dearerThan: number | undefined, lang: Lang): string {
