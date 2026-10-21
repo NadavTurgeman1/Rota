@@ -278,10 +278,10 @@ async function loadMembers(sql: SqlClient, orgId: string): Promise<WorkspaceUser
   );
   const pending = await sql.query<{ id: string; email: string; name: string; site_id: string | null }>(
     `select i.id, i.email, e.name, es.site_id
-     from public.staff_invitations i
-     join public.employees e on e.id = i.employee_id
+     from public.invitations i
+     join public.employees e on e.id = i.employee_id and e.org_id = i.org_id
      left join public.employee_sites es on es.employee_id = e.id and es.org_id = e.org_id
-     where i.org_id = $1 and i.consumed_at is null
+     where i.org_id = $1 and i.kind = 'staff' and i.consumed_at is null
      order by e.name, es.site_id`,
     [orgId],
   );

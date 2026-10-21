@@ -46,7 +46,7 @@ from public.shifts s
 cross join generate_series(0, 6) as day(weekday)
 where s.site_id = '22222222-2222-4222-8222-222222222222';
 
-insert into public.employees (id, org_id, name, contact, job_title, weekly_shift_quota)
+insert into public.employees (id, org_id, name, email, job_title, weekly_shift_quota)
 values
   ('44444444-4444-4444-8444-444444444401', '11111111-1111-4111-8111-111111111111', 'Dana', 'dana@example.com', 'Guard', 4),
   ('44444444-4444-4444-8444-444444444402', '11111111-1111-4111-8111-111111111111', 'Yossi', 'yossi@example.com', 'Guard', 5),

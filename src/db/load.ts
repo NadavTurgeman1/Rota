@@ -7,9 +7,7 @@ import type {
   CallOffRow,
   EmployeeRow,
   ExtensionRow,
-  LockRow,
   NoteRow,
-  OverageRow,
   PreferenceRow,
   QualificationRow,
   RequirementRow,
@@ -64,8 +62,6 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
     schedules,
     assignments,
     extensions,
-    locks,
-    overages,
     calloffs,
     versions,
     notes,
@@ -87,7 +83,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
         [siteId],
       ),
       sql.query<EmployeeRow>(
-        `select e.id, e.name, e.contact, e.phone, e.home_site_id, e.job_title, e.weekly_shift_quota,
+        `select e.id, e.name, e.email, e.phone, e.home_site_id, e.job_title, e.weekly_shift_quota,
                 e.max_weekly_hours::float8 as max_weekly_hours, e.active,
                 e.hourly_wage::float8 as hourly_wage,
                 coalesce(p.email, open_invite.email, '') as login_email,
@@ -98,8 +94,8 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
          left join public.profiles p on p.user_id = e.user_id
          left join lateral (
            select i.email
-           from public.staff_invitations i
-           where i.employee_id = e.id and i.consumed_at is null
+           from public.invitations i
+           where i.kind = 'staff' and i.employee_id = e.id and i.consumed_at is null
            limit 1
          ) open_invite on true
          where es.site_id = $1
@@ -107,7 +103,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
         [siteId],
       ),
       sql.query<EmployeeRow>(
-        `select e.id, e.name, e.contact, e.phone, e.home_site_id, e.job_title, e.weekly_shift_quota,
+        `select e.id, e.name, e.email, e.phone, e.home_site_id, e.job_title, e.weekly_shift_quota,
                 e.max_weekly_hours::float8 as max_weekly_hours, e.active,
                 e.hourly_wage::float8 as hourly_wage,
                 '' as login_email,
@@ -173,7 +169,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
         [siteId],
       ),
       sql.query<AssignmentRow>(
-        `select a.schedule_id, a.shift_id, a.weekday::int as weekday, a.employee_id
+        `select a.schedule_id, a.shift_id, a.weekday::int as weekday, a.employee_id, a.locked, a.over_quota
          from public.assignments a
          join public.schedules sc on sc.id = a.schedule_id
          where sc.site_id = $1
@@ -186,20 +182,6 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
                 x.group_id, x.cover_shift_id, x.cover_weekday::int as cover_weekday, x.group_size
          from public.assignment_extensions x
          join public.schedules sc on sc.id = x.schedule_id
-         where sc.site_id = $1`,
-        [siteId],
-      ),
-      sql.query<LockRow>(
-        `select l.schedule_id, l.shift_id, l.weekday::int as weekday, l.employee_id
-         from public.assignment_locks l
-         join public.schedules sc on sc.id = l.schedule_id
-         where sc.site_id = $1`,
-        [siteId],
-      ),
-      sql.query<OverageRow>(
-        `select o.schedule_id, o.shift_id, o.weekday::int as weekday, o.employee_id
-         from public.assignment_overages o
-         join public.schedules sc on sc.id = o.schedule_id
          where sc.site_id = $1`,
         [siteId],
       ),
@@ -249,8 +231,6 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
     })),
     assignments,
     extensions,
-    locks,
-    overages,
     calloffs,
     versions,
     notes,

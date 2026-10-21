@@ -121,14 +121,14 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
   await writeRows(
     sql,
     `insert into public.employees (
-       id, org_id, name, contact, phone, job_title, weekly_shift_quota, max_weekly_hours, active, hourly_wage, home_site_id
+       id, org_id, name, email, phone, job_title, weekly_shift_quota, max_weekly_hours, active, hourly_wage, home_site_id
      )
-     select id, $1, name, contact, phone, job_title, quota, max_hours, active <> 0, wage, home_site
+     select id, $1, name, email, phone, job_title, quota, max_hours, active <> 0, wage, home_site
      from unnest($2::uuid[], $3::text[], $4::text[], $5::text[], $6::text[], $7::int[], $8::numeric[], $9::int[], $10::numeric[], $11::uuid[])
-       as t(id, name, contact, phone, job_title, quota, max_hours, active, wage, home_site)
+       as t(id, name, email, phone, job_title, quota, max_hours, active, wage, home_site)
      on conflict (id) do update set
        name = excluded.name,
-       contact = excluded.contact,
+       email = excluded.email,
        phone = excluded.phone,
        job_title = excluded.job_title,
        weekly_shift_quota = excluded.weekly_shift_quota,
@@ -506,28 +506,37 @@ export async function writeSchedule(
   await sql.query(`delete from public.assignments where schedule_id = $1`, [scheduleId]);
 
   const seated = new Set<string>();
+  const locked = new Set(input.schedule.locked);
+  const over = input.schedule.over ?? {};
   const assignedShifts: string[] = [];
   const assignedDays: number[] = [];
   const assignedEmployees: string[] = [];
+  const assignedLocks: boolean[] = [];
+  const assignedOverages: boolean[] = [];
   for (const [key, employeeIds] of Object.entries(input.schedule.assign)) {
     const slot = parseSlot(key);
     if (!slot || !input.shiftIds.has(slot.shiftId)) continue;
     for (const employeeId of employeeIds) {
       if (!input.people.has(employeeId)) continue;
+      const seat = `${slot.weekday}|${slot.shiftId}#${employeeId}`;
+      if (seated.has(seat)) continue;
       assignedShifts.push(slot.shiftId);
       assignedDays.push(slot.weekday);
       assignedEmployees.push(employeeId);
-      seated.add(`${slot.weekday}|${slot.shiftId}#${employeeId}`);
+      assignedLocks.push(locked.has(seat));
+      assignedOverages.push(over[seat] === true);
+      seated.add(seat);
     }
   }
   await writeRows(
     sql,
-    `insert into public.assignments (org_id, schedule_id, shift_id, weekday, employee_id)
-     select $1, $2, shift_id, weekday, employee_id
-     from unnest($3::uuid[], $4::int[], $5::uuid[]) as t(shift_id, weekday, employee_id)
+    `insert into public.assignments (org_id, schedule_id, shift_id, weekday, employee_id, locked, over_quota)
+     select $1, $2, shift_id, weekday, employee_id, locked, over_quota
+     from unnest($3::uuid[], $4::int[], $5::uuid[], $6::boolean[], $7::boolean[])
+       as t(shift_id, weekday, employee_id, locked, over_quota)
      on conflict do nothing`,
     [input.orgId, scheduleId],
-    [assignedShifts, assignedDays, assignedEmployees],
+    [assignedShifts, assignedDays, assignedEmployees, assignedLocks, assignedOverages],
   );
 
   const extensionShifts: string[] = [];
@@ -575,46 +584,6 @@ export async function writeSchedule(
       extensionCoverDays,
       extensionSizes,
     ],
-  );
-  const lockedShifts: string[] = [];
-  const lockedDays: number[] = [];
-  const lockedEmployees: string[] = [];
-  for (const key of input.schedule.locked) {
-    if (!seated.has(key)) continue;
-    const seat = parseSeat(key);
-    if (!seat) continue;
-    lockedShifts.push(seat.shiftId);
-    lockedDays.push(seat.weekday);
-    lockedEmployees.push(seat.employeeId);
-  }
-  await writeRows(
-    sql,
-    `insert into public.assignment_locks (org_id, schedule_id, shift_id, weekday, employee_id)
-     select $1, $2, shift_id, weekday, employee_id
-     from unnest($3::uuid[], $4::int[], $5::uuid[]) as t(shift_id, weekday, employee_id)
-     on conflict do nothing`,
-    [input.orgId, scheduleId],
-    [lockedShifts, lockedDays, lockedEmployees],
-  );
-  const overShifts: string[] = [];
-  const overDays: number[] = [];
-  const overEmployees: string[] = [];
-  for (const key of Object.keys(input.schedule.over ?? {})) {
-    if (!seated.has(key)) continue;
-    const seat = parseSeat(key);
-    if (!seat) continue;
-    overShifts.push(seat.shiftId);
-    overDays.push(seat.weekday);
-    overEmployees.push(seat.employeeId);
-  }
-  await writeRows(
-    sql,
-    `insert into public.assignment_overages (org_id, schedule_id, shift_id, weekday, employee_id)
-     select $1, $2, shift_id, weekday, employee_id
-     from unnest($3::uuid[], $4::int[], $5::uuid[]) as t(shift_id, weekday, employee_id)
-     on conflict do nothing`,
-    [input.orgId, scheduleId],
-    [overShifts, overDays, overEmployees],
   );
   for (const calloff of input.schedule.calloffs ?? []) await writeCalloff(sql, input.orgId, scheduleId, calloff, input.shiftIds, input.people);
 

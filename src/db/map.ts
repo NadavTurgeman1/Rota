@@ -51,7 +51,7 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
       return {
         id: employee.id,
         name: employee.name,
-        contact: employee.contact,
+        contact: employee.email,
         phone: employee.phone ?? "",
         ...(employee.home_site_id ? { homeSiteId: employee.home_site_id } : {}),
         role: employee.job_title,
@@ -154,10 +154,14 @@ function scheduleFromBundle(
   restoredFrom: number | null,
 ): Schedule {
   const assign: Schedule["assign"] = {};
+  const locked: Schedule["locked"] = [];
+  const over: NonNullable<Schedule["over"]> = {};
   for (const row of bundle.assignments) {
     if (row.schedule_id !== scheduleId) continue;
     const key = `${Number(row.weekday)}|${row.shift_id}`;
     (assign[key] ??= []).push(row.employee_id);
+    if (row.locked) locked.push(`${key}#${row.employee_id}`);
+    if (row.over_quota) over[`${key}#${row.employee_id}`] = true;
   }
   const ext: NonNullable<Schedule["ext"]> = {};
   for (const row of bundle.extensions) {
@@ -169,14 +173,6 @@ function scheduleFromBundle(
       cover: `${Number(row.cover_weekday)}|${row.cover_shift_id}`,
       groupSize: Number(row.group_size),
     };
-  }
-  const locked = bundle.locks
-    .filter((row) => row.schedule_id === scheduleId)
-    .map((row) => `${Number(row.weekday)}|${row.shift_id}#${row.employee_id}`);
-  const over: NonNullable<Schedule["over"]> = {};
-  for (const row of bundle.overages) {
-    if (row.schedule_id !== scheduleId) continue;
-    over[`${Number(row.weekday)}|${row.shift_id}#${row.employee_id}`] = true;
   }
   const calloffs = bundle.calloffs
     .filter((row) => row.schedule_id === scheduleId)

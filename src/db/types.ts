@@ -38,7 +38,7 @@ export interface RequirementRow {
 export interface EmployeeRow {
   id: string;
   name: string;
-  contact: string;
+  email: string;
   phone: string;
   home_site_id: string | null;
   job_title: string;
@@ -92,6 +92,8 @@ export interface AssignmentRow {
   shift_id: string;
   weekday: number;
   employee_id: string;
+  locked: boolean;
+  over_quota: boolean;
 }
 
 export interface ExtensionRow {
@@ -105,20 +107,6 @@ export interface ExtensionRow {
   cover_shift_id: string;
   cover_weekday: number;
   group_size: number;
-}
-
-export interface LockRow {
-  schedule_id: string;
-  shift_id: string;
-  weekday: number;
-  employee_id: string;
-}
-
-export interface OverageRow {
-  schedule_id: string;
-  shift_id: string;
-  weekday: number;
-  employee_id: string;
 }
 
 export interface CallOffRow {
@@ -167,8 +155,6 @@ export interface SiteBundle {
   schedules: ScheduleRow[];
   assignments: AssignmentRow[];
   extensions: ExtensionRow[];
-  locks: LockRow[];
-  overages: OverageRow[];
   calloffs: CallOffRow[];
   versions: VersionRow[];
   notes: NoteRow[];

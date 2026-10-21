@@ -33,22 +33,38 @@ const authStub = `
   grant execute on function auth.uid() to authenticated, anon;
 `;
 
-/** Applies every migration and the demo seed. The connection is the table owner. */
-export async function openTestDatabase(): Promise<PGlite> {
-  const db = new PGlite();
-  await db.exec(authStub);
-  const directory = join(root, "supabase/migrations");
-  const files = readdirSync(directory)
+const migrations = join(root, "supabase/migrations");
+
+function migrationFiles(): string[] {
+  const files = readdirSync(migrations)
     .filter((name) => name.endsWith(".sql"))
     .sort();
   for (const name of files) {
     if (!/^\d{14}_[a-z0-9_]+\.sql$/.test(name)) {
       throw new Error(`Invalid migration filename: ${name}`);
     }
-    await db.exec(readFileSync(join(directory, name), "utf8"));
   }
+  return files;
+}
+
+/** Applies every migration and the demo seed. The connection is the table owner. */
+export async function openTestDatabase(): Promise<PGlite> {
+  const db = new PGlite();
+  await db.exec(authStub);
+  for (const name of migrationFiles()) await db.exec(readFileSync(join(migrations, name), "utf8"));
   await db.exec(readFileSync(join(root, "supabase/seed.sql"), "utf8"));
   return db;
+}
+
+/** Applies the migrations that come before `name`, without the seed, and returns a way to apply `name`. */
+export async function openDatabaseBefore(name: string): Promise<{ db: PGlite; apply: () => Promise<void> }> {
+  const files = migrationFiles();
+  const target = files.find((file) => file.endsWith(`_${name}.sql`));
+  if (!target) throw new Error(`Unknown migration: ${name}`);
+  const db = new PGlite();
+  await db.exec(authStub);
+  for (const file of files.slice(0, files.indexOf(target))) await db.exec(readFileSync(join(migrations, file), "utf8"));
+  return { db, apply: () => db.exec(readFileSync(join(migrations, target), "utf8")).then(() => undefined) };
 }
 
 export function client(db: PGlite): SqlClient {
