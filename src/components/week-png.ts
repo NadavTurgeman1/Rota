@@ -12,7 +12,7 @@ const FONT = 'system-ui, -apple-system, "Segoe UI", Arial, sans-serif';
 const MARGIN = 16;
 const SHIFT_WIDTH = 168;
 const DAY_WIDTH = 196;
-const HEAD_HEIGHT = 64;
+const HEAD_HEIGHT = 94;
 const LINE = 28;
 const RED = "#b91c1c";
 /** A little more saturated than the light weekly board, and well short of a strong tint. */
@@ -27,7 +27,7 @@ function rowHeight(row: WeekExport["rows"][number]): number {
 /** Draws the published week onto a canvas. Columns run right to left in Hebrew. */
 export function drawWeek(data: WeekExport, labels: PngLabels, scale = 2): HTMLCanvasElement {
   const width = MARGIN * 2 + SHIFT_WIDTH + DAY_WIDTH * data.days.length;
-  const tableTop = MARGIN + 58;
+  const tableTop = MARGIN + 80;
   const heights = data.rows.map(rowHeight);
   const height = tableTop + HEAD_HEIGHT + heights.reduce((sum, value) => sum + value, 0) + MARGIN;
   const canvas = document.createElement("canvas");
@@ -52,6 +52,16 @@ export function drawWeek(data: WeekExport, labels: PngLabels, scale = 2): HTMLCa
   ctx.fillStyle = "#57534e";
   ctx.font = `400 16px ${FONT}`;
   ctx.fillText(data.subtitle, startX, MARGIN + 48);
+  ctx.fillStyle = "#78716c";
+  ctx.font = `400 14px ${FONT}`;
+  ctx.fillText(data.hebrewSubtitle, startX, MARGIN + 68);
+
+  const fit = (text: string, room: number) => {
+    if (ctx.measureText(text).width <= room) return text;
+    let cut = text;
+    while (cut.length > 1 && ctx.measureText(`${cut}…`).width > room) cut = cut.slice(0, -1);
+    return `${cut}…`;
+  };
 
   const columns = [{ offset: 0, size: SHIFT_WIDTH }, ...data.days.map((_, index) => ({ offset: SHIFT_WIDTH + DAY_WIDTH * index, size: DAY_WIDTH }))];
   const cell = (column: number, top: number, rowSize: number, fill: string) => {
@@ -72,7 +82,15 @@ export function drawWeek(data: WeekExport, labels: PngLabels, scale = 2): HTMLCa
     ctx.fillText(day.name, center, tableTop + 26);
     ctx.fillStyle = "#57534e";
     ctx.font = `400 15px ${FONT}`;
-    ctx.fillText(day.date, center, tableTop + 48);
+    ctx.fillText(day.date, center, tableTop + 46);
+    ctx.fillStyle = "#78716c";
+    ctx.font = `400 13px ${FONT}`;
+    ctx.fillText(day.hebrew, center, tableTop + 64);
+    if (day.holidays.length) {
+      ctx.fillStyle = "#6d28d9";
+      ctx.font = `600 12px ${FONT}`;
+      ctx.fillText(fit(day.holidays.join(" · "), DAY_WIDTH - 16), center, tableTop + 83);
+    }
   });
   cell(0, tableTop, HEAD_HEIGHT, "#ffffff");
 

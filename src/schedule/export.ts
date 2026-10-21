@@ -2,6 +2,7 @@ import { addDays, coveredSeats, dayName, durationHours, shiftKind, slots, type L
 import { calendarTitle, shiftsIcs, type CalendarShift } from "./calendar";
 import { clockLabel } from "./edit";
 import { formatDayDate, formatWeekRange, shiftLabel, siteLabel } from "./display";
+import { hebrewWeek, hebrewWeekRange } from "./hebrew-calendar";
 
 export interface ExportPerson {
   name: string;
@@ -30,7 +31,8 @@ export interface WeekExport {
   dir: "rtl" | "ltr";
   title: string;
   subtitle: string;
-  days: { name: string; date: string }[];
+  hebrewSubtitle: string;
+  days: { name: string; date: string; hebrew: string; holidays: string[] }[];
   rows: ExportRow[];
   open: number;
   extended: number;
@@ -39,6 +41,8 @@ export interface WeekExport {
 export interface AssignmentEntry {
   site: string;
   date: string;
+  hebrewDate: string;
+  holiday: string;
   dayIndex: number;
   day: string;
   shiftId: string;
@@ -89,7 +93,13 @@ export function weekExport(state: RotaState, lang: Lang, org: string): WeekExpor
     dir: lang === "he" ? "rtl" : "ltr",
     title: `${org} · ${siteLabel(state.biz.name, lang)}`,
     subtitle: formatWeekRange(state.week, lang),
-    days: [0, 1, 2, 3, 4, 5, 6].map((day) => ({ name: dayName(day, lang), date: formatDayDate(state.week, day, lang) })),
+    hebrewSubtitle: hebrewWeekRange(state.week, lang),
+    days: hebrewWeek(state.week, lang).map((info, day) => ({
+      name: dayName(day, lang),
+      date: formatDayDate(state.week, day, lang),
+      hebrew: info.hebrew,
+      holidays: info.holidays.map((holiday) => holiday.name),
+    })),
     rows,
     open,
     extended,
@@ -103,9 +113,12 @@ export function publishedAssignments(state: RotaState, lang: Lang, onlyEmployeeI
   const names = nameMap(state);
   const site = siteLabel(state.biz.name, lang);
   const entries: AssignmentEntry[] = [];
+  const hebrew = hebrewWeek(state.week, lang);
   for (let day = 0; day < 7; day += 1) {
     const date = addDays(state.week, day);
     const dayLabel = dayName(day, lang);
+    const hebrewDate = hebrew[day].hebrew;
+    const holiday = hebrew[day].holidays.map((item) => item.name).join(" · ");
     for (const shift of state.biz.shifts) {
       const slotKey = `${day}|${shift.id}`;
       const assigned = schedule.assign[slotKey] ?? [];
@@ -118,6 +131,8 @@ export function publishedAssignments(state: RotaState, lang: Lang, onlyEmployeeI
         entries.push({
           site,
           date,
+          hebrewDate,
+          holiday,
           dayIndex: day,
           day: dayLabel,
           shiftId: shift.id,
@@ -149,11 +164,11 @@ export function weekCsv(sites: RotaState | RotaState[], lang: Lang, onlyEmployee
   const rows = published.flatMap((site) => publishedAssignments(site, lang, onlyEmployeeId));
   const headers =
     lang === "he"
-      ? ["אתר", "תאריך", "יום", "משמרת", "שעות", "עובד", "שעות משמרת"]
-      : ["Site", "Date", "Day", "Shift", "Hours", "Employee", "Shift hours"];
+      ? ["אתר", "תאריך", "תאריך עברי", "חג", "יום", "משמרת", "שעות", "עובד", "שעות משמרת"]
+      : ["Site", "Date", "Hebrew date", "Holiday", "Day", "Shift", "Hours", "Employee", "Shift hours"];
   const lines = [
     headers.map(csvCell).join(","),
-    ...rows.map((row) => [row.site, row.date, row.day, row.shift, row.hours, row.employee, row.duration].map(csvCell).join(",")),
+    ...rows.map((row) => [row.site, row.date, row.hebrewDate, row.holiday, row.day, row.shift, row.hours, row.employee, row.duration].map(csvCell).join(",")),
   ];
   return `\uFEFF${lines.join("\r\n")}\r\n`;
 }
@@ -171,7 +186,10 @@ function worksheetBoardXml(data: WeekExport, sheetName: string, labels: { shift:
   const rtl = data.dir === "rtl" ? ' ss:RightToLeft="1"' : "";
   const headerCells = [
     `<Cell ss:StyleID="head"><Data ss:Type="String">${xmlEscape(labels.shift)}</Data></Cell>`,
-    ...data.days.map((day) => `<Cell ss:StyleID="head"><Data ss:Type="String">${xmlEscape(`${day.name} (${day.date})`)}</Data></Cell>`),
+    ...data.days.map(
+      (day) =>
+        `<Cell ss:StyleID="head"><Data ss:Type="String">${[`${day.name} (${day.date})`, day.hebrew, ...day.holidays].map(xmlEscape).join("&#10;")}</Data></Cell>`,
+    ),
   ].join("");
   const bodyRows = data.rows
     .map((row) => {
@@ -197,8 +215,8 @@ function worksheetBoardXml(data: WeekExport, sheetName: string, labels: { shift:
     "<Table>",
     '<Column ss:Width="130"/>',
     ...data.days.map(() => '<Column ss:Width="135"/>'),
-    `<Row ss:Height="26"><Cell ss:MergeAcross="${data.days.length}" ss:StyleID="title"><Data ss:Type="String">${xmlEscape(`${data.title} · ${data.subtitle}`)}</Data></Cell></Row>`,
-    `<Row ss:Height="24">${headerCells}</Row>`,
+    `<Row ss:Height="26"><Cell ss:MergeAcross="${data.days.length}" ss:StyleID="title"><Data ss:Type="String">${xmlEscape(`${data.title} · ${data.subtitle} · ${data.hebrewSubtitle}`)}</Data></Cell></Row>`,
+    `<Row ss:Height="${data.days.some((day) => day.holidays.length > 0) ? 52 : 38}">${headerCells}</Row>`,
     bodyRows,
     "</Table>",
     "</Worksheet>",
@@ -226,6 +244,8 @@ export function weekExcelXml(sites: RotaState | RotaState[], lang: Lang, org: st
           totalHours: "סה״כ שעות",
           site: "אתר",
           date: "תאריך",
+          hebrewDate: "תאריך עברי",
+          holiday: "חג",
           day: "יום",
           hoursRange: "שעות",
           duration: "אורך (שעות)",
@@ -242,6 +262,8 @@ export function weekExcelXml(sites: RotaState | RotaState[], lang: Lang, org: st
           totalHours: "Total hours",
           site: "Site",
           date: "Date",
+          hebrewDate: "Hebrew date",
+          holiday: "Holiday",
           day: "Day",
           hoursRange: "Hours",
           duration: "Duration (h)",
@@ -272,20 +294,20 @@ export function weekExcelXml(sites: RotaState | RotaState[], lang: Lang, org: st
     )
     .join("");
 
-  const detailHeaders = [labels.site, labels.date, labels.day, labels.shift, labels.hoursRange, labels.employee, labels.duration]
+  const detailHeaders = [labels.site, labels.date, labels.hebrewDate, labels.holiday, labels.day, labels.shift, labels.hoursRange, labels.employee, labels.duration]
     .map((text) => `<Cell ss:StyleID="head"><Data ss:Type="String">${xmlEscape(text)}</Data></Cell>`)
     .join("");
   const detailRows = entries
     .map(
       (row) =>
-        `<Row><Cell ss:StyleID="cell"><Data ss:Type="String">${xmlEscape(row.site)}</Data></Cell><Cell ss:StyleID="cell"><Data ss:Type="String">${xmlEscape(row.date)}</Data></Cell><Cell ss:StyleID="cell"><Data ss:Type="String">${xmlEscape(row.day)}</Data></Cell><Cell ss:StyleID="cell"><Data ss:Type="String">${xmlEscape(row.shift)}</Data></Cell><Cell ss:StyleID="cell"><Data ss:Type="String">${xmlEscape(row.hours)}</Data></Cell><Cell ss:StyleID="cell"><Data ss:Type="String">${xmlEscape(row.employee)}</Data></Cell><Cell ss:StyleID="cell"><Data ss:Type="Number">${Number(row.duration.toFixed(2))}</Data></Cell></Row>`,
+        `<Row><Cell ss:StyleID="cell"><Data ss:Type="String">${xmlEscape(row.site)}</Data></Cell><Cell ss:StyleID="cell"><Data ss:Type="String">${xmlEscape(row.date)}</Data></Cell><Cell ss:StyleID="cell"><Data ss:Type="String">${xmlEscape(row.hebrewDate)}</Data></Cell><Cell ss:StyleID="cell"><Data ss:Type="String">${xmlEscape(row.holiday)}</Data></Cell><Cell ss:StyleID="cell"><Data ss:Type="String">${xmlEscape(row.day)}</Data></Cell><Cell ss:StyleID="cell"><Data ss:Type="String">${xmlEscape(row.shift)}</Data></Cell><Cell ss:StyleID="cell"><Data ss:Type="String">${xmlEscape(row.hours)}</Data></Cell><Cell ss:StyleID="cell"><Data ss:Type="String">${xmlEscape(row.employee)}</Data></Cell><Cell ss:StyleID="cell"><Data ss:Type="Number">${Number(row.duration.toFixed(2))}</Data></Cell></Row>`,
     )
     .join("");
 
   const hoursSheet = [
     `<Worksheet ss:Name="${xmlEscape(labels.hours)}"${rtl}>`,
     "<Table>",
-    '<Column ss:Width="110"/><Column ss:Width="95"/><Column ss:Width="90"/><Column ss:Width="105"/><Column ss:Width="105"/><Column ss:Width="130"/><Column ss:Width="95"/>',
+    '<Column ss:Width="110"/><Column ss:Width="95"/><Column ss:Width="95"/><Column ss:Width="110"/><Column ss:Width="90"/><Column ss:Width="105"/><Column ss:Width="105"/><Column ss:Width="130"/><Column ss:Width="95"/>',
     `<Row ss:Height="22"><Cell ss:StyleID="head"><Data ss:Type="String">${xmlEscape(labels.employee)}</Data></Cell><Cell ss:StyleID="head"><Data ss:Type="String">${xmlEscape(labels.shiftsCount)}</Data></Cell><Cell ss:StyleID="head"><Data ss:Type="String">${xmlEscape(labels.totalHours)}</Data></Cell></Row>`,
     summaryRows,
     "<Row/>",
@@ -323,12 +345,13 @@ export function weekText(sites: RotaState | RotaState[], lang: Lang, org: string
   if (onlyEmployeeId) {
     const entries = published.flatMap((site) => publishedAssignments(site, lang, onlyEmployeeId));
     const week = published[0].week;
-    const header = `*${org}* · ${formatWeekRange(week, lang)}`;
+    const header = `*${org}* · ${formatWeekRange(week, lang)}\n${hebrewWeekRange(week, lang)}`;
     if (entries.length === 0) return header;
     const lines = entries.map((entry) => {
-      const dateLabel = formatDayDate(week, entry.dayIndex, lang);
+      const dateLabel = `${formatDayDate(week, entry.dayIndex, lang)} · ${entry.hebrewDate}`;
       const prefix = published.length > 1 ? `${entry.site} · ` : "";
-      return `• ${prefix}${entry.day} (${dateLabel}) — ${entry.shift} ${entry.hours}`;
+      const holiday = entry.holiday ? ` · ${entry.holiday}` : "";
+      return `• ${prefix}${entry.day} (${dateLabel})${holiday} — ${entry.shift} ${entry.hours}`;
     });
     return [header, ...lines].join("\n");
   }
@@ -337,7 +360,7 @@ export function weekText(sites: RotaState | RotaState[], lang: Lang, org: string
     .map((site) => {
       const data = weekExport(site, lang, org);
       if (!data) return "";
-      const blocks = [`*${data.title}*`, data.subtitle];
+      const blocks = [`*${data.title}*`, data.subtitle, data.hebrewSubtitle];
       data.days.forEach((day, dayIndex) => {
         const lines = data.rows
           .map((row) => {
@@ -348,7 +371,8 @@ export function weekText(sites: RotaState | RotaState[], lang: Lang, org: string
           })
           .filter(Boolean);
         if (lines.length > 0) {
-          blocks.push(`\n*${day.name} (${day.date}):*\n${lines.join("\n")}`);
+          const holidays = day.holidays.length ? ` · ${day.holidays.join(" · ")}` : "";
+          blocks.push(`\n*${day.name} (${day.date} · ${day.hebrew})${holidays}:*\n${lines.join("\n")}`);
         }
       });
       return blocks.join("\n");

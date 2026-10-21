@@ -4,6 +4,8 @@ import type { ShiftTrade } from "../db/trades";
 import { copy } from "../i18n/copy";
 import { formatDayDate, shiftLabel, siteLabel } from "../schedule/display";
 import { hoursSinceWeek } from "../schedule/edit";
+import { hebrewWeek } from "../schedule/hebrew-calendar";
+import { DayDates } from "./day-dates";
 import { button, card, cardTitle, pill } from "./ui";
 
 export type { ShiftTrade };
@@ -100,6 +102,7 @@ function SeatBox({ state, week, lang, name, slotKey, highlight }: { state: RotaS
           <p className="mt-1 text-sm text-ink-soft">
             {dayName(slot.day, lang)} · {formatDayDate(week, slot.day, lang)}
           </p>
+          <p className="text-[11px] text-muted">{hebrewWeek(week, lang)[slot.day].hebrew}</p>
           <p className="text-sm text-muted">
             {shiftLabel(shift.name, lang)} ·{" "}
             <span dir="ltr">
@@ -231,9 +234,9 @@ function SeatGrid({
           <tr className="bg-well">
             <th className="w-24 p-2 text-start text-xs font-medium text-muted" />
             {days.map((day) => (
-              <th key={day} className="p-2 text-center text-xs font-medium text-ink-soft">
+              <th key={day} className="p-2 text-center align-top text-xs font-medium text-ink-soft">
                 <span className="block">{dayName(day, lang)}</span>
-                <span className="block text-muted">{formatDayDate(week, day, lang)}</span>
+                <DayDates week={week} day={day} lang={lang} />
               </th>
             ))}
           </tr>

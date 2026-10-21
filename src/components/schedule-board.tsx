@@ -1,6 +1,7 @@
 import { dayName, shiftKind, type Lang, type RotaState, type Slot } from "../domain";
 import { copy } from "../i18n/copy";
-import { formatDayDate, shiftLabel } from "../schedule/display";
+import { shiftLabel } from "../schedule/display";
+import { DayDates } from "./day-dates";
 import { SlotCard } from "./slot-card";
 
 const DOT: Record<ReturnType<typeof shiftKind>, string> = {
@@ -88,9 +89,9 @@ export function WeekBoard({
           <tr>
             <th className={`${STICKY} w-24`} />
             {[0, 1, 2, 3, 4, 5, 6].map((day) => (
-              <th key={day} className="px-1 pb-1.5 pt-0.5 text-xs font-semibold text-ink">
+              <th key={day} className="px-1 pb-1.5 pt-0.5 align-top text-xs font-semibold text-ink">
                 <span className="block">{dayName(day, lang)}</span>
-                <span className="block text-[11px] font-normal tabular-nums text-subtle">{formatDayDate(state.week, day, lang)}</span>
+                <DayDates week={state.week} day={day} lang={lang} />
               </th>
             ))}
           </tr>

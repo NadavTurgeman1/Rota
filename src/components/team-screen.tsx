@@ -4,7 +4,7 @@ import { isRelief } from "../domain/relief";
 import { confirmDeleteEmployee, copy } from "../i18n/copy";
 import { shiftLabel, siteLabel } from "../schedule/display";
 import { agreementCell, availabilityCell, type EmployeePatch } from "../people/edit";
-
+import { DayDates } from "./day-dates";
 import { NameRail } from "./name-rail";
 import { button, card, cardHint, cardTitle, field, label as labelClass, labelText, select, surface } from "./ui";
 
@@ -403,8 +403,15 @@ export function WeekGrid({
           <tr>
             <th className="w-24" />
             {[0, 1, 2, 3, 4, 5, 6].map((day) => (
-              <th key={day} scope="col" className="px-1 pb-1 text-center text-xs font-semibold text-muted">
-                {dayName(day, lang)}
+              <th key={day} scope="col" className="px-1 pb-1 text-center align-top text-xs font-semibold text-muted">
+                {mode === "availability" ? (
+                  <>
+                    <span className="block text-ink">{dayName(day, lang)}</span>
+                    <DayDates week={state.week} day={day} lang={lang} />
+                  </>
+                ) : (
+                  dayName(day, lang)
+                )}
               </th>
             ))}
           </tr>

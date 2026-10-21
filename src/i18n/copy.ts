@@ -10,6 +10,8 @@ export interface Copy {
   thisWeek: string;
   previousMonth: string;
   nextMonth: string;
+  previousYear: string;
+  nextYear: string;
   monthLabel: string;
   yearLabel: string;
   generate: string;
@@ -340,6 +342,8 @@ export const copy: Record<Lang, Copy> = {
     thisWeek: "השבוע",
     previousMonth: "החודש הקודם",
     nextMonth: "החודש הבא",
+    previousYear: "השנה הקודמת",
+    nextYear: "השנה הבאה",
     monthLabel: "חודש",
     yearLabel: "שנה",
     generate: "יצירת סידור",
@@ -682,6 +686,8 @@ export const copy: Record<Lang, Copy> = {
     thisWeek: "This week",
     previousMonth: "Previous month",
     nextMonth: "Next month",
+    previousYear: "Previous year",
+    nextYear: "Next year",
     monthLabel: "Month",
     yearLabel: "Year",
     generate: "Generate",

@@ -1,5 +1,5 @@
 import { HDate, HebrewCalendar, flags, gematriya, type Event } from "@hebcal/core";
-import type { Lang } from "../domain";
+import { addDays, type Lang } from "../domain";
 
 export interface Holiday {
   name: string;
@@ -41,7 +41,51 @@ function monthName(date: HDate, lang: Lang): string {
 /** Day and month in the Hebrew calendar, like ט׳ חשון or 9 Cheshvan. */
 export function hebrewDay(iso: string, lang: Lang): string {
   const date = new HDate(localDate(iso));
-  return `${lang === "en" ? date.getDate() : gematriya(date.getDate())} ${monthName(date, lang)}`;
+  return `${dayNumber(date, lang)} ${monthName(date, lang)}`;
+}
+
+function dayNumber(date: HDate, lang: Lang): string {
+  return lang === "en" ? String(date.getDate()) : gematriya(date.getDate());
+}
+
+function yearNumber(date: HDate, lang: Lang): string {
+  return lang === "en" ? String(date.getFullYear()) : gematriya(date.getFullYear());
+}
+
+/** Sunday to Saturday in the Hebrew calendar, like ט״ז–כ״ב תשרי תשפ״ז or ל׳ תשרי – ו׳ חשון תשפ״ז. */
+export function hebrewWeekRange(week: string, lang: Lang): string {
+  const first = new HDate(localDate(week));
+  const last = new HDate(localDate(addDays(week, 6)));
+  const year = yearNumber(last, lang);
+  if (first.getFullYear() !== last.getFullYear()) {
+    return `${dayNumber(first, lang)} ${monthName(first, lang)} ${yearNumber(first, lang)} – ${dayNumber(last, lang)} ${monthName(last, lang)} ${year}`;
+  }
+  if (first.getMonth() !== last.getMonth()) {
+    return `${dayNumber(first, lang)} ${monthName(first, lang)} – ${dayNumber(last, lang)} ${monthName(last, lang)} ${year}`;
+  }
+  return `${dayNumber(first, lang)}–${dayNumber(last, lang)} ${monthName(last, lang)} ${year}`;
+}
+
+export interface HebrewWeekDay {
+  hebrew: string;
+  holidays: Holiday[];
+}
+
+const weekCache = new Map<string, HebrewWeekDay[]>();
+
+/** The Hebrew date and holidays of each day, Sunday first. Boards redraw often, so weeks are cached. */
+export function hebrewWeek(week: string, lang: Lang): HebrewWeekDay[] {
+  const key = `${week}|${lang}`;
+  const cached = weekCache.get(key);
+  if (cached) return cached;
+  const holidays = holidaysBetween(week, addDays(week, 6), lang);
+  const days = [0, 1, 2, 3, 4, 5, 6].map((day) => {
+    const iso = addDays(week, day);
+    return { hebrew: hebrewDay(iso, lang), holidays: holidays.get(iso) ?? [] };
+  });
+  if (weekCache.size > 200) weekCache.clear();
+  weekCache.set(key, days);
+  return days;
 }
 
 /** The Hebrew months and year that a Gregorian month spans, like תשרי–חשון תשפ״ז. */
@@ -68,7 +112,7 @@ export function holidaysBetween(startIso: string, endIso: string, lang: Lang): M
   for (const event of events) {
     if (!shown(event)) continue;
     const iso = isoOf(event.getDate().greg());
-    const name = lang === "he" ? plain(event.render("he")) : event.render("en");
+    const name = (lang === "he" ? plain(event.render("he")) : event.render("en")).replace(/\s\d{4}$/, "");
     const list = days.get(iso) ?? [];
     list.push({ name, rest: (event.getFlags() & flags.CHAG) !== 0 });
     days.set(iso, list);

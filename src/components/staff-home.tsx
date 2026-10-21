@@ -3,6 +3,7 @@ import { addDays, agreementAllows, slots, type Lang, type RotaState } from "../d
 import { copy } from "../i18n/copy";
 import { exportFileName, formatWeekRange, pngFileName, siteLabel } from "../schedule/display";
 import { calendarTitle, ownPublishedShifts, shiftsIcs } from "../schedule/calendar";
+import { hebrewWeekRange } from "../schedule/hebrew-calendar";
 import { constraintWindowOpen, constraintWindowText } from "../schedule/constraint-window";
 import { weekCsv, weekExcelXml, weekExport, weekText } from "../schedule/export";
 import type { StaffDecision, StaffRequest } from "../workspace/workspace";
@@ -214,6 +215,7 @@ function DecisionNotice({
           {formatWeekRange(decision.week, lang)}
           {decision.siteName ? ` · ${siteLabel(decision.siteName, lang)}` : ""}
         </p>
+        <p className="text-xs text-muted">{hebrewWeekRange(decision.week, lang)}</p>
         {failed ? (
           <p role="alert" className="mt-2 text-sm text-danger-text">
             {t.saveFailed}

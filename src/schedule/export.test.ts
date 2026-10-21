@@ -30,7 +30,7 @@ describe("weekly export formats", () => {
     const dana = published.emps[0]!;
 
     const csv = weekCsv(published, "he")!;
-    expect(csv.startsWith("\uFEFFאתר,תאריך,יום,משמרת,שעות,עובד,שעות משמרת\r\n")).toBe(true);
+    expect(csv.startsWith("\uFEFFאתר,תאריך,תאריך עברי,חג,יום,משמרת,שעות,עובד,שעות משמרת\r\n")).toBe(true);
     expect(csv).toContain(dana.name);
 
     const staffCsv = weekCsv(published, "he", dana.id)!;
@@ -57,5 +57,19 @@ describe("weekly export formats", () => {
     const employeeText = weekText(published, "he", "Sentinel", dana.id)!;
     expect(employeeText).toContain("*Sentinel*");
     expect(employeeText).toContain("• ");
+  });
+
+  it("adds the Hebrew date and the week's holidays to every export", () => {
+    const draft = generateWeek(sentinelState("2026-09-27"));
+    const published = {
+      ...draft,
+      sched: { ...draft.sched, [draft.week]: { ...draft.sched[draft.week]!, status: "published" as const } },
+    };
+    const text = weekText(published, "he", "Sentinel")!;
+    expect(text).toContain("ט״ז–כ״ב תשרי תשפ״ז");
+    expect(text).toContain("ט״ז תשרי");
+    expect(text).toContain("שמיני עצרת");
+    expect(weekCsv(published, "he")).toContain("סכות ב׳ (חוה״מ)");
+    expect(weekExcelXml(published, "he", "Sentinel")).toContain("ט״ז–כ״ב תשרי תשפ״ז");
   });
 });
