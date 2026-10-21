@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import { loadSiteWeek } from "./load";
 import { saveSite } from "./save";
@@ -83,6 +86,14 @@ describe("database schema standards", () => {
          and not exists (select 1 from unnest(p.proconfig) as setting where setting like 'search_path=%')`,
     );
     expect(looseDefiners).toEqual([]);
+  });
+
+  it("never sends a boolean array, which the production driver turns into one boolean", () => {
+    const here = dirname(fileURLToPath(import.meta.url));
+    const offenders = readdirSync(here)
+      .filter((name) => name.endsWith(".ts") && !name.endsWith(".test.ts"))
+      .filter((name) => /::bool(ean)?\[\]/i.test(readFileSync(join(here, name), "utf8")));
+    expect(offenders).toEqual([]);
   });
 
   it("stores locked and over-quota seats on the assignment itself", async () => {

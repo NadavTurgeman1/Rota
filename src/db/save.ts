@@ -511,8 +511,9 @@ export async function writeSchedule(
   const assignedShifts: string[] = [];
   const assignedDays: number[] = [];
   const assignedEmployees: string[] = [];
-  const assignedLocks: boolean[] = [];
-  const assignedOverages: boolean[] = [];
+  // A boolean array is sent as one boolean, so both seat flags travel as 0 or 1.
+  const assignedLocks: number[] = [];
+  const assignedOverages: number[] = [];
   for (const [key, employeeIds] of Object.entries(input.schedule.assign)) {
     const slot = parseSlot(key);
     if (!slot || !input.shiftIds.has(slot.shiftId)) continue;
@@ -523,16 +524,16 @@ export async function writeSchedule(
       assignedShifts.push(slot.shiftId);
       assignedDays.push(slot.weekday);
       assignedEmployees.push(employeeId);
-      assignedLocks.push(locked.has(seat));
-      assignedOverages.push(over[seat] === true);
+      assignedLocks.push(locked.has(seat) ? 1 : 0);
+      assignedOverages.push(over[seat] === true ? 1 : 0);
       seated.add(seat);
     }
   }
   await writeRows(
     sql,
     `insert into public.assignments (org_id, schedule_id, shift_id, weekday, employee_id, locked, over_quota)
-     select $1, $2, shift_id, weekday, employee_id, locked, over_quota
-     from unnest($3::uuid[], $4::int[], $5::uuid[], $6::boolean[], $7::boolean[])
+     select $1, $2, shift_id, weekday, employee_id, locked <> 0, over_quota <> 0
+     from unnest($3::uuid[], $4::int[], $5::uuid[], $6::int[], $7::int[])
        as t(shift_id, weekday, employee_id, locked, over_quota)
      on conflict do nothing`,
     [input.orgId, scheduleId],
