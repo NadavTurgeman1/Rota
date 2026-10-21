@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { sentinelState } from "../demo/sentinel";
 import { generateWeek } from "./edit";
-import { backupJson, parseBackupJson, siteShiftsIcs, weekCsv, weekExcelXml, weekText } from "./export";
+import { backupJson, parseBackupJson, siteShiftsIcs, weekCsv, weekExcelXml, weekExport, weekText } from "./export";
 
 describe("weekly export formats", () => {
   it("refuses to export an unpublished draft", () => {
@@ -71,5 +71,28 @@ describe("weekly export formats", () => {
     expect(text).toContain("שמיני עצרת");
     expect(weekCsv(published, "he")).toContain("סכות ב׳ (חוה״מ)");
     expect(weekExcelXml(published, "he", "Sentinel")).toContain("ט״ז–כ״ב תשרי תשפ״ז");
+  });
+
+  it("leaves only Gregorian dates when the Hebrew calendar is off", () => {
+    const draft = generateWeek(sentinelState("2026-09-27"));
+    const published = {
+      ...draft,
+      sched: { ...draft.sched, [draft.week]: { ...draft.sched[draft.week]!, status: "published" as const } },
+    };
+    const dana = published.emps[0]!;
+    const outputs = [
+      weekText(published, "he", "Sentinel", undefined, false)!,
+      weekText(published, "he", "Sentinel", dana.id, false)!,
+      weekCsv(published, "he", undefined, false)!,
+      weekExcelXml(published, "he", "Sentinel", undefined, false)!,
+    ];
+    for (const output of outputs) {
+      expect(output).not.toContain("תשרי");
+      expect(output).not.toContain("סכות");
+      expect(output).not.toContain("שמיני עצרת");
+      expect(output).not.toContain("תאריך עברי");
+    }
+    expect(outputs[2].startsWith("\uFEFFאתר,תאריך,יום,משמרת,שעות,עובד,שעות משמרת\r\n")).toBe(true);
+    expect(weekExport(published, "he", "Sentinel", false)?.hebrewSubtitle).toBe("");
   });
 });

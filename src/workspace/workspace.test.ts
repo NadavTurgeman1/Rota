@@ -14,6 +14,7 @@ import {
   selectSite,
   setUserAccess,
   updateOrg,
+  hebrewCalendarOn,
   userInputError,
 } from "./workspace";
 
@@ -51,6 +52,12 @@ describe("workspace", () => {
     expect(updateOrg(workspace, editor, { name: "Other" })).toBe(workspace);
     expect(updateOrg(workspace, owner, { name: "  " })).toBe(workspace);
     expect(updateOrg(workspace, owner, { name: " Shield " }).org.name).toBe("Shield");
+    expect(hebrewCalendarOn(workspace)).toBe(true);
+    expect(updateOrg(workspace, editor, { hebrewCalendar: false })).toBe(workspace);
+    const plain = updateOrg(workspace, owner, { hebrewCalendar: false });
+    expect(hebrewCalendarOn(plain)).toBe(false);
+    expect(updateOrg(plain, owner, { hebrewCalendar: false })).toBe(plain);
+    expect(hebrewCalendarOn(updateOrg(plain, owner, { hebrewCalendar: true }))).toBe(true);
 
     const input = { id: "u-new", name: "Noam", email: "noam@sentinel.demo", password: "secret1", access: "read" as const };
     expect(addUser(workspace, editor, input)).toBe(workspace);

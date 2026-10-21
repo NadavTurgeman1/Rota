@@ -13,6 +13,7 @@ const MARGIN = 16;
 const SHIFT_WIDTH = 168;
 const DAY_WIDTH = 196;
 const HEAD_HEIGHT = 94;
+const PLAIN_HEAD_HEIGHT = 64;
 const LINE = 28;
 const RED = "#b91c1c";
 /** A little more saturated than the light weekly board, and well short of a strong tint. */
@@ -27,9 +28,11 @@ function rowHeight(row: WeekExport["rows"][number]): number {
 /** Draws the published week onto a canvas. Columns run right to left in Hebrew. */
 export function drawWeek(data: WeekExport, labels: PngLabels, scale = 2): HTMLCanvasElement {
   const width = MARGIN * 2 + SHIFT_WIDTH + DAY_WIDTH * data.days.length;
-  const tableTop = MARGIN + 80;
+  const hebrew = Boolean(data.hebrewSubtitle);
+  const tableTop = MARGIN + (hebrew ? 80 : 58);
+  const headHeight = hebrew ? HEAD_HEIGHT : PLAIN_HEAD_HEIGHT;
   const heights = data.rows.map(rowHeight);
-  const height = tableTop + HEAD_HEIGHT + heights.reduce((sum, value) => sum + value, 0) + MARGIN;
+  const height = tableTop + headHeight + heights.reduce((sum, value) => sum + value, 0) + MARGIN;
   const canvas = document.createElement("canvas");
   canvas.width = width * scale;
   canvas.height = height * scale;
@@ -76,7 +79,7 @@ export function drawWeek(data: WeekExport, labels: PngLabels, scale = 2): HTMLCa
 
   ctx.textAlign = "center";
   data.days.forEach((day, index) => {
-    const center = cell(index + 1, tableTop, HEAD_HEIGHT, "#ffffff");
+    const center = cell(index + 1, tableTop, headHeight, "#ffffff");
     ctx.fillStyle = "#1c1917";
     ctx.font = `600 18px ${FONT}`;
     ctx.fillText(day.name, center, tableTop + 26);
@@ -92,9 +95,9 @@ export function drawWeek(data: WeekExport, labels: PngLabels, scale = 2): HTMLCa
       ctx.fillText(fit(day.holidays.join(" · "), DAY_WIDTH - 16), center, tableTop + 83);
     }
   });
-  cell(0, tableTop, HEAD_HEIGHT, "#ffffff");
+  cell(0, tableTop, headHeight, "#ffffff");
 
-  let top = tableTop + HEAD_HEIGHT;
+  let top = tableTop + headHeight;
   data.rows.forEach((row, rowIndex) => {
     const size = heights[rowIndex];
     const center = cell(0, top, size, SHIFT_FILL[row.kind]);

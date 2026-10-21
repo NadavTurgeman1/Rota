@@ -74,7 +74,7 @@ describe("generation avoids a third tight shift", () => {
     expect(analyze(state, week).violations).toEqual([]);
   });
 
-  it("still assigns the only legal person, even on a third tight shift", () => {
+  it("still assigns the only eligible person, even on a third tight shift", () => {
     const state = ready([person("dana", "דנה"), person("noa", "נועה")]);
     state.avail = { [week]: { noa: [["m"], ["m"], [], [], [], [], []] } };
     generate(state, week);

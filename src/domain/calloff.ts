@@ -128,10 +128,10 @@ function calledOff(schedule: Schedule, slotKey: string): Set<string> {
 }
 
 /**
- * Legal replacements first. Someone already on this seat in an earlier draft
+ * Eligible replacements first. Someone already on this seat in an earlier draft
  * gets no ranking boost: a hard rule always wins.
  * Emergency extensions, splits, and over-quota shifts are filled in only when
- * the legal list is empty, and nothing here writes the schedule.
+ * the eligible list is empty, and nothing here writes the schedule.
  */
 export function planCallOff(state: RotaState, slot: Slot): CallOffPlan {
   const week = state.week;
@@ -348,7 +348,7 @@ export function assignReplacement(state: RotaState, slotKey: string, employeeId:
 
 /**
  * Approve an extension, a split, or an over-quota shift.
- * Refuses to run while a legal replacement still exists.
+ * Refuses to run while an eligible replacement still exists.
  */
 export function assignEmergency(state: RotaState, slotKey: string, choice: EmergencyChoice): RotaState {
   const schedule = state.sched[state.week];

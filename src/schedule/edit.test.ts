@@ -203,9 +203,9 @@ describe("schedule edits", () => {
     expect(isLocked(removeEmployee(again.state, target.key, outsider.id), target.key, outsider.id)).toBe(false);
 
     const sundayNight = `0|${SENTINEL.night}`;
-    const illegal = sentinelState("2026-10-11");
-    ensureSchedule(illegal, illegal.week).assign[sundayNight] = [SENTINEL.dana];
-    const forced = toggleLock(illegal, sundayNight, SENTINEL.dana);
+    const broken = sentinelState("2026-10-11");
+    ensureSchedule(broken, broken.week).assign[sundayNight] = [SENTINEL.dana];
+    const forced = toggleLock(broken, sundayNight, SENTINEL.dana);
     const report = generateWithReport(forced);
     expect(report.dropped).toEqual([
       { token: `${sundayNight}#${SENTINEL.dana}`, why: "rule", reason: expect.objectContaining({ code: "agreement" }) },

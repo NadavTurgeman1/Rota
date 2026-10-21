@@ -171,13 +171,13 @@ export function BusinessScreen({
 }: {
   state: RotaState;
   lang: Lang;
-  org: { name: string; type: string };
+  org: { name: string; type: string; hebrewCalendar?: boolean };
   canEditOrg: boolean;
   canWrite: boolean;
   sites: SiteSummary[];
   activeSiteId: string;
   siteNameAllowed: (name: string, siteId?: string) => boolean;
-  onOrg: (patch: { name?: string; type?: string }) => void;
+  onOrg: (patch: { name?: string; type?: string; hebrewCalendar?: boolean }) => void;
   onSelectSite: (siteId: string) => void;
   onAddSite: (name: string) => void;
   onRemoveSite: (siteId: string) => void;
@@ -243,6 +243,34 @@ export function BusinessScreen({
               onCommit={(type) => onOrg({ type })}
             />
           </label>
+        </div>
+        <div className="mt-5 border-t border-line pt-5">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <span className="text-sm font-medium text-ink">{t.hebrewCalendar}</span>
+            <div className="inline-flex rounded-full border border-line bg-well p-0.5" role="group" aria-label={t.hebrewCalendar}>
+              <button
+                type="button"
+                data-testid="hebrew-calendar-off"
+                aria-pressed={org.hebrewCalendar === false}
+                disabled={!canEditOrg}
+                className={`h-8 rounded-full px-3 text-xs font-semibold ${org.hebrewCalendar === false ? "bg-card text-ink shadow-card" : "text-muted"}`}
+                onClick={() => onOrg({ hebrewCalendar: false })}
+              >
+                OFF
+              </button>
+              <button
+                type="button"
+                data-testid="hebrew-calendar-on"
+                aria-pressed={org.hebrewCalendar !== false}
+                disabled={!canEditOrg}
+                className={`h-8 rounded-full px-3 text-xs font-semibold ${org.hebrewCalendar !== false ? "bg-brand text-on-brand shadow-card" : "text-muted"}`}
+                onClick={() => onOrg({ hebrewCalendar: true })}
+              >
+                ON
+              </button>
+            </div>
+          </div>
+          <p className="mt-2 text-sm leading-6 text-muted">{t.hebrewCalendarHint}</p>
         </div>
       </section>
 
@@ -471,7 +499,6 @@ export function BusinessScreen({
             ) : null}
           </div>
         </div>
-        <p className="mt-4 text-sm leading-6 text-muted">{t.lawHint}</p>
       </section>
 
       {onInvite || (onInviteStaff && biz.staffAccess !== false) ? (

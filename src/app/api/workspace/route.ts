@@ -93,10 +93,10 @@ async function readJson(request: Request): Promise<{ name?: unknown; type?: unkn
 
 function readWorkspace(body: { org?: unknown; sites?: unknown; activeSiteId?: unknown } | null): Workspace | null {
   if (!body || !body.org || typeof body.org !== "object" || !Array.isArray(body.sites)) return null;
-  const org = body.org as { id?: unknown; name?: unknown; type?: unknown };
+  const org = body.org as { id?: unknown; name?: unknown; type?: unknown; hebrewCalendar?: unknown };
   if (typeof org.id !== "string" || typeof org.name !== "string" || typeof org.type !== "string") return null;
   return {
-    org: { id: org.id, name: org.name, type: org.type },
+    org: { id: org.id, name: org.name, type: org.type, hebrewCalendar: org.hebrewCalendar !== false },
     sites: body.sites as Workspace["sites"],
     activeSiteId: typeof body.activeSiteId === "string" ? body.activeSiteId : "",
     users: [],

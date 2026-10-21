@@ -41,8 +41,8 @@ export async function loadStoredWorkspace(sql: SqlClient, week: string): Promise
   const support = await supportMembership(sql);
   const active = support ?? resolveActiveOrg(await listMemberships(sql), null);
   if (!active) return null;
-  const orgs = await sql.query<{ id: string; name: string; kind: string }>(
-    `select id, name, kind from public.organizations where id = $1`,
+  const orgs = await sql.query<{ id: string; name: string; kind: string; hebrew_calendar: boolean }>(
+    `select id, name, kind, hebrew_calendar from public.organizations where id = $1`,
     [active.orgId],
   );
   const org = orgs[0];
@@ -89,7 +89,7 @@ export async function loadStoredWorkspace(sql: SqlClient, week: string): Promise
     [org.id],
   );
   return {
-    org: { id: org.id, name: org.name, type: org.kind },
+    org: { id: org.id, name: org.name, type: org.kind, hebrewCalendar: org.hebrew_calendar !== false },
     sites: ensurePrimarySites(loaded),
     activeSiteId: loaded[0]?.id ?? "",
     users,
@@ -109,9 +109,10 @@ export async function saveStoredWorkspace(sql: SqlClient, workspace: Workspace):
   if (active.role === "owner") {
     const name = workspace.org.name.trim();
     if (!name) throw new SaveError("organization");
-    await sql.query(`update public.organizations set name = $1, kind = $2 where id = $3`, [
+    await sql.query(`update public.organizations set name = $1, kind = $2, hebrew_calendar = $3 where id = $4`, [
       name,
       workspace.org.type.trim(),
+      workspace.org.hebrewCalendar !== false,
       workspace.org.id,
     ]);
   }

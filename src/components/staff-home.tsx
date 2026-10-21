@@ -11,6 +11,7 @@ import { WeekGrid } from "./team-screen";
 import { WeekBoard } from "./schedule-board";
 import { BrandMark, Wordmark } from "./login-screen";
 import { downloadBlob, downloadWeekPng } from "./week-png";
+import { useHebrewCalendar } from "./day-dates";
 import { StaffTrades, type ShiftTrade, type TradeApi } from "./trades";
 import { WeekPicker } from "./week-picker";
 import { availabilitySubmitted, blockLimitOf, countBlocks, gridWithCell, openAvailabilityGrid, withinBlockLimit } from "../people/edit";
@@ -197,6 +198,7 @@ function DecisionNotice({
   const t = copy[lang];
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  const hebrew = useHebrewCalendar();
   const title = decision.outcome === "approved" ? t.requestApproved : t.requestRejected;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4">
@@ -215,7 +217,7 @@ function DecisionNotice({
           {formatWeekRange(decision.week, lang)}
           {decision.siteName ? ` · ${siteLabel(decision.siteName, lang)}` : ""}
         </p>
-        <p className="text-xs text-muted">{hebrewWeekRange(decision.week, lang)}</p>
+        {hebrew ? <p className="text-xs text-muted">{hebrewWeekRange(decision.week, lang)}</p> : null}
         {failed ? (
           <p role="alert" className="mt-2 text-sm text-danger-text">
             {t.saveFailed}
@@ -297,6 +299,7 @@ export function StaffHome({
   tradeApi?: TradeApi;
 }) {
   const t = copy[lang];
+  const hebrew = useHebrewCalendar();
   const [tab, setTab] = useState<"schedule" | "constraints">("schedule");
   const [copied, setCopied] = useState(false);
   const employee = selfId ? state.emps.find((item) => item.id === selfId) ?? null : null;
@@ -442,7 +445,7 @@ export function StaffHome({
                 className={button.quiet}
                 disabled={!hasPublished}
                 onClick={() => {
-                  const xml = weekExcelXml(publishedStates, lang, orgName, selfId ?? undefined);
+                  const xml = weekExcelXml(publishedStates, lang, orgName, selfId ?? undefined, hebrew);
                   if (!xml) return;
                   downloadBlob(new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" }), exportFileName(siteName, state.week, "xls"));
                 }}
@@ -455,7 +458,7 @@ export function StaffHome({
                 className={button.quiet}
                 disabled={!hasPublished}
                 onClick={() => {
-                  const csv = weekCsv(publishedStates, lang, selfId ?? undefined);
+                  const csv = weekCsv(publishedStates, lang, selfId ?? undefined, hebrew);
                   if (!csv) return;
                   downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), exportFileName(siteName, state.week, "csv"));
                 }}
@@ -469,7 +472,7 @@ export function StaffHome({
                 disabled={!hasPublished}
                 onClick={() => {
                   for (const view of publishedStates) {
-                    const data = weekExport(view, lang, orgName);
+                    const data = weekExport(view, lang, orgName, hebrew);
                     if (!data) continue;
                     downloadWeekPng(
                       data,
@@ -487,7 +490,7 @@ export function StaffHome({
                 className={button.quiet}
                 disabled={!hasPublished}
                 onClick={() => {
-                  const text = weekText(publishedStates, lang, orgName, selfId ?? undefined);
+                  const text = weekText(publishedStates, lang, orgName, selfId ?? undefined, hebrew);
                   if (!text) return;
                   if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
                     void navigator.clipboard.writeText(text).then(() => {

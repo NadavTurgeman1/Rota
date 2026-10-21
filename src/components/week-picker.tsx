@@ -2,9 +2,9 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { addDays, sundayOnOrBefore, type Lang } from "../domain";
-import { hebrewDay, hebrewMonthSpan, holidaysBetween } from "../schedule/hebrew-calendar";
+import { hebrewDay, hebrewMonthSpan, holidaysBetween, type Holiday } from "../schedule/hebrew-calendar";
 import { copy } from "../i18n/copy";
-import { WeekDates } from "./day-dates";
+import { useHebrewCalendar, WeekDates } from "./day-dates";
 
 const YEARS_AROUND = 5;
 
@@ -71,6 +71,7 @@ export function WeekPicker({ lang, week, onPick, className = "" }: { lang: Lang;
   const [hovered, setHovered] = useState<string | null>(null);
   const root = useRef<HTMLDivElement>(null);
   const locale = lang === "he" ? "he-IL" : "en-GB";
+  const hebrew = useHebrewCalendar();
 
   useEffect(() => {
     if (!open) return;
@@ -91,7 +92,7 @@ export function WeekPicker({ lang, week, onPick, className = "" }: { lang: Lang;
   const first = `${view.year}-${String(view.month).padStart(2, "0")}-01`;
   const gridStart = sundayOnOrBefore(first);
   const days = useMemo(() => Array.from({ length: 42 }, (_, index) => addDays(gridStart, index)), [gridStart]);
-  const holidays = useMemo(() => holidaysBetween(days[0], days[41], lang), [days, lang]);
+  const holidays = useMemo(() => (hebrew ? holidaysBetween(days[0], days[41], lang) : new Map<string, Holiday[]>()), [days, lang, hebrew]);
   const monthHolidays = days.filter((day) => day.startsWith(first.slice(0, 8)) && holidays.has(day));
   const today = localToday();
   const months = Array.from({ length: 12 }, (_, index) => ({
@@ -163,7 +164,7 @@ export function WeekPicker({ lang, week, onPick, className = "" }: { lang: Lang;
                 <Chevron forward double />
               </button>
             </div>
-            <p className="mt-0.5 text-center text-xs font-medium text-brand-text">{hebrewMonthSpan(view.year, view.month, lang)}</p>
+            {hebrew ? <p className="mt-0.5 text-center text-xs font-medium text-brand-text">{hebrewMonthSpan(view.year, view.month, lang)}</p> : null}
           </div>
 
           <div className="px-2 pb-2 pt-1" onMouseLeave={() => setHovered(null)}>
@@ -195,8 +196,8 @@ export function WeekPicker({ lang, week, onPick, className = "" }: { lang: Lang;
                           key={day}
                           type="button"
                           data-testid={`picker-day-${day}`}
-                          title={names ? `${hebrewDay(day, lang)} · ${names}` : hebrewDay(day, lang)}
-                          className={`flex h-[3.75rem] min-w-0 flex-col items-center justify-start gap-0.5 rounded-xl px-0.5 pt-1 ${inMonth ? "" : "opacity-35"}`}
+                          title={hebrew ? (names ? `${hebrewDay(day, lang)} · ${names}` : hebrewDay(day, lang)) : undefined}
+                          className={`flex ${hebrew ? "h-[3.75rem]" : "h-10"} min-w-0 flex-col items-center justify-start gap-0.5 rounded-xl px-0.5 pt-1 ${inMonth ? "" : "opacity-35"}`}
                           onClick={() => pick(day)}
                         >
                           <span
@@ -206,7 +207,7 @@ export function WeekPicker({ lang, week, onPick, className = "" }: { lang: Lang;
                           >
                             {Number(day.slice(8))}
                           </span>
-                          <span className="text-[10px] leading-none text-muted">{hebrewDay(day, lang).split(" ")[0]}</span>
+                          {hebrew ? <span className="text-[10px] leading-none text-muted">{hebrewDay(day, lang).split(" ")[0]}</span> : null}
                           {events.length ? (
                             <span className={`w-full truncate rounded px-0.5 text-[9px] font-medium leading-3 ${rest ? "bg-danger-softer text-danger-text" : "bg-violet-softer text-violet-text"}`}>
                               {events[0].name}

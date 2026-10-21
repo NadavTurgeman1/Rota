@@ -5,7 +5,7 @@ import { copy } from "../i18n/copy";
 import { formatDayDate, shiftLabel, siteLabel } from "../schedule/display";
 import { hoursSinceWeek } from "../schedule/edit";
 import { hebrewWeek } from "../schedule/hebrew-calendar";
-import { DayDates } from "./day-dates";
+import { DayDates, useHebrewCalendar } from "./day-dates";
 import { button, card, cardTitle, pill } from "./ui";
 
 export type { ShiftTrade };
@@ -92,6 +92,7 @@ export function tradeStillHeld(trade: ShiftTrade, sites: TradeSite[]): boolean {
 }
 
 function SeatBox({ state, week, lang, name, slotKey, highlight }: { state: RotaState; week: string; lang: Lang; name: string; slotKey: string | null; highlight?: boolean }) {
+  const hebrew = useHebrewCalendar();
   const slot = slotKey ? slotParts(slotKey) : null;
   const shift = slot ? state.biz.shifts.find((item) => item.id === slot.shiftId) : null;
   return (
@@ -102,7 +103,7 @@ function SeatBox({ state, week, lang, name, slotKey, highlight }: { state: RotaS
           <p className="mt-1 text-sm text-ink-soft">
             {dayName(slot.day, lang)} · {formatDayDate(week, slot.day, lang)}
           </p>
-          <p className="text-[11px] text-muted">{hebrewWeek(week, lang)[slot.day].hebrew}</p>
+          {hebrew ? <p className="text-[11px] text-muted">{hebrewWeek(week, lang)[slot.day].hebrew}</p> : null}
           <p className="text-sm text-muted">
             {shiftLabel(shift.name, lang)} ·{" "}
             <span dir="ltr">

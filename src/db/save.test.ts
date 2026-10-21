@@ -158,6 +158,10 @@ describe("saving a site", () => {
     expect(withSite.sites[0]?.state.biz.shifts.every((shift) => shift.req.every((count) => count === 1))).toBe(true);
     expect(withSite.sites[0]?.state.biz.shifts.map((shift) => shift.start)).toEqual(["06:00", "14:00", "22:00"]);
     await expect(saveStoredWorkspace(client(db), { ...withSite, org: { ...withSite.org, name: "צוות 4" } })).resolves.toBeUndefined();
+    expect(withSite.org.hebrewCalendar).toBe(true);
+    await saveStoredWorkspace(client(db), { ...withSite, org: { ...withSite.org, name: "צוות 4", hebrewCalendar: false } });
+    const reloaded = await loadStoredWorkspace(client(db), withSite.sites[0]!.state.week);
+    expect(reloaded?.org.hebrewCalendar).toBe(false);
   });
 
   it("assigns a shift manager to one site without opening a site for the business", async () => {

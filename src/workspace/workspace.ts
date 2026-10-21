@@ -42,7 +42,8 @@ export interface WorkspaceSite {
 }
 
 export interface Workspace {
-  org: { id: string; name: string; type: string };
+  /** `hebrewCalendar` adds Hebrew dates and holidays next to Gregorian dates. Missing means on. */
+  org: { id: string; name: string; type: string; hebrewCalendar?: boolean };
   sites: WorkspaceSite[];
   activeSiteId: string;
   users: WorkspaceUser[];
@@ -97,12 +98,17 @@ export function authenticate(workspace: Workspace, email: string, password: stri
   );
 }
 
-export function updateOrg(workspace: Workspace, user: WorkspaceUser, patch: { name?: string; type?: string }): Workspace {
+export function updateOrg(workspace: Workspace, user: WorkspaceUser, patch: { name?: string; type?: string; hebrewCalendar?: boolean }): Workspace {
   if (!isOwner(user)) return workspace;
   const name = patch.name === undefined ? workspace.org.name : patch.name.trim();
   const type = patch.type === undefined ? workspace.org.type : patch.type.trim();
-  if (!name || (name === workspace.org.name && type === workspace.org.type)) return workspace;
-  return { ...workspace, org: { ...workspace.org, name, type } };
+  const hebrewCalendar = patch.hebrewCalendar ?? workspace.org.hebrewCalendar !== false;
+  if (!name || (name === workspace.org.name && type === workspace.org.type && hebrewCalendar === (workspace.org.hebrewCalendar !== false))) return workspace;
+  return { ...workspace, org: { ...workspace.org, name, type, hebrewCalendar } };
+}
+
+export function hebrewCalendarOn(workspace: Workspace): boolean {
+  return workspace.org.hebrewCalendar !== false;
 }
 
 function siteNameTaken(workspace: Workspace, name: string, exceptId?: string): boolean {

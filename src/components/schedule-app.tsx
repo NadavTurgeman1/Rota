@@ -55,6 +55,7 @@ import {
   activeSite,
   addSite,
   canWrite as hasWrite,
+  hebrewCalendarOn,
   isOwner,
   removeSite,
   renameSiteAllowed,
@@ -75,6 +76,7 @@ import { remoteConfigured } from "../supabase/public-env";
 import { WeekBoard } from "./schedule-board";
 import { StaffHome } from "./staff-home";
 import { TeamScreen } from "./team-screen";
+import { HebrewCalendarContext } from "./day-dates";
 import { ManagerTradePrompt, tradeStillHeld, useSetAside, type ShiftTrade, type TradeApi, type TradeSite } from "./trades";
 import { useAiEnabled } from "./use-ai";
 import { SettingsMenu, type Theme } from "./settings-menu";
@@ -84,7 +86,7 @@ import { WeekSummary } from "./week-summary";
 import { button } from "./ui";
 import { downloadBlob, downloadWeekPng } from "./week-png";
 
-const EMPTY: Analysis = { violations: [], overQuota: [], unfilled: [], under: [], lawNotes: [], hours: {}, counts: {} };
+const EMPTY: Analysis = { violations: [], overQuota: [], unfilled: [], under: [], hours: {}, counts: {} };
 const THEME_KEY = "rota.theme";
 const SUPPORT_KEY = "rota.supportOrg";
 
@@ -242,6 +244,7 @@ export function ScheduleApp() {
   const actor = user ? actorFor(user, live.selfEmployeeId) : VIEWER;
   const writer = Boolean(user && hasWrite(user));
   const owner = Boolean(user && isOwner(user));
+  const hebrew = hebrewCalendarOn(live);
   const [trades, setTrades] = useState<{ trades: ShiftTrade[]; takeable: string[] }>({ trades: [], takeable: [] });
   const approvedSeen = useRef<Set<string> | null>(null);
   const tradeLater = useSetAside("later");
@@ -851,7 +854,7 @@ export function ScheduleApp() {
   }
 
   function savePng(source: RotaState) {
-    const data = weekExport(source, lang, live.org.name);
+    const data = weekExport(source, lang, live.org.name, hebrew);
     if (!data) return;
     downloadWeekPng(
       data,
@@ -872,7 +875,7 @@ export function ScheduleApp() {
   }
 
   function exportExcel() {
-    const xml = weekExcelXml(state, lang, live.org.name);
+    const xml = weekExcelXml(state, lang, live.org.name, undefined, hebrew);
     if (!xml) return;
     downloadBlob(
       new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" }),
@@ -881,7 +884,7 @@ export function ScheduleApp() {
   }
 
   function exportCsv() {
-    const csv = weekCsv(state, lang);
+    const csv = weekCsv(state, lang, undefined, hebrew);
     if (!csv) return;
     downloadBlob(
       new Blob([csv], { type: "text/csv;charset=utf-8" }),
@@ -899,7 +902,7 @@ export function ScheduleApp() {
   }
 
   async function exportText() {
-    const text = weekText(state, lang, live.org.name);
+    const text = weekText(state, lang, live.org.name, undefined, hebrew);
     if (!text) return;
     if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text);
@@ -1007,6 +1010,7 @@ export function ScheduleApp() {
 
   if (user.access === "read") {
     return (
+      <HebrewCalendarContext.Provider value={hebrew}>
       <StaffHome
         state={state}
         lang={lang}
@@ -1031,6 +1035,7 @@ export function ScheduleApp() {
         takeable={trades.takeable}
         tradeApi={remote ? tradeApi : undefined}
       />
+      </HebrewCalendarContext.Provider>
     );
   }
 
@@ -1092,6 +1097,7 @@ export function ScheduleApp() {
   const weekly = screen === "schedule" || screen === "constraints";
 
   return (
+    <HebrewCalendarContext.Provider value={hebrew}>
     <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang} className="min-h-screen">
       <header className="sticky top-0 z-30 border-b border-line bg-page/80 backdrop-blur-xl">
         {saveNote ? (
@@ -1448,6 +1454,7 @@ export function ScheduleApp() {
         />
       ) : null}
     </div>
+    </HebrewCalendarContext.Provider>
   );
 }
 

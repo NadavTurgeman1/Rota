@@ -39,7 +39,6 @@ export function IssuesPanel({
   onEmergency: (slot: Slot, choice: EmergencyChoice) => void;
 }) {
   const t = copy[lang];
-  const [lawNotesOpen, setLawNotesOpen] = useState(false);
   const clear = hasSchedule && report.violations.length === 0 && report.unfilled.length === 0;
   const showPublishHint = manager && !published;
 
@@ -121,37 +120,6 @@ export function IssuesPanel({
               );
             })}
           </ul>
-        </section>
-      ) : null}
-      {report.lawNotes.length > 0 ? (
-        <section className="mt-4" data-testid="law-notes">
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              data-testid="law-notes-toggle"
-              aria-expanded={lawNotesOpen}
-              aria-label={lawNotesOpen ? t.hideLawNotes : t.showLawNotes}
-              className="grid h-6 w-6 shrink-0 place-items-center rounded-md text-muted hover:bg-well hover:text-ink"
-              onClick={() => setLawNotesOpen((open) => !open)}
-            >
-              <span aria-hidden className="text-xs leading-none">
-                {lawNotesOpen ? "▴" : "▾"}
-              </span>
-            </button>
-            <h3 className="text-sm font-medium text-ink">{t.lawNotesTitle}</h3>
-          </div>
-          {lawNotesOpen ? (
-            <>
-              <p className="mt-1 text-xs leading-5 text-muted">{t.lawNotesHint}</p>
-              <ul className="mt-2 space-y-2">
-                {report.lawNotes.map((note) => (
-                  <li key={note} className="rounded-xl border border-line bg-well px-3 py-2 text-sm leading-6 text-ink-soft">
-                    {note}
-                  </li>
-                ))}
-              </ul>
-            </>
-          ) : null}
         </section>
       ) : null}
       {report.under.length > 0 ? (

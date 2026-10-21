@@ -10,6 +10,8 @@ export interface Copy {
   thisWeek: string;
   previousMonth: string;
   nextMonth: string;
+  hebrewCalendar: string;
+  hebrewCalendarHint: string;
   previousYear: string;
   nextYear: string;
   monthLabel: string;
@@ -26,10 +28,6 @@ export interface Copy {
   publishedClear: string;
   noSchedule: string;
   issues: string;
-  lawNotesTitle: string;
-  lawNotesHint: string;
-  showLawNotes: string;
-  hideLawNotes: string;
   violations: string;
   openShifts: string;
   underQuota: string;
@@ -172,7 +170,6 @@ export interface Copy {
   maxHours: string;
   maxShift: string;
   maxDayHours: string;
-  lawHint: string;
   shiftsTitle: string;
   shiftName: string;
   shiftStart: string;
@@ -342,6 +339,8 @@ export const copy: Record<Lang, Copy> = {
     thisWeek: "השבוע",
     previousMonth: "החודש הקודם",
     nextMonth: "החודש הבא",
+    hebrewCalendar: "לוח שנה עברי",
+    hebrewCalendarHint: "דלוק: התאריך העברי והחגים מופיעים בקטן ליד התאריך הלועזי, בסידור, באילוצים, בלוח השנה ובייצוא. כבוי: רק תאריכים לועזיים. רק הבעלים יכול לשנות.",
     previousYear: "השנה הקודמת",
     nextYear: "השנה הבאה",
     monthLabel: "חודש",
@@ -358,10 +357,6 @@ export const copy: Record<Lang, Copy> = {
     publishedClear: "אין הפרות ואין חורים.",
     noSchedule: "אין עדיין שיבוץ. יצירת הסידור תמלא את המושבים לפי המנוע.",
     issues: "בעיות",
-    lawNotesTitle: "הערות לפי דיני העבודה",
-    lawNotesHint: "הערות בלבד לפי חוק שעות עבודה ומנוחה ושבוע העבודה של 42 שעות. הן לא חוסמות פרסום, וייתכן היתר לענף השמירה.",
-    showLawNotes: "הצגת הערות דיני העבודה",
-    hideLawNotes: "הסתרת הערות דיני העבודה",
     violations: "הפרות",
     openShifts: "משמרות פתוחות",
     underQuota: "מתחת למכסה",
@@ -427,7 +422,7 @@ export const copy: Record<Lang, Copy> = {
     scheduleReadOnly: "הסידור לקריאה בלבד.",
     callOff: "חיסור",
     calledOff: "חיסור",
-    replacements: "מחליפים חוקיים",
+    replacements: "מחליפים מתאימים",
     noReplacement: "אין מחליף שעבר את כל הכללים. המושב נשאר פתוח.",
     rejectedTitle: "נפסלו",
     emergency: "חלופות חירום",
@@ -505,7 +500,6 @@ export const copy: Record<Lang, Copy> = {
     maxHours: "תקרת שעות שבועית",
     maxShift: "אורך משמרת מקסימלי בכיסוי חור (שעות)",
     maxDayHours: "תקרת שעות ביום (0 = בלי תקרה)",
-    lawHint: "מגבלות המנוחה והשעות תלויות בחוק המקומי. קבעו אותן לפי החוק והמדיניות שלכם.",
     shiftsTitle: "משמרות ותקן",
     shiftName: "משמרת",
     shiftStart: "התחלה",
@@ -686,6 +680,8 @@ export const copy: Record<Lang, Copy> = {
     thisWeek: "This week",
     previousMonth: "Previous month",
     nextMonth: "Next month",
+    hebrewCalendar: "Hebrew calendar",
+    hebrewCalendarHint: "On: the Hebrew date and holidays appear in small print next to Gregorian dates, in the schedule, constraints, calendar and exports. Off: Gregorian dates only. Only the owner can change this.",
     previousYear: "Previous year",
     nextYear: "Next year",
     monthLabel: "Month",
@@ -702,10 +698,6 @@ export const copy: Record<Lang, Copy> = {
     publishedClear: "No violations and no open shifts.",
     noSchedule: "Nothing is assigned yet. Generate fills the seats through the engine.",
     issues: "Issues",
-    lawNotesTitle: "Employment-law notes",
-    lawNotesHint: "Notes only, from the Hours of Work and Rest Law and the 42-hour week. They do not block publishing, and a guarding permit may apply.",
-    showLawNotes: "Show employment-law notes",
-    hideLawNotes: "Hide employment-law notes",
     violations: "Violations",
     openShifts: "Open shifts",
     underQuota: "Under the agreement",
@@ -771,7 +763,7 @@ export const copy: Record<Lang, Copy> = {
     scheduleReadOnly: "The schedule is read-only.",
     callOff: "Call off",
     calledOff: "Called off",
-    replacements: "Legal replacements",
+    replacements: "Eligible replacements",
     noReplacement: "Nobody passed every rule. The seat stays open.",
     rejectedTitle: "Ruled out",
     emergency: "Emergency options",
@@ -849,7 +841,6 @@ export const copy: Record<Lang, Copy> = {
     maxHours: "Max weekly hours",
     maxShift: "Max shift length when covering a gap (h)",
     maxDayHours: "Max hours per day (0 = no cap)",
-    lawHint: "Rest and hour limits depend on your jurisdiction. Set them to match local law and your policies.",
     shiftsTitle: "Shifts & staffing",
     shiftName: "Shift",
     shiftStart: "Start",
