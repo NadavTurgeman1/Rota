@@ -400,10 +400,11 @@ function TradeComposer({
               seat.employeeId === selfId && !busySeats.has(`${item.id}|${seat.slotKey}`) && !seatProblem(view, week, seat, nowHours);
             const swapVisible = (seat: TradeSeat) => {
               if (!mine) return ownSeat(seat);
-              if (mine && seatToken(seat) === seatToken(mine)) return true;
+              if (seatToken(seat) === seatToken(mine)) return true;
               return options.has(seatToken(seat));
             };
-            if (kind === "swap" && !Object.entries(view.sched[week]?.assign ?? {}).some(([slotKey, people]) => people.some((employeeId) => swapVisible({ slotKey, employeeId })))) {
+            const visible = kind === "swap" ? swapVisible : ownSeat;
+            if (!Object.entries(view.sched[week]?.assign ?? {}).some(([slotKey, people]) => people.some((employeeId) => visible({ slotKey, employeeId })))) {
               return null;
             }
             return (
@@ -415,7 +416,7 @@ function TradeComposer({
                   lang={lang}
                   selfId={selfId}
                   picked={[mine, target].filter((seat): seat is TradeSeat => Boolean(seat)).map(seatToken)}
-                  visible={kind === "swap" ? swapVisible : undefined}
+                  visible={visible}
                   pickable={(seat) => {
                     if (!mine) return ownSeat(seat);
                     if (kind !== "swap" || seat.employeeId === selfId) return false;
