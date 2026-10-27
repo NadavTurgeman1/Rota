@@ -207,7 +207,7 @@ export function TradePrompt({ title, note, lang, testId, children, actions }: { 
   );
 }
 
-/** The published week as clickable seats. Only `pickable` seats respond. */
+/** The published week as clickable seats. Only `pickable` seats respond, and `visible` hides the rest. */
 function SeatGrid({
   state,
   week,
@@ -215,6 +215,7 @@ function SeatGrid({
   selfId,
   picked,
   pickable,
+  visible,
   onPick,
 }: {
   state: RotaState;
@@ -223,11 +224,20 @@ function SeatGrid({
   selfId: string;
   picked: string[];
   pickable: (seat: TradeSeat) => boolean;
+  visible?: (seat: TradeSeat) => boolean;
   onPick: (seat: TradeSeat) => void;
 }) {
   const schedule = state.sched[week];
   const days = [0, 1, 2, 3, 4, 5, 6];
-  const shifts = state.biz.shifts.filter((shift) => days.some((day) => Number(shift.req[day] || 0) > 0 || (schedule?.assign[`${day}|${shift.id}`]?.length ?? 0) > 0));
+  const shown = (slotKey: string, employeeId: string) => !visible || visible({ slotKey, employeeId });
+  const shifts = state.biz.shifts.filter((shift) =>
+    days.some((day) => {
+      const slotKey = `${day}|${shift.id}`;
+      const people = schedule?.assign[slotKey] ?? [];
+      if (visible) return people.some((employeeId) => shown(slotKey, employeeId));
+      return Number(shift.req[day] || 0) > 0 || people.length > 0;
+    }),
+  );
   return (
     <div className="overflow-x-auto rounded-xl border border-line">
       <table className="w-full min-w-[720px] table-fixed border-collapse text-sm">
@@ -253,7 +263,7 @@ function SeatGrid({
               </th>
               {days.map((day) => {
                 const slotKey = `${day}|${shift.id}`;
-                const people = schedule?.assign[slotKey] ?? [];
+                const people = (schedule?.assign[slotKey] ?? []).filter((employeeId) => shown(slotKey, employeeId));
                 return (
                   <td key={day} className="border-s border-line p-1.5 align-top">
                     <div className="flex flex-col gap-1">
@@ -386,6 +396,16 @@ function TradeComposer({
           {shown.map((item) => {
             const view = { ...item.state, week };
             const options = new Set(Array.isArray(targets) ? targets.map(seatToken) : []);
+            const ownSeat = (seat: TradeSeat) =>
+              seat.employeeId === selfId && !busySeats.has(`${item.id}|${seat.slotKey}`) && !seatProblem(view, week, seat, nowHours);
+            const swapVisible = (seat: TradeSeat) => {
+              if (!mine) return ownSeat(seat);
+              if (mine && seatToken(seat) === seatToken(mine)) return true;
+              return options.has(seatToken(seat));
+            };
+            if (kind === "swap" && !Object.entries(view.sched[week]?.assign ?? {}).some(([slotKey, people]) => people.some((employeeId) => swapVisible({ slotKey, employeeId })))) {
+              return null;
+            }
             return (
               <section key={item.id} className="flex flex-col gap-2">
                 {sites.length > 1 ? <h3 className="text-sm font-semibold text-ink">{siteLabel(item.name, lang)}</h3> : null}
@@ -395,8 +415,9 @@ function TradeComposer({
                   lang={lang}
                   selfId={selfId}
                   picked={[mine, target].filter((seat): seat is TradeSeat => Boolean(seat)).map(seatToken)}
+                  visible={kind === "swap" ? swapVisible : undefined}
                   pickable={(seat) => {
-                    if (!mine) return seat.employeeId === selfId && !busySeats.has(`${item.id}|${seat.slotKey}`) && !seatProblem(view, week, seat, nowHours);
+                    if (!mine) return ownSeat(seat);
                     if (kind !== "swap" || seat.employeeId === selfId) return false;
                     return options.has(seatToken(seat));
                   }}
