@@ -100,6 +100,8 @@ export interface Business {
   blockLimit?: boolean;
   /** How many weekly blocks are allowed while `blockLimit` is on. Omitted means 0. */
   maxBlocks?: number;
+  /** Extra submission window. An ISO time. A missing or past time means it is closed. */
+  constraintExtensionUntil?: string;
   /**
    * Stored by the prototype when availability was not submitted.
    * The engine still treats a missing week as "available per contract".
@@ -196,6 +198,8 @@ export interface RotaState {
    * Computed for the open week. It is not stored.
    */
   homeReady?: Record<string, boolean>;
+  /** Employee ids allowed to ignore the block cap, keyed by week. */
+  constraintGrants?: Record<string, string[]>;
 }
 
 /** Work at another site of the same business, for the same employee id. */

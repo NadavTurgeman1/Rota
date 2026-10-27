@@ -77,6 +77,20 @@ describe("a roster employee login", () => {
     await asRole(db, "authenticated", worker);
     await expect(submitAvailabilityRequest(sql, { siteId: headquarters, week: constraintWeek, shifts: grid })).rejects.toBeInstanceOf(SaveError);
     await db.exec("reset role");
+    await asRole(db, "authenticated", owner);
+    const opened = await sql.query<{ until: string }>(`select private.open_constraint_extension($1, 30) as until`, [headquarters]);
+    expect(Date.parse(String(opened[0]?.until))).toBeGreaterThan(Date.now());
+    await asRole(db, "authenticated", worker);
+    const during = await submitAvailabilityRequest(sql, { siteId: headquarters, week: constraintWeek, shifts: grid });
+    expect(during.employeeId).toBe(staff.id);
+    await asRole(db, "authenticated", owner);
+    await sql.query(`select private.close_constraint_extension($1)`, [headquarters]);
+    await db.exec("reset role");
+    await sql.query(`delete from public.availability_requests where id = $1`, [during.id]);
+    expect((await loadStoredWorkspace(sql, constraintWeek))?.sites[0]?.state.biz.constraintExtensionUntil).toBeUndefined();
+    await asRole(db, "authenticated", worker);
+    await expect(submitAvailabilityRequest(sql, { siteId: headquarters, week: constraintWeek, shifts: grid })).rejects.toBeInstanceOf(SaveError);
+    await db.exec("reset role");
     await sql.query(
       `update public.sites
        set constraint_opens_day = 0, constraint_closes_day = 6, constraint_opens = '00:00', constraint_closes = '23:59'
@@ -89,8 +103,36 @@ describe("a roster employee login", () => {
     await asRole(db, "authenticated", worker);
     await expect(
       submitAvailabilityRequest(sql, { siteId: headquarters, week: constraintWeek, shifts: [[], [], [], [], [], [], []] }),
-    ).rejects.toBeInstanceOf(SaveError);
+    ).rejects.toThrow("blocks");
     await db.exec("reset role");
+    await asRole(db, "authenticated", worker);
+    await expect(
+      sql.query(`select private.set_constraint_grant($1, $2, '2026-10-18'::date, true)`, [headquarters, staff.id]),
+    ).rejects.toThrow(/forbidden/i);
+    await asRole(db, "authenticated", owner);
+    await sql.query(`select private.set_constraint_grant($1, $2, '2026-10-18'::date, true)`, [headquarters, staff.id]);
+    await asRole(db, "authenticated", worker);
+    const cleared = await submitAvailabilityRequest(sql, { siteId: headquarters, week: "2026-10-18", shifts: [[], [], [], [], [], [], []] });
+    expect(cleared.automatic).toBe(true);
+    await asRole(db, "authenticated", owner);
+    const grantedWeek = await loadStoredWorkspace(sql, constraintWeek);
+    expect(grantedWeek?.sites[0]?.state.avail["2026-10-18"]?.[staff.id]).toEqual([[], [], [], [], [], [], []]);
+    expect(grantedWeek?.sites[0]?.state.constraintGrants?.["2026-10-18"]).toEqual([staff.id]);
+    expect(grantedWeek?.sites[0]?.requests ?? []).toEqual([]);
+    await db.exec("reset role");
+    await sql.query(`delete from public.availability_weeks where employee_id = $1 and week_start = '2026-10-18'`, [staff.id]);
+    await sql.query(`delete from public.constraint_grants where employee_id = $1`, [staff.id]);
+    await sql.query(`update public.sites set constraint_max_blocks = 100 where id = $1`, [headquarters]);
+    await asRole(db, "authenticated", worker);
+    const automatic = await submitAvailabilityRequest(sql, { siteId: headquarters, week: "2026-10-25", shifts: grid });
+    expect(automatic.automatic).toBe(true);
+    await asRole(db, "authenticated", owner);
+    const autoSaved = await loadStoredWorkspace(sql, constraintWeek);
+    expect(autoSaved?.sites[0]?.state.avail["2026-10-25"]?.[staff.id]?.[0]).toEqual([morning.id]);
+    expect(autoSaved?.sites[0]?.requests ?? []).toEqual([]);
+    expect(autoSaved?.decisions ?? []).toEqual([]);
+    await db.exec("reset role");
+    await sql.query(`delete from public.availability_weeks where employee_id = $1 and week_start = '2026-10-25'`, [staff.id]);
     await sql.query(`update public.sites set constraint_block_limit = false where id = $1`, [headquarters]);
 
     await asRole(db, "authenticated", worker);

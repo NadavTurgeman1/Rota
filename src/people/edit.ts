@@ -68,6 +68,25 @@ export function withinBlockLimit(state: RotaState, employeeId: string, grid: str
   return countBlocks(state, employeeId, grid) <= limit;
 }
 
+/** The manager lifted the block cap for this person and week. */
+export function hasConstraintGrant(state: RotaState, employeeId: string, week = state.week): boolean {
+  return (state.constraintGrants?.[week] ?? []).includes(employeeId);
+}
+
+/** Remember or forget that a person may ignore the block cap for one week. */
+export function grantConstraintException(state: RotaState, employeeId: string, allowed: boolean, week = state.week): RotaState {
+  const ids = new Set(state.constraintGrants?.[week] ?? []);
+  if (allowed) ids.add(employeeId);
+  else ids.delete(employeeId);
+  const constraintGrants = { ...state.constraintGrants };
+  if (ids.size === 0) delete constraintGrants[week];
+  else constraintGrants[week] = [...ids].sort();
+  const next = { ...state };
+  if (Object.keys(constraintGrants).length === 0) delete next.constraintGrants;
+  else next.constraintGrants = constraintGrants;
+  return next;
+}
+
 export function gridWithCell(
   state: RotaState,
   employeeId: string,

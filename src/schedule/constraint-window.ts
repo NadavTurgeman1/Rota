@@ -27,9 +27,29 @@ function stamp(day: number, clock: string): number {
   return day * 1440 + minutes(clock);
 }
 
+/** Sets or clears the extra submission deadline. The same business comes back when nothing changes. */
+export function withConstraintExtension(biz: Business, until: string | null): Business {
+  if (until) {
+    if (biz.constraintExtensionUntil === until) return biz;
+    return { ...biz, constraintExtensionUntil: until };
+  }
+  if (!biz.constraintExtensionUntil) return biz;
+  const next = { ...biz };
+  delete next.constraintExtensionUntil;
+  return next;
+}
+
+/** The extra window is open until its deadline, and not at the deadline itself. */
+export function extensionStillOpen(until: string | undefined, now = new Date()): boolean {
+  if (!until) return false;
+  const time = Date.parse(until);
+  return Number.isFinite(time) && time > now.getTime();
+}
+
 /** Employees may send a constraint request from the start day and hour through the end day and hour. */
 export function constraintWindowOpen(biz: Business, now = new Date()): boolean {
   if (biz.staffAccess === false) return false;
+  if (extensionStillOpen(biz.constraintExtensionUntil, now)) return true;
   const { day, minute } = jerusalemParts(now);
   if (day < 0) return false;
   const start = stamp(biz.constraintStartDay ?? 0, biz.constraintOpens ?? "00:00");

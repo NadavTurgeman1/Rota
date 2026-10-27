@@ -105,6 +105,12 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
     if (frozen.length) versions[schedule.week_start] = frozen;
   }
 
+  const grants: NonNullable<RotaState["constraintGrants"]> = {};
+  for (const row of bundle.grants) {
+    const weekKey = row.week_start.slice(0, 10);
+    (grants[weekKey] ??= []).push(row.employee_id);
+  }
+
   const notes: NonNullable<RotaState["notes"]> = {};
   for (const row of bundle.notes) {
     (notes[row.week_start] ??= []).push({
@@ -133,6 +139,7 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
       constraintCloses: bundle.site.constraint_closes || "23:59",
       blockLimit: bundle.site.constraint_block_limit === true,
       maxBlocks: Number(bundle.site.constraint_max_blocks) || 0,
+      ...(bundle.site.constraint_extension_until ? { constraintExtensionUntil: bundle.site.constraint_extension_until } : {}),
       assume: bundle.site.assume_available,
       shifts,
     },
@@ -141,6 +148,7 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
     sched,
     closed: {},
     ...(Object.keys(notes).length ? { notes } : {}),
+    ...(Object.keys(grants).length ? { constraintGrants: grants } : {}),
     ...(Object.keys(versions).length ? { versions } : {}),
     ...(Object.keys(former).length ? { former } : {}),
   };

@@ -7,6 +7,7 @@ import type {
   CallOffRow,
   EmployeeRow,
   ExtensionRow,
+  ConstraintGrantRow,
   NoteRow,
   PreferenceRow,
   QualificationRow,
@@ -39,6 +40,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
        to_char(s.constraint_closes, 'HH24:MI') as constraint_closes,
        s.constraint_block_limit,
        s.constraint_max_blocks::int as constraint_max_blocks,
+       to_json(s.constraint_extension_until) #>> '{}' as constraint_extension_until,
        o.name as org_name,
        o.kind as org_kind
      from public.sites s
@@ -65,6 +67,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
     calloffs,
     versions,
     notes,
+    grants,
   ] =
     await Promise.all([
       sql.query<ShiftRow>(
@@ -217,6 +220,13 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
          order by approved_at, id`,
         [siteId],
       ),
+      sql.query<ConstraintGrantRow>(
+        `select employee_id, week_start::text as week_start
+         from public.constraint_grants
+         where site_id = $1
+         order by week_start, employee_id`,
+        [siteId],
+      ),
     ]);
 
   const bundle: SiteBundle = {
@@ -238,6 +248,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
     calloffs,
     versions,
     notes,
+    grants,
   };
   return toRotaState(bundle, week);
 }

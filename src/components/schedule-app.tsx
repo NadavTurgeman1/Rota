@@ -43,8 +43,12 @@ import {
   setAgreement,
   setPreference,
   setWholeAgreement,
+  blockLimitOf,
+  grantConstraintException,
+  hasConstraintGrant,
   replaceAvailability,
   setAvailability,
+  withinBlockLimit,
   setWholeAvailability,
   updateEmployee,
   VIEWER,
@@ -66,7 +70,7 @@ import {
   type Workspace,
 } from "../workspace/workspace";
 import { BusinessScreen } from "./business-screen";
-import { ConstraintsScreen } from "./constraints-screen";
+import { ConstraintsScreen, ExtraWindowMenu } from "./constraints-screen";
 import { InsightsScreen } from "./insights-screen";
 import { IssuesPanel } from "./issues-panel";
 import { ApprovalsScreen, type SignupApproval, type TenantRow } from "./approvals-screen";
@@ -83,6 +87,7 @@ import { ManagerTradePrompt, tradeStillHeld, useSetAside, type ShiftTrade, type 
 import { useAiEnabled } from "./use-ai";
 import { SettingsMenu, type Theme } from "./settings-menu";
 import { VersionsPanel } from "./versions-panel";
+import { withConstraintExtension } from "../schedule/constraint-window";
 import { WeekPicker } from "./week-picker";
 import { WeekSummary } from "./week-summary";
 import { button } from "./ui";
@@ -685,6 +690,24 @@ export function ScheduleApp() {
     }));
   }
 
+  function writeSavedConstraints(siteId: string, employeeId: string, week: string, shifts: string[][]) {
+    setWorkspace((current) => ({
+      ...current,
+      sites: current.sites.map((site) =>
+        site.id === siteId
+          ? {
+              ...site,
+              requests: (site.requests ?? []).filter((item) => !(item.employeeId === employeeId && item.week === week)),
+              state: {
+                ...site.state,
+                avail: { ...site.state.avail, [week]: { ...site.state.avail[week], [employeeId]: shifts } },
+              },
+            }
+          : site,
+      ),
+    }));
+  }
+
   function dropRequest(siteId: string, requestId: string) {
     setWorkspace((current) => ({
       ...current,
@@ -700,7 +723,19 @@ export function ScheduleApp() {
     const siteId = live.activeSiteId;
     const week = state.week;
     if (!remote) {
+      const limit = blockLimitOf(state.biz);
+      const over = limit !== null && !hasConstraintGrant(state, selfId) && !withinBlockLimit(state, selfId, shifts);
+      if (over) {
+        setSaveNote("blocks");
+        return;
+      }
+      if (limit !== null) {
+        writeSavedConstraints(siteId, selfId, week, shifts);
+        setSaveNote(null);
+        return;
+      }
       storeRequest(siteId, { id: crypto.randomUUID(), employeeId: selfId, week, shifts });
+      setSaveNote(null);
       return;
     }
     staffChain.current = staffChain.current.catch(() => undefined).then(async () => {
@@ -711,13 +746,86 @@ export function ScheduleApp() {
         headers: authHeaders(true),
         body: JSON.stringify({ siteId, week, shifts }),
       });
-      const body = (await response.json().catch(() => null)) as { request?: StaffRequest; error?: string } | null;
+      const body = (await response.json().catch(() => null)) as { request?: StaffRequest & { automatic?: boolean }; error?: string } | null;
       if (!response.ok || !body?.request) {
         setSaveNote(body?.error === "blocks" || body?.error === "same" ? body.error : "failed");
         return;
       }
       setSaveNote(null);
+      if (body.request.automatic) {
+        writeSavedConstraints(siteId, body.request.employeeId, body.request.week, body.request.shifts);
+        return;
+      }
       storeRequest(siteId, body.request);
+    });
+  }
+
+  /** Keeps a manager action on the screen the toolbar reads, without adding an undo step. */
+  function patchPresent(patch: (current: RotaState) => RotaState) {
+    setHistory((current) => {
+      const present = patch(current.present);
+      return present === current.present ? current : { ...current, present };
+    });
+  }
+
+  async function saveConstraintGrant(employeeId: string, allowed: boolean) {
+    const siteId = live.activeSiteId;
+    const week = state.week;
+    if (remote) {
+      const response = await fetch("/api/constraints", {
+        method: "PUT",
+        headers: authHeaders(true),
+        body: JSON.stringify({ siteId, employeeId, week, allowed }),
+      });
+      if (!response.ok) {
+        setSaveNote("failed");
+        return;
+      }
+      setSaveNote(null);
+    }
+    patchPresent((current) => grantConstraintException(current, employeeId, allowed, week));
+  }
+
+  async function openExtraWindow(minutes: number) {
+    const siteId = live.activeSiteId;
+    let until = new Date(Date.now() + minutes * 60_000).toISOString();
+    if (remote) {
+      const response = await fetch("/api/constraints", {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({ siteId, minutes }),
+      });
+      const body = (await response.json().catch(() => null)) as { until?: string } | null;
+      if (!response.ok || !body?.until) {
+        setSaveNote("failed");
+        return;
+      }
+      until = body.until;
+      setSaveNote(null);
+    }
+    patchPresent((current) => {
+      const biz = withConstraintExtension(current.biz, until);
+      return biz === current.biz ? current : { ...current, biz };
+    });
+  }
+
+  async function closeExtraWindow() {
+    const siteId = live.activeSiteId;
+    if (remote) {
+      const response = await fetch("/api/constraints", {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({ siteId, minutes: null }),
+      });
+      if (!response.ok) {
+        setSaveNote("failed");
+        return;
+      }
+      setSaveNote(null);
+    }
+    patchPresent((current) => {
+      const biz = withConstraintExtension(current.biz, null);
+      return biz === current.biz ? current : { ...current, biz };
     });
   }
 
@@ -1328,6 +1436,14 @@ export function ScheduleApp() {
                 >
                   {t.redo}
                 </button>
+                {screen === "constraints" ? (
+                  <ExtraWindowMenu
+                    lang={lang}
+                    until={state.biz.constraintExtensionUntil}
+                    onOpen={(minutes) => void openExtraWindow(minutes)}
+                    onClose={() => void closeExtraWindow()}
+                  />
+                ) : null}
               </>
             ) : null}
             {screen === "schedule" ? (
@@ -1483,6 +1599,7 @@ export function ScheduleApp() {
             onWholeAvailability={(employeeId, available) => applyConstraints(setWholeAvailability(state, actor, employeeId, available))}
             onCopy={(employeeId) => applyConstraints(copyAvailability(state, actor, employeeId))}
             onDecide={(requestId, approve) => void decideRequest(requestId, approve)}
+            onGrant={(employeeId, allowed) => void saveConstraintGrant(employeeId, allowed)}
             onApply={(raw, overrides) =>
               applyConstraints(applyConstraintText(state, actor, raw, overrides))
             }

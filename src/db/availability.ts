@@ -73,6 +73,8 @@ export interface StoredRequest {
   employeeId: string;
   week: string;
   shifts: string[][];
+  /** Written straight into the week because the blocks stay inside the cap. */
+  automatic?: boolean;
 }
 
 export function normalizeGrid(value: unknown): string[][] {
@@ -122,7 +124,7 @@ async function writeAvailabilityWeek(
   if (inserted.length !== shiftIds.length) throw new SaveError("availability");
 }
 
-/** Store a request. The weekly constraints stay as they are until a manager approves it. */
+/** Store a request, or write the week at once when the block cap is on. A grant lifts the cap. */
 export async function submitAvailabilityRequest(
   sql: SqlClient,
   input: { siteId: string; week: string; shifts: string[][] },
@@ -142,31 +144,10 @@ export async function submitAvailabilityRequest(
     const open = await sql.query<{ open: boolean }>(`select private.constraint_window_open($1) as open`, [input.siteId]);
     if (open[0]?.open !== true) throw new SaveError("window");
     const { shiftIds, weekdays } = flattenGrid(shifts);
-    const cap = await sql.query<{ limited: boolean; max_blocks: number }>(
-      `select constraint_block_limit as limited, constraint_max_blocks::int as max_blocks
-       from public.sites where id = $1`,
+    const cap = await sql.query<{ limited: boolean }>(
+      `select constraint_block_limit as limited from public.sites where id = $1`,
       [input.siteId],
     );
-    if (cap[0]?.limited) {
-      const counted = await sql.query<{ blocks: number }>(
-        shiftIds.length === 0
-          ? `select count(*)::int as blocks
-             from public.employee_agreements a
-             join public.shift_requirements r on r.shift_id = a.shift_id and r.weekday = a.weekday
-             where a.employee_id = $1 and r.required_count > 0`
-          : `select count(*)::int as blocks
-             from public.employee_agreements a
-             join public.shift_requirements r on r.shift_id = a.shift_id and r.weekday = a.weekday
-             where a.employee_id = $1 and r.required_count > 0
-               and not exists (
-                 select 1
-                 from unnest($2::int[], $3::uuid[]) as cell(weekday, shift_id)
-                 where cell.weekday = a.weekday and cell.shift_id = a.shift_id
-               )`,
-        shiftIds.length === 0 ? [employee.id] : [employee.id, weekdays, shiftIds],
-      );
-      if ((counted[0]?.blocks ?? 0) > cap[0].max_blocks) throw new SaveError("blocks");
-    }
     const current = await sql.query<{ weekday: number | null; shift_id: string | null }>(
       `select e.weekday, e.shift_id::text as shift_id
        from public.availability_weeks w
@@ -178,6 +159,14 @@ export async function submitAvailabilityRequest(
       const official = new Set(current.filter((row) => row.shift_id).map((row) => `${row.weekday}|${row.shift_id}`));
       const requested = new Set(shiftIds.map((shiftId, index) => `${weekdays[index]}|${shiftId}`));
       if (official.size === requested.size && [...requested].every((cell) => official.has(cell))) throw new SaveError("same");
+    }
+    if (cap[0]?.limited === true) {
+      await sql.query(`select private.accept_within_limit_availability($1, $2::date, $3::jsonb)`, [
+        input.siteId,
+        input.week,
+        JSON.stringify(shifts),
+      ]);
+      return { id: "", employeeId: employee.id, week: input.week, shifts, automatic: true };
     }
     await sql.query(
       `delete from public.availability_requests
@@ -210,6 +199,7 @@ export async function submitAvailabilityRequest(
   } catch (error) {
     if (error instanceof SaveError) throw error;
     const message = error instanceof Error ? error.message : "";
+    if (/\bblocks\b/i.test(message)) throw new SaveError("blocks");
     if (/window|42501/i.test(message)) throw new SaveError("window");
     throw new SaveError("availability");
   }

@@ -5,6 +5,7 @@ import { exportFileName, formatWeekRange, pngFileName, siteLabel } from "../sche
 import { calendarTitle, ownPublishedShifts, shiftsIcs } from "../schedule/calendar";
 import { hebrewWeekRange } from "../schedule/hebrew-calendar";
 import { constraintWindowOpen, constraintWindowText } from "../schedule/constraint-window";
+import { useCountdown } from "./duration-wheel";
 import { weekCsv, weekExcelXml, weekExport, weekText } from "../schedule/export";
 import type { StaffDecision, StaffRequest } from "../workspace/workspace";
 import { AttendanceScreen, type AttendanceApi } from "./attendance";
@@ -16,7 +17,7 @@ import { downloadBlob, downloadWeekPng } from "./week-png";
 import { useHebrewCalendar } from "./day-dates";
 import { StaffTrades, type ShiftTrade, type TradeApi } from "./trades";
 import { WeekPicker } from "./week-picker";
-import { availabilitySubmitted, blockLimitOf, countBlocks, gridWithCell, openAvailabilityGrid, withinBlockLimit } from "../people/edit";
+import { availabilitySubmitted, blockLimitOf, countBlocks, gridWithCell, hasConstraintGrant, openAvailabilityGrid, withinBlockLimit } from "../people/edit";
 import { button, card, cardTitle, pill } from "./ui";
 
 function officialGrid(state: RotaState, employeeId: string): string[][] {
@@ -64,6 +65,11 @@ function StaffConstraints({
   const [draft, setDraft] = useState<string[][]>(() => (pending ? pending.shifts.map((day) => [...day]) : officialGrid(state, employeeId)));
   const [refused, setRefused] = useState(false);
   const limit = blockLimitOf(state.biz);
+  const granted = hasConstraintGrant(state, employeeId);
+  const capped = limit !== null && !granted;
+  const blocked = countBlocks(state, employeeId, draft);
+  const over = capped && blocked > (limit ?? 0);
+  const countdown = useCountdown(state.biz.constraintExtensionUntil);
   const shown = withGrid(state, employeeId, pending ? pending.shifts : draft);
   const approved = state.avail[state.week]?.[employeeId];
   const unchanged = Boolean(approved) && sameGrid(approved ?? [], draft);
@@ -95,7 +101,7 @@ function StaffConstraints({
             disabled={locked}
             onClick={() => {
               const cleared = [[], [], [], [], [], [], []];
-              if (!withinBlockLimit(state, employeeId, cleared)) {
+              if (capped && !withinBlockLimit(state, employeeId, cleared)) {
                 setRefused(true);
                 return;
               }
@@ -116,7 +122,7 @@ function StaffConstraints({
                     (previous[day] ?? []).filter((shiftId) => agreementAllows(employee, day, shiftId) && Number(state.biz.shifts.find((shift) => shift.id === shiftId)?.req[day] || 0) > 0),
                   )
                 : officialGrid({ ...state, avail: {} }, employeeId);
-              if (!withinBlockLimit(state, employeeId, next)) {
+              if (capped && !withinBlockLimit(state, employeeId, next)) {
                 setRefused(true);
                 return;
               }
@@ -128,7 +134,14 @@ function StaffConstraints({
           </button>
         </div>
       </div>
-      <p className="mt-2 text-sm leading-6 text-muted">{t.staffConstraintsHint}</p>
+      <p className="mt-2 text-sm leading-6 text-muted">
+        {limit === null ? t.staffConstraintsHint : granted ? t.exceptionGranted : t.staffAutoHint}
+      </p>
+      {countdown ? (
+        <p data-testid="staff-extra-window" className="mt-2 text-sm font-medium tabular-nums text-ink">
+          {t.extraWindowRemaining(countdown)}
+        </p>
+      ) : null}
       {pending ? (
         <p data-testid="staff-pending" className="mt-2 text-sm font-medium text-ink">
           {t.staffPending}
@@ -142,9 +155,9 @@ function StaffConstraints({
           {t.staffWindowClosed}: {constraintWindowText(state.biz, lang)}
         </p>
       ) : null}
-      {limit !== null ? (
+      {capped ? (
         <p data-testid="staff-block-limit" role={refused ? "alert" : undefined} className={`mt-2 text-sm ${refused ? "font-medium text-danger-text" : "text-muted"}`}>
-          {t.blockLimitStatus(countBlocks(state, employeeId, draft), limit)}
+          {t.blockLimitStatus(blocked, limit ?? 0)}
           {refused ? ` ${t.blockLimitReached}` : ""}
         </p>
       ) : null}
@@ -156,7 +169,7 @@ function StaffConstraints({
         editable={!locked}
         onToggle={(day, shiftId, checked) => {
           const next = gridWithCell(state, employeeId, draft, day, shiftId, checked);
-          if (!withinBlockLimit(state, employeeId, next)) {
+          if (capped && !withinBlockLimit(state, employeeId, next)) {
             setRefused(true);
             return;
           }
@@ -173,16 +186,10 @@ function StaffConstraints({
         type="button"
         data-testid="submit-request"
         className={`${button.primary} mt-4`}
-        disabled={locked || unchanged}
-        onClick={() => {
-          if (!withinBlockLimit(state, employeeId, draft)) {
-            setRefused(true);
-            return;
-          }
-          onSubmit(draft);
-        }}
+        disabled={locked || unchanged || over}
+        onClick={() => onSubmit(draft)}
       >
-        {t.staffSubmit}
+        {limit !== null ? t.staffSave : t.staffSubmit}
       </button>
     </section>
   );

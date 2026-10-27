@@ -16,6 +16,7 @@ export interface SiteRow {
   constraint_closes: string;
   constraint_block_limit: boolean;
   constraint_max_blocks: number;
+  constraint_extension_until: string | null;
   org_name: string;
   org_kind: string;
 }
@@ -135,6 +136,11 @@ export interface VersionRow {
   snapshot: unknown;
 }
 
+export interface ConstraintGrantRow {
+  employee_id: string;
+  week_start: string;
+}
+
 export interface NoteRow {
   id: string;
   week_start: string;
@@ -160,6 +166,7 @@ export interface SiteBundle {
   calloffs: CallOffRow[];
   versions: VersionRow[];
   notes: NoteRow[];
+  grants: ConstraintGrantRow[];
 }
 
 export interface SqlClient {

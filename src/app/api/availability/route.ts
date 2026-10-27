@@ -11,7 +11,10 @@ function gridFrom(value: unknown): string[][] | null {
 }
 
 function statusFor(error: unknown): Response {
-  if (error instanceof SaveError && (error.message === "forbidden" || error.message === "window" || error.message === "blocks" || error.message === "same")) {
+  if (
+    error instanceof SaveError &&
+    (error.message === "forbidden" || error.message === "window" || error.message === "blocks" || error.message === "same")
+  ) {
     return Response.json({ error: error.message }, { status: 403 });
   }
   if (error instanceof SaveError) return Response.json({ error: error.message }, { status: 400 });
@@ -19,7 +22,7 @@ function statusFor(error: unknown): Response {
   return Response.json({ error: "save_failed" }, { status: 500 });
 }
 
-/** The employee submits a request. Official constraints stay unchanged. */
+/** The employee saves constraints inside the cap, or submits a request. */
 export async function PUT(request: Request) {
   const userId = await userIdFromAuthorization(request.headers.get("authorization"));
   if (!userId) return Response.json({ error: "unauthorized" }, { status: 401 });

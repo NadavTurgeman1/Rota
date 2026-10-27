@@ -11,6 +11,8 @@ import {
   setAgreement,
   setPreference,
   setWholeAgreement,
+  grantConstraintException,
+  hasConstraintGrant,
   setAvailability,
   setWholeAvailability,
   updateEmployee,
@@ -102,6 +104,15 @@ describe("people edits", () => {
     const marked = setWholeAvailability(once, MANAGER, SENTINEL.dana, true);
     expect(availabilityCell(marked, SENTINEL.dana, 0, SENTINEL.morning)).toBe("available");
     expect(availabilityCell(marked, SENTINEL.dana, 1, SENTINEL.afternoon)).toBe("available");
+  });
+
+  it("lets a manager lift the block cap for one person and week", () => {
+    const open = sentinelState("2026-10-11");
+    expect(hasConstraintGrant(open, SENTINEL.dana)).toBe(false);
+    const granted = grantConstraintException(open, SENTINEL.dana, true);
+    expect(hasConstraintGrant(granted, SENTINEL.dana)).toBe(true);
+    expect(hasConstraintGrant(granted, SENTINEL.yossi)).toBe(false);
+    expect(hasConstraintGrant(grantConstraintException(granted, SENTINEL.dana, false), SENTINEL.dana)).toBe(false);
   });
 
   it("updates the profile and keeps an inactive employee out of generation", () => {

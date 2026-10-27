@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { addDays, type Lang, type RotaState } from "../domain";
 import { isRelief } from "../domain/relief";
 import { copy } from "../i18n/copy";
 import type { LineOverride } from "../parser";
-import { availabilitySubmitted, blockLimitOf, countBlocks, gridWithCell, openAvailabilityGrid, withinBlockLimit } from "../people/edit";
+import { availabilitySubmitted, blockLimitOf, countBlocks, gridWithCell, hasConstraintGrant, withinBlockLimit } from "../people/edit";
+import { extensionStillOpen } from "../schedule/constraint-window";
 import type { StaffRequest } from "../workspace/workspace";
 import { ConstraintPaste } from "./constraint-paste";
+import { DurationWheels, useCountdown } from "./duration-wheel";
 import { NameRail } from "./name-rail";
 import { WeekGrid } from "./team-screen";
 import { button, card, cardTitle, pill } from "./ui";
@@ -22,6 +24,7 @@ export function ConstraintsScreen({
   onCopy,
   onApply,
   onDecide,
+  onGrant,
 }: {
   state: RotaState;
   lang: Lang;
@@ -34,6 +37,7 @@ export function ConstraintsScreen({
   onCopy: (employeeId: string) => void;
   onApply: (raw: string, overrides: LineOverride[]) => void;
   onDecide: (requestId: string, approve: boolean) => void;
+  onGrant: (employeeId: string, allowed: boolean) => void;
 }) {
   const t = copy[lang];
   const ordered = [...state.emps.filter((employee) => employee.active), ...state.emps.filter((employee) => !employee.active)];
@@ -183,6 +187,29 @@ export function ConstraintsScreen({
                 </button>
               </div>
             </div>
+            {canWrite && blockLimitOf(state.biz) !== null ? (
+              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink">{t.exceptionGrant}</p>
+                  <p className="text-sm leading-6 text-muted">{t.exceptionGrantHint}</p>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={hasConstraintGrant(state, selected.id)}
+                  aria-label={t.exceptionGrant}
+                  data-testid={`exception-grant-${selected.name}`}
+                  className={`relative h-8 w-12 shrink-0 rounded-full ${hasConstraintGrant(state, selected.id) ? "bg-brand" : "bg-well"}`}
+                  onClick={() => onGrant(selected.id, !hasConstraintGrant(state, selected.id))}
+                >
+                  <span
+                    className={`absolute top-1 start-1 h-6 w-6 rounded-full bg-card shadow-sm motion-safe:transition-transform motion-safe:duration-200 ${
+                      hasConstraintGrant(state, selected.id) ? "translate-x-4 rtl:-translate-x-4" : ""
+                    }`}
+                  />
+                </button>
+              </div>
+            ) : null}
             {blockLimitOf(state.biz) !== null ? (
               <p data-testid="block-limit-note" role={refused ? "alert" : undefined} className={`mt-2 text-sm ${refused ? "font-medium text-danger-text" : "text-muted"}`}>
                 {t.blockLimitStatus(countBlocks(state, selected.id, state.avail[state.week]?.[selected.id]), blockLimitOf(state.biz) ?? 0)}
@@ -209,5 +236,104 @@ export function ConstraintsScreen({
         ) : null}
       </div>
     </div>
+  );
+}
+
+/** Opens the extra submission window from the week toolbar. The duration lives in a menu, not on the page. */
+export function ExtraWindowMenu({
+  lang,
+  until,
+  onOpen,
+  onClose,
+}: {
+  lang: Lang;
+  until?: string;
+  onOpen: (minutes: number) => void;
+  onClose: () => void;
+}) {
+  const t = copy[lang];
+  const root = useRef<HTMLDivElement>(null);
+  const [open, setOpen] = useState(false);
+  const [hours, setHours] = useState(0);
+  const [minutes, setMinutes] = useState(0);
+  const countdown = useCountdown(until);
+  const running = extensionStillOpen(until);
+  const totalMinutes = hours * 60 + minutes;
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointer(event: PointerEvent) {
+      if (!root.current?.contains(event.target as Node)) setOpen(false);
+    }
+    function onKey(event: KeyboardEvent) {
+      if (event.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("pointerdown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("pointerdown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  return (
+    <>
+      <div ref={root} className="relative">
+        <button
+          type="button"
+          data-testid="extra-window-toggle"
+          className={button.small}
+          aria-expanded={open}
+          aria-haspopup="dialog"
+          onClick={() => setOpen((current) => !current)}
+        >
+          {t.extraWindow}
+        </button>
+        {open ? (
+          <div
+            role="dialog"
+            aria-label={t.extraWindow}
+            data-testid="extra-window"
+            className="pop-in material-pop absolute start-0 top-full z-40 mt-2 w-[min(22rem,calc(100vw-2rem))] rounded-lg border border-line p-4 shadow-pop"
+          >
+            <p className="text-sm leading-6 text-muted">{t.extraWindowHint}</p>
+            <DurationWheels
+              hours={hours}
+              minutes={minutes}
+              hoursLabel={t.extraWindowHours}
+              minutesLabel={t.extraWindowMinutes}
+              onHours={setHours}
+              onMinutes={setMinutes}
+            />
+            <button
+              type="button"
+              data-testid="open-extra-window"
+              className={`${button.primary} mt-3`}
+              disabled={totalMinutes < 1}
+              onClick={() => {
+                onOpen(totalMinutes);
+                setOpen(false);
+              }}
+            >
+              {t.extraWindowOpen}
+            </button>
+          </div>
+        ) : null}
+      </div>
+      {countdown ? (
+        <p data-testid="extra-window-remaining" className="text-sm font-medium tabular-nums text-ink">
+          {countdown}
+        </p>
+      ) : null}
+      <button
+        type="button"
+        data-testid="close-extra-window"
+        className={`${button.small} disabled:hover:border-line disabled:hover:bg-card`}
+        disabled={!running}
+        onClick={onClose}
+      >
+        {t.extraWindowClose}
+      </button>
+    </>
   );
 }

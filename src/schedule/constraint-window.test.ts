@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Business } from "../domain/types";
-import { constraintWindowOpen, constraintWindowText } from "./constraint-window";
+import { constraintWindowOpen, constraintWindowText, withConstraintExtension } from "./constraint-window";
 
 const site: Business = {
   name: "דרום",
@@ -38,5 +38,22 @@ describe("constraint window", () => {
   it("stays closed when employees have no login", () => {
     expect(constraintWindowOpen({ ...site, staffAccess: false }, new Date("2026-10-18T07:00:00.000Z"))).toBe(false);
     expect(constraintWindowText(site, "he")).toBe("ראשון 09:00 – ראשון 12:00");
+  });
+
+  it("opens for every employee during an extra window", () => {
+    const extra = { ...site, constraintExtensionUntil: "2026-10-19T12:00:00.000Z" };
+    expect(constraintWindowOpen(extra, new Date("2026-10-19T11:59:00.000Z"))).toBe(true);
+    expect(constraintWindowOpen(extra, new Date("2026-10-19T12:00:00.000Z"))).toBe(false);
+    expect(constraintWindowOpen({ ...extra, staffAccess: false }, new Date("2026-10-19T11:00:00.000Z"))).toBe(false);
+  });
+
+  it("closes the extra window when the deadline is cleared", () => {
+    const now = new Date("2026-10-19T11:00:00.000Z");
+    const open = withConstraintExtension(site, "2026-10-19T12:00:00.000Z");
+    expect(constraintWindowOpen(open, now)).toBe(true);
+    const closed = withConstraintExtension(open, null);
+    expect(closed.constraintExtensionUntil).toBeUndefined();
+    expect(constraintWindowOpen(closed, now)).toBe(false);
+    expect(withConstraintExtension(closed, null)).toBe(closed);
   });
 });

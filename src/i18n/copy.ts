@@ -360,8 +360,20 @@ export interface Copy {
   staffWindowClosed: string;
   staffAccessOff: string;
   staffSubmit: string;
+  staffSave: string;
+  staffAutoHint: string;
   staffPending: string;
   staffSameRequest: string;
+  exceptionGrant: string;
+  exceptionGrantHint: string;
+  exceptionGranted: string;
+  extraWindow: string;
+  extraWindowHint: string;
+  extraWindowOpen: string;
+  extraWindowClose: string;
+  extraWindowHours: string;
+  extraWindowMinutes: string;
+  extraWindowRemaining: (time: string) => string;
   requestApproved: string;
   requestRejected: string;
   requestDecisionOk: string;
@@ -523,7 +535,7 @@ export const copy: Record<Lang, Copy> = {
     emergency: "חלופות חירום",
     publishedOpen: "השבוע נשאר פורסם. יש מושב פתוח אחרי חיסור.",
     assignReplacement: "שיבוץ",
-    pasteTitle: "הודעה מהעובד",
+    pasteTitle: "אילוצים בכתב",
     pasteHint: "הדביקו הודעה. הזמינות נכתבת רק אחרי אישור, וההסכם לא משתנה.",
     pastePlaceholder: "לדוגמה:\nשם עובד\nראשון - לא עובד בוקר\nשלישי - לא עובד לילה\nמיום רביעי עד יום שישי - לא זמין",
     approvePaste: "אישור הזמינות",
@@ -759,8 +771,20 @@ export const copy: Record<Lang, Copy> = {
     staffWindowClosed: "אפשר להגיש אילוצים רק בחלון הזמן של האתר",
     staffAccessOff: "מנהל המשמרות מזין את האילוצים. אין כניסה עצמאית לאתר הזה.",
     staffSubmit: "שליחת בקשה",
+    staffSave: "שמירת אילוצים",
+    staffAutoHint: "האילוצים בתוך המגבלה ונשמרים מיד, בלי אישור של מנהל.",
     staffPending: "הבקשה ממתינה לאישור מנהל המשמרות",
     staffSameRequest: "האילוצים זהים לאילוצים שכבר אושרו לשבוע הזה. שנו לפחות משמרת אחת כדי לשלוח בקשה חדשה.",
+    exceptionGrant: "אילוצים בלי מגבלה",
+    exceptionGrantHint: "העובד יכול לחסום כל מספר משמרות השבוע, כולל את כולן.",
+    exceptionGranted: "המנהל אישר לך להגיש אילוצים בלי מגבלת חסימות.",
+    extraWindow: "חלון הגשה נוסף",
+    extraWindowHint: "נפתח לכל העובדים, בנוסף לחלון הקבוע, ונסגר כשהזמן נגמר. עד 23 שעות ו-59 דקות.",
+    extraWindowOpen: "פתיחת חלון",
+    extraWindowClose: "סגירת חלון",
+    extraWindowHours: "שעות",
+    extraWindowMinutes: "דקות",
+    extraWindowRemaining: (time) => `החלון הנוסף פתוח עוד ${time}`,
     requestApproved: "בקשת האילוצים שלך אושרה",
     requestRejected: "בקשת האילוצים שלך נדחתה",
     requestDecisionOk: "הבנתי",
@@ -933,7 +957,7 @@ export const copy: Record<Lang, Copy> = {
     emergency: "Emergency options",
     publishedOpen: "This week stays published. A seat is open after a call-off.",
     assignReplacement: "Assign",
-    pasteTitle: "Message from the team",
+    pasteTitle: "Written constraints",
     pasteHint: "Paste a message. Availability is written only after approval, and the agreement stays as it is.",
     pastePlaceholder: "For example:\nEmployee name\nSunday - not working morning\nTuesday - not working night\nWednesday to Friday - not available",
     approvePaste: "Approve availability",
@@ -1169,8 +1193,20 @@ export const copy: Record<Lang, Copy> = {
     staffWindowClosed: "Constraints can be submitted only inside the site's time window",
     staffAccessOff: "The shift manager enters constraints. This site has no employee login.",
     staffSubmit: "Send request",
+    staffSave: "Save constraints",
+    staffAutoHint: "These constraints are inside the limit and are saved at once, without a manager.",
     staffPending: "The request is waiting for the shift manager",
     staffSameRequest: "These constraints match the ones already approved for this week. Change at least one shift to send a new request.",
+    exceptionGrant: "Constraints without a cap",
+    exceptionGrantHint: "This person can block any number of shifts this week, including every shift.",
+    exceptionGranted: "A manager let you submit constraints without a block cap.",
+    extraWindow: "Extra submission window",
+    extraWindowHint: "Opens for every employee, in addition to the regular window, and closes when the time runs out. Up to 23 hours and 59 minutes.",
+    extraWindowOpen: "Open window",
+    extraWindowClose: "Close window",
+    extraWindowHours: "Hours",
+    extraWindowMinutes: "Minutes",
+    extraWindowRemaining: (time) => `The extra window stays open for ${time}`,
     requestApproved: "Your constraint request was approved",
     requestRejected: "Your constraint request was rejected",
     requestDecisionOk: "Got it",
