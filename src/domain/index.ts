@@ -6,6 +6,7 @@ export type {
   CoverageOption,
   CoveragePart,
   Employee,
+  EmployeeProfile,
   ExtraShiftOption,
   Reason,
   RotaState,

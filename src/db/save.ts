@@ -1,3 +1,4 @@
+import { cleanProfile } from "../domain/profile";
 import type { CallOff, RotaState, Schedule, ScheduleVersion } from "../domain/types";
 import type { SqlClient } from "./types";
 
@@ -151,6 +152,17 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
       people.map((person) => person.hourlyWage),
       people.map((person) => person.homeSiteId),
     ],
+  );
+  await writeRows(
+    sql,
+    `insert into public.employee_profiles (employee_id, org_id, profile)
+     select id, $1, profile::jsonb
+     from unnest($2::uuid[], $3::text[]) as t(id, profile)
+     on conflict (employee_id) do update set
+       profile = excluded.profile
+     where public.employee_profiles.org_id = excluded.org_id`,
+    [orgId],
+    [people.map((person) => person.id), people.map((person) => person.profile)],
   );
   const rosterIds = people.filter((person) => person.roster).map((person) => person.id);
   await writeRows(
@@ -368,6 +380,7 @@ interface KeptPerson {
   quals: string[];
   pref: string[];
   grid: string[][];
+  profile: string;
 }
 
 function peopleToKeep(state: RotaState): KeptPerson[] {
@@ -392,6 +405,7 @@ function peopleToKeep(state: RotaState): KeptPerson[] {
       quals: qualificationNames(employee.quals),
       pref: (employee.pref ?? []).filter((id) => UUID.test(id)),
       grid: employee.grid ?? [[], [], [], [], [], [], []],
+      profile: JSON.stringify(cleanProfile(employee.profile) ?? {}),
     });
   }
   const historical = new Map<string, string>();
@@ -422,6 +436,7 @@ function peopleToKeep(state: RotaState): KeptPerson[] {
       quals: [],
       pref: [],
       grid: [[], [], [], [], [], [], []],
+      profile: "{}",
     })),
   ];
 }

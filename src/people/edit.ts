@@ -1,4 +1,5 @@
-import { addDays, agreementAllows, type Employee, type RotaState } from "../domain";
+import { addDays, agreementAllows, type Employee, type EmployeeProfile, type RotaState } from "../domain";
+import { cleanProfile, employeeProfile } from "../domain/profile";
 import { constraintDraftWritable, parseConstraints, type LineOverride } from "../parser/parse";
 
 /** What the signed-in user may do. `viewer` reads everything and writes nothing. */
@@ -17,6 +18,7 @@ export interface EmployeePatch {
   maxHours?: number;
   hourlyWage?: number;
   active?: boolean;
+  profile?: Partial<EmployeeProfile>;
 }
 
 function cloneState(state: RotaState): RotaState {
@@ -150,6 +152,11 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
   if (patch.maxHours !== undefined) next.maxHours = nonNegative(patch.maxHours);
   if (patch.hourlyWage !== undefined) next.hourlyWage = nonNegative(patch.hourlyWage);
   if (patch.active !== undefined) next.active = patch.active;
+  if (patch.profile !== undefined) {
+    const cleaned = cleanProfile({ ...employeeProfile(employee), ...patch.profile });
+    if (cleaned) next.profile = cleaned;
+    else delete next.profile;
+  }
   if (
     next.name === employee.name &&
     next.contact === employee.contact &&
@@ -159,13 +166,16 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
     next.perWeek === employee.perWeek &&
     next.maxHours === employee.maxHours &&
     (next.hourlyWage ?? 0) === (employee.hourlyWage ?? 0) &&
-    next.active === employee.active
+    next.active === employee.active &&
+    JSON.stringify(cleanProfile(next.profile) ?? null) === JSON.stringify(cleanProfile(employee.profile) ?? null)
   ) {
     return state;
   }
   const draft = cloneState(state);
   const index = draft.emps.findIndex((item) => item.id === employeeId);
-  draft.emps[index] = { ...draft.emps[index], ...next, grid: draft.emps[index].grid };
+  const saved = { ...draft.emps[index], ...next, grid: draft.emps[index].grid };
+  if (!next.profile) delete saved.profile;
+  draft.emps[index] = saved;
   return draft;
 }
 

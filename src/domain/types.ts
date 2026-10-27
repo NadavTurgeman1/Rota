@@ -12,12 +12,38 @@ export interface ShiftDefinition {
   req: number[];
 }
 
+/** Manager-only employee card. Scheduling does not read it. */
+export interface EmployeeProfile {
+  nationalId: string;
+  /** `YYYY-MM-DD`, or empty. */
+  birthDate: string;
+  /** `female`, `male`, or empty. */
+  gender: string;
+  mobile: string;
+  city: string;
+  street: string;
+  houseNumber: string;
+  zip: string;
+  /** `YYYY-MM-DD`, or empty. */
+  startedOn: string;
+  /** `YYYY-MM-DD`, or empty. */
+  endedOn: string;
+  department: string;
+  /** `single`, `married`, `divorced`, `widowed`, or empty. */
+  maritalStatus: string;
+  bankName: string;
+  bankBranch: string;
+  bankAccount: string;
+}
+
 export interface Employee {
   id: string;
   name: string;
   contact: string;
   /** Phone number. Empty is allowed. Together with `id`, this identifies the person across sites. */
   phone?: string;
+  /** Omitted when every card field is empty. */
+  profile?: EmployeeProfile;
   /** Primary site. Other linked sites are reinforcement. Omitted until a site is chosen. */
   homeSiteId?: string;
   role: string;

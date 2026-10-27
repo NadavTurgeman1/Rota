@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { dayName, type Lang, type RotaState } from "../domain";
+import { dayName, type Employee, type Lang, type RotaState } from "../domain";
+import { employeeProfile } from "../domain/profile";
 import { isRelief } from "../domain/relief";
 import { confirmDeleteEmployee, copy } from "../i18n/copy";
 import { columnIsToday, shiftLabel, siteLabel } from "../schedule/display";
@@ -166,58 +167,17 @@ function EmployeeCard({
   return (
     <div data-testid="employee-card" className="flex flex-col gap-6">
       <section className={card}>
-        <div className="grid gap-4 sm:grid-cols-2">
-          <TextField
-            label={t.employeeName}
-            value={employee.name}
-            readOnly={!canEditAgreement}
-            onCommit={(name) => onUpdate(employeeId, { name })}
-          />
-          <TextField label={t.contact} value={employee.contact} onCommit={(contact) => onUpdate(employeeId, { contact })} readOnly={!canEditAgreement} />
-          <TextField label={t.phone} value={employee.phone ?? ""} onCommit={(phone) => onUpdate(employeeId, { phone })} readOnly={!canEditAgreement} testId="employee-phone" />
-          <TextField label={t.role} value={employee.role} onCommit={(role) => onUpdate(employeeId, { role })} readOnly={!canEditAgreement} />
-          <TextField
-            label={t.qualifications}
-            value={employee.quals}
-            onCommit={(quals) => onUpdate(employeeId, { quals })}
-            readOnly={!canEditAgreement}
-          />
-          <NumberField
-            label={t.quota}
-            value={employee.perWeek}
-            readOnly={!canEditAgreement}
-            onCommit={(perWeek) => onUpdate(employeeId, { perWeek })}
-          />
-          <NumberField
-            label={t.hourlyWage}
-            value={employee.hourlyWage ?? 0}
-            readOnly={!canEditAgreement}
-            testId="hourly-wage"
-            onCommit={(value) => onUpdate(employeeId, { hourlyWage: value })}
-          />
-          <NumberField
-            label={t.hourCap}
-            hint={`${t.hourCapHint} (${state.biz.maxHours})`}
-            noneLabel={t.hourCapNone}
-            value={employee.maxHours}
-            readOnly={!canEditAgreement}
-            onCommit={(maxHours) => onUpdate(employeeId, { maxHours })}
-          />
-        </div>
-        <label className="mt-5 inline-flex items-center gap-2 text-sm font-medium">
-          <input
-            type="checkbox"
-            data-testid="employee-active"
-            className="h-4 w-4"
-            checked={employee.active}
-            disabled={!canEditAgreement}
-            onChange={(event) => onUpdate(employeeId, { active: event.target.checked })}
-          />
-          {employee.active ? t.active : t.inactive}
-        </label>
+        <EmployeeDetails
+          lang={lang}
+          employee={employee}
+          readOnly={!canEditAgreement}
+          hourCapHint={`${t.hourCapHint} (${state.biz.maxHours})`}
+          hourCapNone={t.hourCapNone}
+          onUpdate={(patch) => onUpdate(employeeId, patch)}
+        />
         {sites.length > 0 ? (
-          <fieldset className="mt-5 border-t border-line pt-5">
-            <legend className="text-sm font-medium text-ink">{t.employeeSites}</legend>
+          <div className="mt-6 border-t border-line pt-6">
+            <h3 className="text-sm font-medium text-ink">{t.employeeSites}</h3>
             {(() => {
               const home = homeSiteId && assignedSiteIds.includes(homeSiteId) ? homeSiteId : (assignedSiteIds[0] ?? "");
               const others = sites.filter((site) => site.id !== home);
@@ -280,7 +240,7 @@ function EmployeeCard({
               );
             })()}
             <p className="mt-3 text-xs leading-5 text-muted">{t.employeeSitesHint}</p>
-          </fieldset>
+          </div>
         ) : null}
         {canEditAgreement ? (
           <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-line pt-5">
@@ -508,7 +468,201 @@ function LockIcon({ open }: { open: boolean }) {
   );
 }
 
+function EmployeeDetails({
+  lang,
+  employee,
+  readOnly,
+  hourCapHint,
+  hourCapNone,
+  onUpdate,
+}: {
+  lang: Lang;
+  employee: Employee;
+  readOnly: boolean;
+  hourCapHint: string;
+  hourCapNone: string;
+  onUpdate: (patch: EmployeePatch) => void;
+}) {
+  const t = copy[lang];
+  const profile = employeeProfile(employee);
+  const setProfile = (patch: Partial<typeof profile>) => onUpdate({ profile: patch });
+  return (
+    <div data-testid="employee-profile" className="flex flex-col gap-6">
+      <div>
+        <h3 className="text-sm font-medium text-ink">{t.profilePersonal}</h3>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <TextField label={t.employeeName} value={employee.name} readOnly={readOnly} onCommit={(name) => onUpdate({ name })} />
+          <TextField
+            label={t.nationalId}
+            value={profile.nationalId}
+            readOnly={readOnly}
+            ltr
+            testId="employee-national-id"
+            onCommit={(nationalId) => setProfile({ nationalId })}
+          />
+          <DateField
+            label={t.birthDate}
+            value={profile.birthDate}
+            readOnly={readOnly}
+            testId="employee-birth-date"
+            onCommit={(birthDate) => setProfile({ birthDate })}
+          />
+          <ChoiceField
+            label={t.gender}
+            value={profile.gender}
+            readOnly={readOnly}
+            testId="employee-gender"
+            options={[
+              { value: "female", label: t.genderFemale },
+              { value: "male", label: t.genderMale },
+            ]}
+            onCommit={(gender) => setProfile({ gender })}
+          />
+          <ChoiceField
+            label={t.maritalStatus}
+            value={profile.maritalStatus}
+            readOnly={readOnly}
+            testId="employee-marital-status"
+            options={[
+              { value: "single", label: t.maritalSingle },
+              { value: "married", label: t.maritalMarried },
+              { value: "divorced", label: t.maritalDivorced },
+              { value: "widowed", label: t.maritalWidowed },
+            ]}
+            onCommit={(maritalStatus) => setProfile({ maritalStatus })}
+          />
+        </div>
+      </div>
+      <div className="border-t border-line pt-6">
+        <h3 className="text-sm font-medium text-ink">{t.profileContact}</h3>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <TextField label={t.contact} value={employee.contact} readOnly={readOnly} onCommit={(contact) => onUpdate({ contact })} />
+          <TextField
+            label={t.phone}
+            value={employee.phone ?? ""}
+            readOnly={readOnly}
+            ltr
+            testId="employee-phone"
+            onCommit={(phone) => onUpdate({ phone })}
+          />
+          <TextField label={t.city} value={profile.city} readOnly={readOnly} onCommit={(city) => setProfile({ city })} />
+          <TextField label={t.street} value={profile.street} readOnly={readOnly} onCommit={(street) => setProfile({ street })} />
+          <TextField
+            label={t.houseNumber}
+            value={profile.houseNumber}
+            readOnly={readOnly}
+            ltr
+            onCommit={(houseNumber) => setProfile({ houseNumber })}
+          />
+          <TextField label={t.zip} value={profile.zip} readOnly={readOnly} ltr onCommit={(zip) => setProfile({ zip })} />
+        </div>
+      </div>
+      <div className="border-t border-line pt-6">
+        <h3 className="text-sm font-medium text-ink">{t.profileEmployment}</h3>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <TextField label={t.role} value={employee.role} readOnly={readOnly} onCommit={(role) => onUpdate({ role })} />
+          <TextField label={t.department} value={profile.department} readOnly={readOnly} onCommit={(department) => setProfile({ department })} />
+          <TextField label={t.qualifications} value={employee.quals} readOnly={readOnly} onCommit={(quals) => onUpdate({ quals })} />
+          <DateField
+            label={t.startedOn}
+            value={profile.startedOn}
+            readOnly={readOnly}
+            testId="employee-started-on"
+            onCommit={(startedOn) => setProfile({ startedOn })}
+          />
+          <DateField label={t.endedOn} value={profile.endedOn} readOnly={readOnly} onCommit={(endedOn) => setProfile({ endedOn })} />
+          <NumberField label={t.quota} value={employee.perWeek} readOnly={readOnly} onCommit={(perWeek) => onUpdate({ perWeek })} />
+          <NumberField
+            label={t.hourlyWage}
+            value={employee.hourlyWage ?? 0}
+            readOnly={readOnly}
+            testId="hourly-wage"
+            onCommit={(hourlyWage) => onUpdate({ hourlyWage })}
+          />
+          <NumberField
+            label={t.hourCap}
+            hint={hourCapHint}
+            noneLabel={hourCapNone}
+            value={employee.maxHours}
+            readOnly={readOnly}
+            onCommit={(maxHours) => onUpdate({ maxHours })}
+          />
+          <label className="flex h-10 items-center gap-2 self-end text-sm font-medium">
+            <input
+              type="checkbox"
+              data-testid="employee-active"
+              className="h-4 w-4"
+              checked={employee.active}
+              disabled={readOnly}
+              onChange={(event) => onUpdate({ active: event.target.checked })}
+            />
+            {employee.active ? t.active : t.inactive}
+          </label>
+        </div>
+      </div>
+      <div className="border-t border-line pt-6">
+        <h3 className="text-sm font-medium text-ink">{t.profileBank}</h3>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <TextField label={t.bankName} value={profile.bankName} readOnly={readOnly} onCommit={(bankName) => setProfile({ bankName })} />
+          <TextField
+            label={t.bankBranch}
+            value={profile.bankBranch}
+            readOnly={readOnly}
+            ltr
+            onCommit={(bankBranch) => setProfile({ bankBranch })}
+          />
+          <TextField
+            label={t.bankAccount}
+            value={profile.bankAccount}
+            readOnly={readOnly}
+            ltr
+            testId="employee-bank-account"
+            onCommit={(bankAccount) => setProfile({ bankAccount })}
+          />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function TextField({
+  label,
+  value,
+  onCommit,
+  readOnly = false,
+  ltr = false,
+  testId,
+}: {
+  label: string;
+  value: string;
+  onCommit: (value: string) => void;
+  readOnly?: boolean;
+  ltr?: boolean;
+  testId?: string;
+}) {
+  const [draft, setDraft] = useState(value);
+  useEffect(() => setDraft(value), [value]);
+  return (
+    <label className={labelClass}>
+      <span className={labelText}>{label}</span>
+      <input
+        data-testid={testId}
+        value={draft}
+        readOnly={readOnly}
+        dir={ltr ? "ltr" : undefined}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={() => {
+          if (readOnly || draft === value) return;
+          onCommit(draft);
+          if (!draft.trim()) setDraft(value);
+        }}
+        className={field}
+      />
+    </label>
+  );
+}
+
+function DateField({
   label,
   value,
   onCommit,
@@ -521,23 +675,57 @@ function TextField({
   readOnly?: boolean;
   testId?: string;
 }) {
-  const [draft, setDraft] = useState(value);
-  useEffect(() => setDraft(value), [value]);
   return (
     <label className={labelClass}>
       <span className={labelText}>{label}</span>
       <input
+        type="date"
         data-testid={testId}
-        value={draft}
+        value={value}
         readOnly={readOnly}
-        onChange={(event) => setDraft(event.target.value)}
-        onBlur={() => {
-          if (readOnly || draft === value) return;
-          onCommit(draft);
-          if (!draft.trim()) setDraft(value);
+        dir="ltr"
+        onChange={(event) => {
+          if (readOnly || event.target.value === value) return;
+          onCommit(event.target.value);
         }}
         className={field}
       />
+    </label>
+  );
+}
+
+function ChoiceField({
+  label,
+  value,
+  options,
+  onCommit,
+  readOnly = false,
+  testId,
+}: {
+  label: string;
+  value: string;
+  options: { value: string; label: string }[];
+  onCommit: (value: string) => void;
+  readOnly?: boolean;
+  testId?: string;
+}) {
+  return (
+    <label className={labelClass}>
+      <span className={labelText}>{label}</span>
+      <select
+        data-testid={testId}
+        value={value}
+        disabled={readOnly}
+        onChange={(event) => onCommit(event.target.value)}
+        className={select}
+      >
+        <option value=""></option>
+        {options.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
     </label>
   );
 }

@@ -1,3 +1,4 @@
+import { cleanProfile } from "../domain/profile";
 import type { RotaState, Schedule, ScheduleVersion, ShiftDefinition } from "../domain/types";
 import type { SiteBundle } from "./types";
 
@@ -48,6 +49,7 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
         .filter((row) => row.employee_id === employee.id)
         .map((row) => row.name)
         .sort((a, b) => a.localeCompare(b));
+      const profile = cleanProfile(employee.profile);
       return {
         id: employee.id,
         name: employee.name,
@@ -59,6 +61,7 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
         perWeek: Number(employee.weekly_shift_quota),
         maxHours: employee.max_weekly_hours == null ? 0 : Number(employee.max_weekly_hours),
         hourlyWage: employee.hourly_wage == null ? 0 : Number(employee.hourly_wage),
+        ...(profile ? { profile } : {}),
         pref,
         active: employee.active,
         grid,

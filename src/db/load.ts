@@ -88,9 +88,11 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
                 e.hourly_wage::float8 as hourly_wage,
                 coalesce(p.email, open_invite.email, '') as login_email,
                 (e.user_id is not null) as login_confirmed,
-                true as on_roster
+                true as on_roster,
+                ep.profile as profile
          from public.employees e
          join public.employee_sites es on es.employee_id = e.id
+         left join public.employee_profiles ep on ep.employee_id = e.id
          left join public.profiles p on p.user_id = e.user_id
          left join lateral (
            select i.email
@@ -108,8 +110,10 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
                 e.hourly_wage::float8 as hourly_wage,
                 '' as login_email,
                 false as login_confirmed,
-                false as on_roster
+                false as on_roster,
+                ep.profile as profile
          from public.employees e
+         left join public.employee_profiles ep on ep.employee_id = e.id
          where e.id in (
            select a.employee_id
            from public.assignments a

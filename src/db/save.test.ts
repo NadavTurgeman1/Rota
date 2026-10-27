@@ -89,7 +89,32 @@ describe("saving a site", () => {
     const nextWeek = "2026-10-18";
     const draft: RotaState = {
       ...state,
-      emps: state.emps.map((employee) => (employee.id === person.id ? { ...employee, active: false, phone: "0501234567" } : employee)),
+      emps: state.emps.map((employee) =>
+        employee.id === person.id
+          ? {
+              ...employee,
+              active: false,
+              phone: "0501234567",
+              profile: {
+                nationalId: "123456782",
+                birthDate: "1990-04-02",
+                gender: "female",
+                mobile: "0537224225",
+                city: "חיפה",
+                street: "הרצל",
+                houseNumber: "10",
+                zip: "33000",
+                startedOn: "2024-01-07",
+                endedOn: "",
+                department: "מבצעים",
+                maritalStatus: "married",
+                bankName: "לאומי",
+                bankBranch: "800",
+                bankAccount: "123456",
+              },
+            }
+          : employee,
+      ),
       sched: {
         ...state.sched,
         [nextWeek]: { assign: { [`0|${morning.id}`]: [person.id] }, locked: [], status: "draft" },
@@ -99,11 +124,19 @@ describe("saving a site", () => {
     await db.exec("begin");
     await saveSite(sql, { orgId: sentinel, siteId: headquarters, state: draft });
     await db.exec("commit");
+    const stored = await sql.query<{ profile: { city?: string } }>(
+      `select profile from public.employee_profiles where employee_id = '${person.id}'`,
+    );
+    expect(stored[0]?.profile.city).toBe("חיפה");
+    await asRole(db, "authenticated", "dddddddd-dddd-4ddd-8ddd-ddddddddddd1");
+    const hidden = await sql.query(`select employee_id from public.employee_profiles`);
+    expect(hidden).toEqual([]);
     await db.exec("reset role");
     const loaded = await loadSiteWeek(sql, headquarters, nextWeek);
     const inactive = loaded.emps.find((employee) => employee.id === person.id);
     expect(inactive?.active).toBe(false);
     expect(inactive?.phone).toBe("0501234567");
+    expect(inactive?.profile).toMatchObject({ nationalId: "123456782", city: "חיפה", bankAccount: "123456", gender: "female" });
     expect(inactive?.grid).toEqual(person.grid);
     expect(loaded.former?.[person.id]).toBeUndefined();
     expect(loaded.sched[nextWeek]?.status).toBe("draft");

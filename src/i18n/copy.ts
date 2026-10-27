@@ -55,6 +55,32 @@ export interface Copy {
   employeeName: string;
   contact: string;
   phone: string;
+  profilePersonal: string;
+  profileContact: string;
+  profileEmployment: string;
+  profileFamily: string;
+  profileBank: string;
+  nationalId: string;
+  birthDate: string;
+  gender: string;
+  genderFemale: string;
+  genderMale: string;
+  mobile: string;
+  city: string;
+  street: string;
+  houseNumber: string;
+  zip: string;
+  startedOn: string;
+  endedOn: string;
+  department: string;
+  maritalStatus: string;
+  maritalSingle: string;
+  maritalMarried: string;
+  maritalDivorced: string;
+  maritalWidowed: string;
+  bankName: string;
+  bankBranch: string;
+  bankAccount: string;
   employeeSites: string;
   employeeSitesHint: string;
   primarySite: string;
@@ -427,6 +453,32 @@ export const copy: Record<Lang, Copy> = {
     employeeName: "שם",
     contact: "אימייל",
     phone: "טלפון",
+    profilePersonal: "פרטים אישיים",
+    profileContact: "פרטי קשר וכתובת",
+    profileEmployment: "תעסוקה",
+    profileFamily: "מצב משפחתי",
+    profileBank: "פרטי בנק",
+    nationalId: "ת.ז.",
+    birthDate: "תאריך לידה",
+    gender: "מין",
+    genderFemale: "נקבה",
+    genderMale: "זכר",
+    mobile: "טלפון נייד",
+    city: "עיר",
+    street: "רחוב",
+    houseNumber: "מספר בית",
+    zip: "מיקוד",
+    startedOn: "תאריך תחילה",
+    endedOn: "תאריך סיום",
+    department: "מחלקה",
+    maritalStatus: "מצב משפחתי",
+    maritalSingle: "רווק/ה",
+    maritalMarried: "נשוי/אה",
+    maritalDivorced: "גרוש/ה",
+    maritalWidowed: "אלמן/ה",
+    bankName: "בנק",
+    bankBranch: "סניף",
+    bankAccount: "מספר חשבון",
     employeeSites: "אתרים",
     employeeSitesHint: "האילוצים וההסכם זהים בכל האתרים, והעובד מזוהה לפי המזהה והטלפון שלו גם בלי חשבון משתמש.",
     primarySite: "ראשי",
@@ -811,6 +863,32 @@ export const copy: Record<Lang, Copy> = {
     employeeName: "Name",
     contact: "Email",
     phone: "Phone",
+    profilePersonal: "Personal details",
+    profileContact: "Contact and address",
+    profileEmployment: "Employment",
+    profileFamily: "Family status",
+    profileBank: "Bank details",
+    nationalId: "ID",
+    birthDate: "Date of birth",
+    gender: "Gender",
+    genderFemale: "Female",
+    genderMale: "Male",
+    mobile: "Mobile",
+    city: "City",
+    street: "Street",
+    houseNumber: "House number",
+    zip: "Postal code",
+    startedOn: "Start date",
+    endedOn: "End date",
+    department: "Department",
+    maritalStatus: "Family status",
+    maritalSingle: "Single",
+    maritalMarried: "Married",
+    maritalDivorced: "Divorced",
+    maritalWidowed: "Widowed",
+    bankName: "Bank",
+    bankBranch: "Branch",
+    bankAccount: "Account number",
     employeeSites: "Sites",
     employeeSitesHint: "Constraints and the agreement are the same on every site, and the employee is recognized by id and phone even without a login.",
     primarySite: "Primary",
@@ -1247,3 +1325,4 @@ export function constraintReasonText(lang: Lang, reason: ConstraintReason): stri
   };
   return (lang === "he" ? he : en)[reason];
 }
+

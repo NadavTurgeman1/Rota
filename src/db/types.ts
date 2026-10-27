@@ -48,6 +48,8 @@ export interface EmployeeRow {
   hourly_wage: number | null;
   login_email: string;
   login_confirmed: boolean;
+  /** Manager-only card. Null when the signed-in person cannot read it, or it was never filled. */
+  profile: unknown;
   /** False when the person is only kept so an old week can still show their name. */
   on_roster: boolean;
 }
