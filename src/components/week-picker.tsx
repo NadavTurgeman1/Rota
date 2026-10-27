@@ -143,7 +143,7 @@ export function WeekPicker({ lang, week, onPick, className = "" }: { lang: Lang;
           role="dialog"
           aria-label={t.pickWeek}
           data-testid="week-picker"
-          className="absolute -start-9 top-full z-40 mt-2 w-[min(25rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-line bg-card shadow-pop"
+          className="pop-in pop-in-center material-pop absolute -start-9 top-full z-40 mt-2 w-[min(25rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-line shadow-pop"
         >
           <div className="border-b border-line bg-well px-2 pb-2 pt-2">
             <div className="flex items-center gap-0.5">
@@ -168,7 +168,7 @@ export function WeekPicker({ lang, week, onPick, className = "" }: { lang: Lang;
           </div>
 
           <div className="px-2 pb-2 pt-1" onMouseLeave={() => setHovered(null)}>
-            <div className="grid grid-cols-7 text-center text-[11px] font-semibold uppercase text-subtle">
+            <div className="grid grid-cols-7 text-center text-[11px] font-medium text-subtle">
               {weekdays.map((name, index) => (
                 <span key={index} className="py-1.5">
                   {name}

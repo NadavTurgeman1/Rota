@@ -248,10 +248,10 @@ export function AttendanceScreen({ lang, siteId, api }: { lang: Lang; siteId: st
   return (
     <section data-testid="staff-attendance" className="flex flex-col gap-6">
       <div className={`${card} flex flex-col items-center gap-4 text-center`}>
-        <p className="text-sm text-muted">{date}</p>
-        <p data-testid="attendance-clock" dir="ltr" className="text-5xl font-semibold tabular-nums tracking-tight text-ink">
+        <p data-testid="attendance-clock" dir="ltr" className={`text-6xl font-semibold tabular-nums tracking-[-0.04em] ${open ? "text-brand-text" : "text-ink"}`}>
           {clock}
         </p>
+        <p className="text-sm text-muted">{date}</p>
         <span className={`${pill} ${skew ? "bg-danger-soft text-danger-text" : "bg-ok-soft text-ok-text"}`}>
           {skew ? t.attendanceClockBad : snapshot ? t.attendanceClockOk : t.attendanceLoading}
         </span>

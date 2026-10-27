@@ -1,6 +1,7 @@
+import { useEffect, useRef } from "react";
 import { dayName, shiftKind, type Lang, type RotaState, type Slot } from "../domain";
 import { copy } from "../i18n/copy";
-import { shiftLabel } from "../schedule/display";
+import { columnIsToday, shiftLabel } from "../schedule/display";
 import { DayDates } from "./day-dates";
 import { SlotCard } from "./slot-card";
 
@@ -63,6 +64,10 @@ export function WeekBoard({
   onCallOff: (slotKey: string, employeeId: string) => void;
 }) {
   const t = copy[lang];
+  const scroller = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    scroller.current?.querySelector<HTMLElement>("[data-today]")?.scrollIntoView?.({ inline: "center", block: "nearest" });
+  }, [state.week]);
   const shared = slotActions({
     state,
     lang,
@@ -79,21 +84,25 @@ export function WeekBoard({
     onCallOff,
   });
   return (
-    <div data-testid="week-board" className="min-w-0 rounded-2xl border border-line bg-card p-1.5 shadow-card sm:p-2">
+    <div data-testid="week-board" className="min-w-0 rounded-lg border border-line bg-card p-1.5 shadow-card sm:p-2">
       <p data-testid="scroll-hint" className="mb-2 px-1 text-xs text-subtle lg:hidden">
         {t.scrollHint}
       </p>
-      <div data-testid="week-scroll" className="overflow-x-auto">
+      <div ref={scroller} data-testid="week-scroll" className="overflow-x-auto">
       <table className="w-full min-w-[840px] table-fixed border-separate border-spacing-1">
         <thead>
           <tr>
             <th className={`${STICKY} w-24`} />
-            {[0, 1, 2, 3, 4, 5, 6].map((day) => (
-              <th key={day} className="px-1 pb-1.5 pt-0.5 align-top text-xs font-semibold text-ink">
+            {[0, 1, 2, 3, 4, 5, 6].map((day) => {
+              const today = columnIsToday(state.week, day);
+              return (
+              <th key={day} data-today={today ? "true" : undefined} className={`px-1 pb-1.5 pt-0.5 align-top text-xs font-semibold ${today ? "text-brand-text" : "text-ink"}`}>
                 <span className="block">{dayName(day, lang)}</span>
-                <DayDates week={state.week} day={day} lang={lang} />
+                <DayDates week={state.week} day={day} lang={lang} today={today} />
+                <span aria-hidden="true" className={`mx-auto mt-1 block h-px w-8 ${today ? "bg-brand" : "bg-field-line"}`} />
               </th>
-            ))}
+              );
+            })}
           </tr>
         </thead>
         <tbody>

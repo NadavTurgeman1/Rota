@@ -70,7 +70,7 @@ import { ConstraintsScreen } from "./constraints-screen";
 import { InsightsScreen } from "./insights-screen";
 import { IssuesPanel } from "./issues-panel";
 import { ApprovalsScreen, type SignupApproval, type TenantRow } from "./approvals-screen";
-import { CreateOrgScreen, CreateSiteScreen, LoginScreen, Logo, SignupScreen } from "./login-screen";
+import { CreateOrgScreen, CreateSiteScreen, LoginScreen, Logo, NewPasswordScreen, SignupScreen } from "./login-screen";
 import { browserClient } from "../supabase/browser";
 import { remoteConfigured } from "../supabase/public-env";
 import { WeekBoard } from "./schedule-board";
@@ -191,7 +191,8 @@ export function ScheduleApp() {
   const supportRef = useRef<string | null>(null);
   const emailRef = useRef("");
   const [suspended, setSuspended] = useState<string | null>(null);
-  const [authScreen, setAuthScreen] = useState<"login" | "signup">("login");
+  const [authScreen, setAuthScreen] = useState<"login" | "signup" | "recovery">("login");
+  const recovering = useRef(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [saveNote, setSaveNote] = useState<string | null>(null);
   const remote = remoteConfigured();
@@ -418,9 +419,19 @@ export function ScheduleApp() {
       return;
     }
     const supabase = browserClient();
+    const recoveryLink = `${window.location.hash} ${window.location.search}`.includes("type=recovery");
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       tokenRef.current = session?.access_token ?? null;
-      if (event !== "INITIAL_SESSION") return;
+      if (event === "PASSWORD_RECOVERY" || (recoveryLink && (event === "INITIAL_SESSION" || event === "SIGNED_IN"))) {
+        recovering.current = true;
+        setAuthScreen("recovery");
+        setHydrated(true);
+        return;
+      }
+      if (event !== "INITIAL_SESSION" || recovering.current) {
+        if (event === "INITIAL_SESSION") setHydrated(true);
+        return;
+      }
       if (!session) {
         setHydrated(true);
         return;
@@ -542,6 +553,28 @@ export function ScheduleApp() {
     const { data, error } = await browserClient().auth.signInWithPassword({ email: email.trim(), password });
     if (error || !data.session || !data.user) return false;
     await adopt(data.session.access_token, data.user.id, data.user.email ?? email);
+    setScreen("schedule");
+    return true;
+  }
+
+  async function requestReset(email: string): Promise<boolean> {
+    const address = email.trim();
+    if (!address) return false;
+    const { error } = await browserClient().auth.resetPasswordForEmail(address, {
+      redirectTo: `${window.location.origin}/`,
+    });
+    return !error;
+  }
+
+  async function saveNewPassword(password: string): Promise<boolean> {
+    if (password.length < 6) return false;
+    const { data, error } = await browserClient().auth.updateUser({ password });
+    const session = (await browserClient().auth.getSession()).data.session;
+    if (error || !data.user || !session) return false;
+    recovering.current = false;
+    window.history.replaceState(null, "", window.location.pathname);
+    await adopt(session.access_token, data.user.id, data.user.email ?? "");
+    setAuthScreen("login");
     setScreen("schedule");
     return true;
   }
@@ -976,7 +1009,9 @@ export function ScheduleApp() {
   if (!user) {
     return (
       <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang}>
-        {remote && authScreen === "signup" ? (
+        {remote && authScreen === "recovery" ? (
+          <NewPasswordScreen lang={lang} toolbar={settings} onSave={saveNewPassword} />
+        ) : remote && authScreen === "signup" ? (
           <SignupScreen lang={lang} toolbar={settings} onCreateAccount={createAccount} onShowLogin={() => setAuthScreen("login")} />
         ) : (
           <LoginScreen
@@ -987,6 +1022,7 @@ export function ScheduleApp() {
             toolbar={settings}
             onSignIn={signIn}
             onShowSignup={remote ? () => setAuthScreen("signup") : undefined}
+            onRequestReset={remote ? requestReset : undefined}
           />
         )}
       </div>
@@ -1108,28 +1144,53 @@ export function ScheduleApp() {
   };
 
   const tabs: { id: Screen; label: string }[] = [
-    { id: "business", label: t.navBusiness },
+    { id: "schedule", label: t.navSchedule },
     { id: "team", label: t.navTeam },
     { id: "constraints", label: t.navConstraints },
     { id: "insights", label: t.navInsights },
-    { id: "schedule", label: t.navSchedule },
+    { id: "business", label: t.navBusiness },
   ];
   const weekly = screen === "schedule" || screen === "constraints";
 
   return (
     <HebrewCalendarContext.Provider value={hebrew}>
-    <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang} className="min-h-screen">
-      <header className="sticky top-0 z-30 border-b border-line bg-page/80 backdrop-blur-xl">
+    <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang} className="min-h-dvh">
+      <div className="flex min-h-dvh">
+        <aside className="sticky top-0 z-30 flex h-dvh w-48 shrink-0 flex-col self-start border-e border-line bg-paper">
+          <div className="flex h-14 shrink-0 items-center px-4">
+            <Logo className="h-8" />
+          </div>
+          <nav role="tablist" aria-label="Rota" className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pb-4">
+            {tabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                data-testid={`nav-${tab.id}`}
+                aria-selected={screen === tab.id}
+                className={`flex min-h-9 w-full items-center rounded-lg px-3 py-2 text-start text-sm font-medium leading-5 ${
+                  screen === tab.id ? "bg-card font-semibold text-ink shadow-card" : "text-muted hover:bg-card/70 hover:text-ink"
+                }`}
+                onClick={() => {
+                  setSelection(null);
+                  setScreen(tab.id);
+                }}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </nav>
+        </aside>
+        <div className="flex min-w-0 flex-1 flex-col">
+      <header className="sticky top-0 z-30">
         {saveNote ? (
-          <p role="alert" className="mx-auto max-w-[1440px] px-4 pt-2 text-sm text-danger-text sm:px-6">
+          <p role="alert" className="bg-danger-softer px-4 py-2 text-sm text-danger-text sm:px-6">
             {saveNote === "db" ? t.remoteDbMissing : t.saveFailed}
           </p>
         ) : null}
-        <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6">
+        <div className="material-bar">
+        <div className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:gap-4 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <Logo />
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
             <label className="flex items-center gap-2 text-sm">
               <span className="sr-only font-medium text-ink-soft sm:not-sr-only">{t.site}</span>
               <select
@@ -1146,6 +1207,8 @@ export function ScheduleApp() {
                 ))}
               </select>
             </label>
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
             {reviewable.length > 0 ? (
               <button type="button" data-testid="trade-queue" className={button.quiet} onClick={() => tradeLater.clear()}>
                 {t.tradeManagerQueue(reviewable.length)}
@@ -1168,32 +1231,11 @@ export function ScheduleApp() {
           </div>
         </div>
         {supportOrg ? (
-          <p className="mx-auto max-w-[1440px] px-4 pb-2 text-sm text-muted sm:px-6">{t.supportBanner}</p>
+          <p className="px-4 pb-2.5 text-sm text-ink-soft sm:px-6">{t.supportBanner}</p>
         ) : null}
-        <div className="mx-auto max-w-[1440px] px-4 pb-3 sm:px-6">
-        <nav role="tablist" aria-label="Rota" className="grid grid-cols-5 gap-1 rounded-xl border border-line bg-track p-1 sm:inline-flex">
-          {tabs.map((tab) => (
-            <button
-              key={tab.id}
-              type="button"
-              role="tab"
-              data-testid={`nav-${tab.id}`}
-              aria-selected={screen === tab.id}
-              className={`min-h-9 rounded-lg px-1 py-2 text-center text-xs font-medium leading-4 sm:px-4 sm:text-sm sm:leading-5 ${
-                screen === tab.id ? "bg-card font-semibold text-ink shadow-card" : "text-muted hover:bg-card/50 hover:text-ink"
-              }`}
-              onClick={() => {
-                setSelection(null);
-                setScreen(tab.id);
-              }}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </nav>
         </div>
       </header>
-      <main className={`mx-auto flex max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-6 ${selection ? "pb-28" : ""}`}>
+      <main className={`flex flex-col gap-6 px-4 py-6 sm:px-6 ${selection ? "pb-28" : ""}`}>
         {writer ? null : (
           <p
             data-testid="read-only-banner"
@@ -1205,7 +1247,7 @@ export function ScheduleApp() {
         )}
         {weekly ? (
           <section className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1 rounded-xl border border-line bg-card p-1 shadow-card">
+            <div className="flex items-center gap-1 rounded-lg border border-line bg-card p-1 shadow-card">
               <button
                 type="button"
                 data-testid="prev-week"
@@ -1213,7 +1255,7 @@ export function ScheduleApp() {
                 className={stepButton}
                 onClick={() => change((current) => goToWeek(current, addDays(current.week, -7)))}
               >
-                ‹
+                <Chevron dir="prev" />
               </button>
               <WeekPicker lang={lang} week={state.week} onPick={(sunday) => change((current) => goToWeek(current, sunday))} />
               <button
@@ -1223,7 +1265,7 @@ export function ScheduleApp() {
                 className={stepButton}
                 onClick={() => change((current) => goToWeek(current, addDays(current.week, 7)))}
               >
-                ›
+                <Chevron dir="next" />
               </button>
             </div>
             {screen === "schedule" ? (
@@ -1289,7 +1331,7 @@ export function ScheduleApp() {
           </section>
         ) : null}
         {screen === "schedule" ? (
-          <div className="grid grid-cols-1 items-start gap-6 min-[1400px]:grid-cols-[minmax(0,1fr)_22rem]">
+          <div className="flex flex-col items-start gap-6">
             <WeekBoard {...boardProps} />
             <div className="flex min-w-0 flex-col gap-4">
               <IssuesPanel
@@ -1453,8 +1495,10 @@ export function ScheduleApp() {
         ) : null}
         {screen === "insights" ? <InsightsScreen state={state} lang={lang} /> : null}
       </main>
+        </div>
+      </div>
       {selectedName ? (
-        <div className="fixed inset-x-0 bottom-0 z-20 border-t border-line bg-card/90 px-4 py-3 shadow-pop backdrop-blur-xl sm:px-6">
+        <div className="fixed bottom-0 end-0 start-48 z-20 border-t border-line bg-card/90 px-4 py-3 shadow-pop backdrop-blur-xl sm:px-6">
           <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3">
             <p className="text-sm font-medium">{selectionHint(lang, selectedName)}</p>
             <button type="button" className={button.quiet} onClick={() => setSelection(null)}>
@@ -1634,4 +1678,12 @@ function PublishButton({
   );
 }
 
-const stepButton = "grid h-8 w-8 place-items-center rounded-lg text-lg leading-none text-ink-soft hover:bg-well hover:text-ink";
+const stepButton = "grid h-8 w-8 place-items-center rounded-lg text-ink-soft hover:bg-well hover:text-ink";
+
+function Chevron({ dir }: { dir: "prev" | "next" }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d={dir === "prev" ? "M12.5 4.5 7 10l5.5 5.5" : "M7.5 4.5 13 10l-5.5 5.5"} />
+    </svg>
+  );
+}

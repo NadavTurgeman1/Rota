@@ -11,12 +11,12 @@ export function useHebrewCalendar(): boolean {
 }
 
 /** Under a day name: the Gregorian date, then the Hebrew date and holidays in small print. */
-export function DayDates({ week, day, lang }: { week: string; day: number; lang: Lang }) {
+export function DayDates({ week, day, lang, today = false }: { week: string; day: number; lang: Lang; today?: boolean }) {
   const hebrew = useHebrewCalendar();
   const info = hebrew ? hebrewWeek(week, lang)[day] : null;
   return (
     <>
-      <span className="block text-[11px] font-normal tabular-nums text-subtle">{formatDayDate(week, day, lang)}</span>
+      <span className={`block text-[11px] font-normal tabular-nums ${today ? "text-brand-text" : "text-subtle"}`}>{formatDayDate(week, day, lang)}</span>
       {info ? (
         <>
           <span data-testid={`hebrew-date-${day}`} className="block text-[10px] font-normal leading-tight text-muted">

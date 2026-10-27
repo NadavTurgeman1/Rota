@@ -48,7 +48,7 @@ export function ConstraintsScreen({
 
   return (
     <div data-testid="constraints-screen" className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]">
-      <section className="rounded-2xl border border-line bg-card p-2 shadow-card">
+      <section className="rounded-lg border border-line bg-card p-2 shadow-card">
         <NameRail
           lang={lang}
           testId="roster"

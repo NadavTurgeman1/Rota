@@ -1,0 +1,1288 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-27T10:05:00+02:00",
+  "title": "Design System: Rota",
+  "extensions": {
+    "colorMeta": {
+      "brand": {
+        "role": "primary",
+        "displayName": "Brand Blue",
+        "canonical": "#2b5bff",
+        "tonalRamp": [
+          "oklch(15.0% 0.088 265.6)",
+          "oklch(26.4% 0.156 265.6)",
+          "oklch(37.9% 0.224 265.6)",
+          "oklch(49.3% 0.248 265.6)",
+          "oklch(60.7% 0.248 265.6)",
+          "oklch(72.1% 0.248 265.6)",
+          "oklch(83.6% 0.226 265.6)",
+          "oklch(95.0% 0.069 265.6)"
+        ]
+      },
+      "brand-hover": {
+        "role": "primary",
+        "displayName": "Brand Pressed",
+        "canonical": "#214fe0",
+        "tonalRamp": [
+          "oklch(15.0% 0.080 265.0)",
+          "oklch(26.4% 0.142 265.0)",
+          "oklch(37.9% 0.203 265.0)",
+          "oklch(49.3% 0.225 265.0)",
+          "oklch(60.7% 0.225 265.0)",
+          "oklch(72.1% 0.225 265.0)",
+          "oklch(83.6% 0.205 265.0)",
+          "oklch(95.0% 0.063 265.0)"
+        ]
+      },
+      "on-brand": {
+        "role": "primary",
+        "displayName": "On Brand",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 0.0)",
+          "oklch(26.4% 0.000 0.0)",
+          "oklch(37.9% 0.000 0.0)",
+          "oklch(49.3% 0.000 0.0)",
+          "oklch(60.7% 0.000 0.0)",
+          "oklch(72.1% 0.000 0.0)",
+          "oklch(83.6% 0.000 0.0)",
+          "oklch(95.0% 0.000 0.0)"
+        ]
+      },
+      "brand-soft": {
+        "role": "primary",
+        "displayName": "Brand Wash",
+        "canonical": "#e7edff",
+        "tonalRamp": [
+          "oklch(15.0% 0.009 271.1)",
+          "oklch(26.4% 0.016 271.1)",
+          "oklch(37.9% 0.023 271.1)",
+          "oklch(49.3% 0.025 271.1)",
+          "oklch(60.7% 0.025 271.1)",
+          "oklch(72.1% 0.025 271.1)",
+          "oklch(83.6% 0.023 271.1)",
+          "oklch(95.0% 0.007 271.1)"
+        ]
+      },
+      "brand-soft-dark": {
+        "role": "primary",
+        "displayName": "Brand Wash, Dark",
+        "canonical": "#243056",
+        "tonalRamp": [
+          "oklch(15.0% 0.025 269.0)",
+          "oklch(26.4% 0.044 269.0)",
+          "oklch(37.9% 0.063 269.0)",
+          "oklch(49.3% 0.070 269.0)",
+          "oklch(60.7% 0.070 269.0)",
+          "oklch(72.1% 0.070 269.0)",
+          "oklch(83.6% 0.064 269.0)",
+          "oklch(95.0% 0.019 269.0)"
+        ]
+      },
+      "brand-text": {
+        "role": "primary",
+        "displayName": "Brand Ink",
+        "canonical": "#1438c9",
+        "tonalRamp": [
+          "oklch(15.0% 0.080 265.3)",
+          "oklch(26.4% 0.141 265.3)",
+          "oklch(37.9% 0.202 265.3)",
+          "oklch(49.3% 0.224 265.3)",
+          "oklch(60.7% 0.224 265.3)",
+          "oklch(72.1% 0.224 265.3)",
+          "oklch(83.6% 0.204 265.3)",
+          "oklch(95.0% 0.062 265.3)"
+        ]
+      },
+      "brand-text-dark": {
+        "role": "primary",
+        "displayName": "Brand Ink, Dark",
+        "canonical": "#d6e2ff",
+        "tonalRamp": [
+          "oklch(15.0% 0.015 267.7)",
+          "oklch(26.4% 0.026 267.7)",
+          "oklch(37.9% 0.038 267.7)",
+          "oklch(49.3% 0.042 267.7)",
+          "oklch(60.7% 0.042 267.7)",
+          "oklch(72.1% 0.042 267.7)",
+          "oklch(83.6% 0.038 267.7)",
+          "oklch(95.0% 0.012 267.7)"
+        ]
+      },
+      "focus": {
+        "role": "primary",
+        "displayName": "Focus",
+        "canonical": "#2b5bff",
+        "tonalRamp": [
+          "oklch(15.0% 0.088 265.6)",
+          "oklch(26.4% 0.156 265.6)",
+          "oklch(37.9% 0.224 265.6)",
+          "oklch(49.3% 0.248 265.6)",
+          "oklch(60.7% 0.248 265.6)",
+          "oklch(72.1% 0.248 265.6)",
+          "oklch(83.6% 0.226 265.6)",
+          "oklch(95.0% 0.069 265.6)"
+        ]
+      },
+      "focus-dark": {
+        "role": "primary",
+        "displayName": "Focus, Dark",
+        "canonical": "#7aa2ff",
+        "tonalRamp": [
+          "oklch(15.0% 0.051 265.4)",
+          "oklch(26.4% 0.090 265.4)",
+          "oklch(37.9% 0.129 265.4)",
+          "oklch(49.3% 0.143 265.4)",
+          "oklch(60.7% 0.143 265.4)",
+          "oklch(72.1% 0.143 265.4)",
+          "oklch(83.6% 0.130 265.4)",
+          "oklch(95.0% 0.040 265.4)"
+        ]
+      },
+      "page": {
+        "role": "neutral",
+        "displayName": "Warm Paper",
+        "canonical": "#f4f0e6",
+        "tonalRamp": [
+          "oklch(15.0% 0.005 88.7)",
+          "oklch(26.4% 0.009 88.7)",
+          "oklch(37.9% 0.013 88.7)",
+          "oklch(49.3% 0.014 88.7)",
+          "oklch(60.7% 0.014 88.7)",
+          "oklch(72.1% 0.014 88.7)",
+          "oklch(83.6% 0.013 88.7)",
+          "oklch(95.0% 0.004 88.7)"
+        ]
+      },
+      "page-dark": {
+        "role": "neutral",
+        "displayName": "Warm Paper, Dark",
+        "canonical": "#1c1917",
+        "tonalRamp": [
+          "oklch(15.0% 0.002 56.0)",
+          "oklch(26.4% 0.004 56.0)",
+          "oklch(37.9% 0.006 56.0)",
+          "oklch(49.3% 0.006 56.0)",
+          "oklch(60.7% 0.006 56.0)",
+          "oklch(72.1% 0.006 56.0)",
+          "oklch(83.6% 0.006 56.0)",
+          "oklch(95.0% 0.002 56.0)"
+        ]
+      },
+      "paper": {
+        "role": "neutral",
+        "displayName": "Paper",
+        "canonical": "#ebe4d6",
+        "tonalRamp": [
+          "oklch(15.0% 0.007 84.6)",
+          "oklch(26.4% 0.013 84.6)",
+          "oklch(37.9% 0.018 84.6)",
+          "oklch(49.3% 0.020 84.6)",
+          "oklch(60.7% 0.020 84.6)",
+          "oklch(72.1% 0.020 84.6)",
+          "oklch(83.6% 0.018 84.6)",
+          "oklch(95.0% 0.006 84.6)"
+        ]
+      },
+      "paper-dark": {
+        "role": "neutral",
+        "displayName": "Paper, Dark",
+        "canonical": "#241f1c",
+        "tonalRamp": [
+          "oklch(15.0% 0.003 53.0)",
+          "oklch(26.4% 0.006 53.0)",
+          "oklch(37.9% 0.009 53.0)",
+          "oklch(49.3% 0.010 53.0)",
+          "oklch(60.7% 0.010 53.0)",
+          "oklch(72.1% 0.010 53.0)",
+          "oklch(83.6% 0.009 53.0)",
+          "oklch(95.0% 0.003 53.0)"
+        ]
+      },
+      "card": {
+        "role": "neutral",
+        "displayName": "Cream Card",
+        "canonical": "#fffdf8",
+        "tonalRamp": [
+          "oklch(15.0% 0.002 88.6)",
+          "oklch(26.4% 0.004 88.6)",
+          "oklch(37.9% 0.006 88.6)",
+          "oklch(49.3% 0.007 88.6)",
+          "oklch(60.7% 0.007 88.6)",
+          "oklch(72.1% 0.007 88.6)",
+          "oklch(83.6% 0.006 88.6)",
+          "oklch(95.0% 0.002 88.6)"
+        ]
+      },
+      "card-dark": {
+        "role": "neutral",
+        "displayName": "Cream Card, Dark",
+        "canonical": "#261f1b",
+        "tonalRamp": [
+          "oklch(15.0% 0.005 51.6)",
+          "oklch(26.4% 0.008 51.6)",
+          "oklch(37.9% 0.012 51.6)",
+          "oklch(49.3% 0.013 51.6)",
+          "oklch(60.7% 0.013 51.6)",
+          "oklch(72.1% 0.013 51.6)",
+          "oklch(83.6% 0.012 51.6)",
+          "oklch(95.0% 0.004 51.6)"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Near-Black Ink",
+        "canonical": "#1c1917",
+        "tonalRamp": [
+          "oklch(15.0% 0.002 56.0)",
+          "oklch(26.4% 0.004 56.0)",
+          "oklch(37.9% 0.006 56.0)",
+          "oklch(49.3% 0.006 56.0)",
+          "oklch(60.7% 0.006 56.0)",
+          "oklch(72.1% 0.006 56.0)",
+          "oklch(83.6% 0.006 56.0)",
+          "oklch(95.0% 0.002 56.0)"
+        ]
+      },
+      "ink-dark": {
+        "role": "neutral",
+        "displayName": "Near-Black Ink, Dark",
+        "canonical": "#faf6f0",
+        "tonalRamp": [
+          "oklch(15.0% 0.003 78.3)",
+          "oklch(26.4% 0.006 78.3)",
+          "oklch(37.9% 0.008 78.3)",
+          "oklch(49.3% 0.009 78.3)",
+          "oklch(60.7% 0.009 78.3)",
+          "oklch(72.1% 0.009 78.3)",
+          "oklch(83.6% 0.008 78.3)",
+          "oklch(95.0% 0.003 78.3)"
+        ]
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Soft Ink",
+        "canonical": "#44403c",
+        "tonalRamp": [
+          "oklch(15.0% 0.003 67.6)",
+          "oklch(26.4% 0.005 67.6)",
+          "oklch(37.9% 0.008 67.6)",
+          "oklch(49.3% 0.009 67.6)",
+          "oklch(60.7% 0.009 67.6)",
+          "oklch(72.1% 0.009 67.6)",
+          "oklch(83.6% 0.008 67.6)",
+          "oklch(95.0% 0.002 67.6)"
+        ]
+      },
+      "ink-soft-dark": {
+        "role": "neutral",
+        "displayName": "Soft Ink, Dark",
+        "canonical": "#e7e0d6",
+        "tonalRamp": [
+          "oklch(15.0% 0.006 77.1)",
+          "oklch(26.4% 0.010 77.1)",
+          "oklch(37.9% 0.014 77.1)",
+          "oklch(49.3% 0.015 77.1)",
+          "oklch(60.7% 0.015 77.1)",
+          "oklch(72.1% 0.015 77.1)",
+          "oklch(83.6% 0.014 77.1)",
+          "oklch(95.0% 0.004 77.1)"
+        ]
+      },
+      "muted": {
+        "role": "neutral",
+        "displayName": "Muted",
+        "canonical": "#57534e",
+        "tonalRamp": [
+          "oklch(15.0% 0.003 73.6)",
+          "oklch(26.4% 0.006 73.6)",
+          "oklch(37.9% 0.009 73.6)",
+          "oklch(49.3% 0.010 73.6)",
+          "oklch(60.7% 0.010 73.6)",
+          "oklch(72.1% 0.010 73.6)",
+          "oklch(83.6% 0.009 73.6)",
+          "oklch(95.0% 0.003 73.6)"
+        ]
+      },
+      "muted-dark": {
+        "role": "neutral",
+        "displayName": "Muted, Dark",
+        "canonical": "#d4cdc2",
+        "tonalRamp": [
+          "oklch(15.0% 0.006 79.3)",
+          "oklch(26.4% 0.011 79.3)",
+          "oklch(37.9% 0.015 79.3)",
+          "oklch(49.3% 0.017 79.3)",
+          "oklch(60.7% 0.017 79.3)",
+          "oklch(72.1% 0.017 79.3)",
+          "oklch(83.6% 0.015 79.3)",
+          "oklch(95.0% 0.005 79.3)"
+        ]
+      },
+      "subtle": {
+        "role": "neutral",
+        "displayName": "Subtle",
+        "canonical": "#5f584f",
+        "tonalRamp": [
+          "oklch(15.0% 0.006 74.2)",
+          "oklch(26.4% 0.011 74.2)",
+          "oklch(37.9% 0.015 74.2)",
+          "oklch(49.3% 0.017 74.2)",
+          "oklch(60.7% 0.017 74.2)",
+          "oklch(72.1% 0.017 74.2)",
+          "oklch(83.6% 0.015 74.2)",
+          "oklch(95.0% 0.005 74.2)"
+        ]
+      },
+      "subtle-dark": {
+        "role": "neutral",
+        "displayName": "Subtle, Dark",
+        "canonical": "#b7aea2",
+        "tonalRamp": [
+          "oklch(15.0% 0.007 75.3)",
+          "oklch(26.4% 0.012 75.3)",
+          "oklch(37.9% 0.018 75.3)",
+          "oklch(49.3% 0.020 75.3)",
+          "oklch(60.7% 0.020 75.3)",
+          "oklch(72.1% 0.020 75.3)",
+          "oklch(83.6% 0.018 75.3)",
+          "oklch(95.0% 0.005 75.3)"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#e6dfd2",
+        "tonalRamp": [
+          "oklch(15.0% 0.007 83.1)",
+          "oklch(26.4% 0.012 83.1)",
+          "oklch(37.9% 0.017 83.1)",
+          "oklch(49.3% 0.019 83.1)",
+          "oklch(60.7% 0.019 83.1)",
+          "oklch(72.1% 0.019 83.1)",
+          "oklch(83.6% 0.017 83.1)",
+          "oklch(95.0% 0.005 83.1)"
+        ]
+      },
+      "line-dark": {
+        "role": "neutral",
+        "displayName": "Hairline, Dark",
+        "canonical": "#433c36",
+        "tonalRamp": [
+          "oklch(15.0% 0.005 63.0)",
+          "oklch(26.4% 0.009 63.0)",
+          "oklch(37.9% 0.013 63.0)",
+          "oklch(49.3% 0.014 63.0)",
+          "oklch(60.7% 0.014 63.0)",
+          "oklch(72.1% 0.014 63.0)",
+          "oklch(83.6% 0.013 63.0)",
+          "oklch(95.0% 0.004 63.0)"
+        ]
+      },
+      "field-line": {
+        "role": "neutral",
+        "displayName": "Field Line",
+        "canonical": "#6b6458",
+        "tonalRamp": [
+          "oklch(15.0% 0.007 81.3)",
+          "oklch(26.4% 0.013 81.3)",
+          "oklch(37.9% 0.018 81.3)",
+          "oklch(49.3% 0.020 81.3)",
+          "oklch(60.7% 0.020 81.3)",
+          "oklch(72.1% 0.020 81.3)",
+          "oklch(83.6% 0.019 81.3)",
+          "oklch(95.0% 0.006 81.3)"
+        ]
+      },
+      "field-line-dark": {
+        "role": "neutral",
+        "displayName": "Field Line, Dark",
+        "canonical": "#9a9084",
+        "tonalRamp": [
+          "oklch(15.0% 0.008 72.5)",
+          "oklch(26.4% 0.013 72.5)",
+          "oklch(37.9% 0.019 72.5)",
+          "oklch(49.3% 0.021 72.5)",
+          "oklch(60.7% 0.021 72.5)",
+          "oklch(72.1% 0.021 72.5)",
+          "oklch(83.6% 0.019 72.5)",
+          "oklch(95.0% 0.006 72.5)"
+        ]
+      },
+      "well": {
+        "role": "neutral",
+        "displayName": "Well",
+        "canonical": "#f3eee4",
+        "tonalRamp": [
+          "oklch(15.0% 0.005 84.6)",
+          "oklch(26.4% 0.009 84.6)",
+          "oklch(37.9% 0.013 84.6)",
+          "oklch(49.3% 0.014 84.6)",
+          "oklch(60.7% 0.014 84.6)",
+          "oklch(72.1% 0.014 84.6)",
+          "oklch(83.6% 0.013 84.6)",
+          "oklch(95.0% 0.004 84.6)"
+        ]
+      },
+      "well-dark": {
+        "role": "neutral",
+        "displayName": "Well, Dark",
+        "canonical": "#342e29",
+        "tonalRamp": [
+          "oklch(15.0% 0.004 62.2)",
+          "oklch(26.4% 0.008 62.2)",
+          "oklch(37.9% 0.011 62.2)",
+          "oklch(49.3% 0.012 62.2)",
+          "oklch(60.7% 0.012 62.2)",
+          "oklch(72.1% 0.012 62.2)",
+          "oklch(83.6% 0.011 62.2)",
+          "oklch(95.0% 0.003 62.2)"
+        ]
+      },
+      "track": {
+        "role": "neutral",
+        "displayName": "Track",
+        "canonical": "#e7e0d2",
+        "tonalRamp": [
+          "oklch(15.0% 0.007 84.6)",
+          "oklch(26.4% 0.013 84.6)",
+          "oklch(37.9% 0.018 84.6)",
+          "oklch(49.3% 0.020 84.6)",
+          "oklch(60.7% 0.020 84.6)",
+          "oklch(72.1% 0.020 84.6)",
+          "oklch(83.6% 0.018 84.6)",
+          "oklch(95.0% 0.006 84.6)"
+        ]
+      },
+      "track-dark": {
+        "role": "neutral",
+        "displayName": "Track, Dark",
+        "canonical": "#161311",
+        "tonalRamp": [
+          "oklch(15.0% 0.002 56.0)",
+          "oklch(26.4% 0.004 56.0)",
+          "oklch(37.9% 0.006 56.0)",
+          "oklch(49.3% 0.006 56.0)",
+          "oklch(60.7% 0.006 56.0)",
+          "oklch(72.1% 0.006 56.0)",
+          "oklch(83.6% 0.006 56.0)",
+          "oklch(95.0% 0.002 56.0)"
+        ]
+      },
+      "chip": {
+        "role": "neutral",
+        "displayName": "Chip",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "oklch(15.0% 0.000 0.0)",
+          "oklch(26.4% 0.000 0.0)",
+          "oklch(37.9% 0.000 0.0)",
+          "oklch(49.3% 0.000 0.0)",
+          "oklch(60.7% 0.000 0.0)",
+          "oklch(72.1% 0.000 0.0)",
+          "oklch(83.6% 0.000 0.0)",
+          "oklch(95.0% 0.000 0.0)"
+        ]
+      },
+      "chip-dark": {
+        "role": "neutral",
+        "displayName": "Chip, Dark",
+        "canonical": "#3a342c",
+        "tonalRamp": [
+          "oklch(15.0% 0.006 75.1)",
+          "oklch(26.4% 0.010 75.1)",
+          "oklch(37.9% 0.015 75.1)",
+          "oklch(49.3% 0.016 75.1)",
+          "oklch(60.7% 0.016 75.1)",
+          "oklch(72.1% 0.016 75.1)",
+          "oklch(83.6% 0.015 75.1)",
+          "oklch(95.0% 0.004 75.1)"
+        ]
+      },
+      "scroll-thumb": {
+        "role": "neutral",
+        "displayName": "Scroll Thumb",
+        "canonical": "#d4cbbd",
+        "tonalRamp": [
+          "oklch(15.0% 0.008 79.1)",
+          "oklch(26.4% 0.014 79.1)",
+          "oklch(37.9% 0.019 79.1)",
+          "oklch(49.3% 0.022 79.1)",
+          "oklch(60.7% 0.022 79.1)",
+          "oklch(72.1% 0.022 79.1)",
+          "oklch(83.6% 0.020 79.1)",
+          "oklch(95.0% 0.006 79.1)"
+        ]
+      },
+      "scroll-thumb-dark": {
+        "role": "neutral",
+        "displayName": "Scroll Thumb, Dark",
+        "canonical": "#433c36",
+        "tonalRamp": [
+          "oklch(15.0% 0.005 63.0)",
+          "oklch(26.4% 0.009 63.0)",
+          "oklch(37.9% 0.013 63.0)",
+          "oklch(49.3% 0.014 63.0)",
+          "oklch(60.7% 0.014 63.0)",
+          "oklch(72.1% 0.014 63.0)",
+          "oklch(83.6% 0.013 63.0)",
+          "oklch(95.0% 0.004 63.0)"
+        ]
+      },
+      "ok-soft": {
+        "role": "semantic",
+        "displayName": "Ok Wash",
+        "canonical": "#dcfce7",
+        "tonalRamp": [
+          "oklch(15.0% 0.015 156.7)",
+          "oklch(26.4% 0.027 156.7)",
+          "oklch(37.9% 0.039 156.7)",
+          "oklch(49.3% 0.043 156.7)",
+          "oklch(60.7% 0.043 156.7)",
+          "oklch(72.1% 0.043 156.7)",
+          "oklch(83.6% 0.040 156.7)",
+          "oklch(95.0% 0.012 156.7)"
+        ]
+      },
+      "ok-text": {
+        "role": "semantic",
+        "displayName": "Ok Text",
+        "canonical": "#166534",
+        "tonalRamp": [
+          "oklch(15.0% 0.039 151.3)",
+          "oklch(26.4% 0.068 151.3)",
+          "oklch(37.9% 0.098 151.3)",
+          "oklch(49.3% 0.108 151.3)",
+          "oklch(60.7% 0.108 151.3)",
+          "oklch(72.1% 0.108 151.3)",
+          "oklch(83.6% 0.099 151.3)",
+          "oklch(95.0% 0.030 151.3)"
+        ]
+      },
+      "ok-soft-dark": {
+        "role": "semantic",
+        "displayName": "Ok Wash, Dark",
+        "canonical": "#12372a",
+        "tonalRamp": [
+          "oklch(15.0% 0.017 167.1)",
+          "oklch(26.4% 0.031 167.1)",
+          "oklch(37.9% 0.044 167.1)",
+          "oklch(49.3% 0.049 167.1)",
+          "oklch(60.7% 0.049 167.1)",
+          "oklch(72.1% 0.049 167.1)",
+          "oklch(83.6% 0.044 167.1)",
+          "oklch(95.0% 0.014 167.1)"
+        ]
+      },
+      "ok-text-dark": {
+        "role": "semantic",
+        "displayName": "Ok Text, Dark",
+        "canonical": "#86efac",
+        "tonalRamp": [
+          "oklch(15.0% 0.049 154.4)",
+          "oklch(26.4% 0.086 154.4)",
+          "oklch(37.9% 0.123 154.4)",
+          "oklch(49.3% 0.136 154.4)",
+          "oklch(60.7% 0.136 154.4)",
+          "oklch(72.1% 0.136 154.4)",
+          "oklch(83.6% 0.124 154.4)",
+          "oklch(95.0% 0.038 154.4)"
+        ]
+      },
+      "warn-soft": {
+        "role": "semantic",
+        "displayName": "Warn Wash",
+        "canonical": "#fef3c7",
+        "tonalRamp": [
+          "oklch(15.0% 0.021 95.6)",
+          "oklch(26.4% 0.036 95.6)",
+          "oklch(37.9% 0.052 95.6)",
+          "oklch(49.3% 0.058 95.6)",
+          "oklch(60.7% 0.058 95.6)",
+          "oklch(72.1% 0.058 95.6)",
+          "oklch(83.6% 0.053 95.6)",
+          "oklch(95.0% 0.016 95.6)"
+        ]
+      },
+      "warn-softer": {
+        "role": "semantic",
+        "displayName": "Warn Lighter Wash",
+        "canonical": "#fffbeb",
+        "tonalRamp": [
+          "oklch(15.0% 0.008 95.3)",
+          "oklch(26.4% 0.013 95.3)",
+          "oklch(37.9% 0.019 95.3)",
+          "oklch(49.3% 0.021 95.3)",
+          "oklch(60.7% 0.021 95.3)",
+          "oklch(72.1% 0.021 95.3)",
+          "oklch(83.6% 0.020 95.3)",
+          "oklch(95.0% 0.006 95.3)"
+        ]
+      },
+      "warn-line": {
+        "role": "semantic",
+        "displayName": "Warn Line",
+        "canonical": "#f59e0b",
+        "tonalRamp": [
+          "oklch(15.0% 0.059 70.1)",
+          "oklch(26.4% 0.104 70.1)",
+          "oklch(37.9% 0.149 70.1)",
+          "oklch(49.3% 0.165 70.1)",
+          "oklch(60.7% 0.165 70.1)",
+          "oklch(72.1% 0.165 70.1)",
+          "oklch(83.6% 0.150 70.1)",
+          "oklch(95.0% 0.046 70.1)"
+        ]
+      },
+      "warn-text": {
+        "role": "semantic",
+        "displayName": "Warn Text",
+        "canonical": "#92400e",
+        "tonalRamp": [
+          "oklch(15.0% 0.045 46.2)",
+          "oklch(26.4% 0.078 46.2)",
+          "oklch(37.9% 0.113 46.2)",
+          "oklch(49.3% 0.125 46.2)",
+          "oklch(60.7% 0.125 46.2)",
+          "oklch(72.1% 0.125 46.2)",
+          "oklch(83.6% 0.114 46.2)",
+          "oklch(95.0% 0.035 46.2)"
+        ]
+      },
+      "warn-soft-dark": {
+        "role": "semantic",
+        "displayName": "Warn Wash, Dark",
+        "canonical": "#3b2f12",
+        "tonalRamp": [
+          "oklch(15.0% 0.017 86.9)",
+          "oklch(26.4% 0.030 86.9)",
+          "oklch(37.9% 0.043 86.9)",
+          "oklch(49.3% 0.047 86.9)",
+          "oklch(60.7% 0.047 86.9)",
+          "oklch(72.1% 0.047 86.9)",
+          "oklch(83.6% 0.043 86.9)",
+          "oklch(95.0% 0.013 86.9)"
+        ]
+      },
+      "warn-softer-dark": {
+        "role": "semantic",
+        "displayName": "Warn Lighter Wash, Dark",
+        "canonical": "#30270f",
+        "tonalRamp": [
+          "oklch(15.0% 0.014 89.1)",
+          "oklch(26.4% 0.025 89.1)",
+          "oklch(37.9% 0.036 89.1)",
+          "oklch(49.3% 0.040 89.1)",
+          "oklch(60.7% 0.040 89.1)",
+          "oklch(72.1% 0.040 89.1)",
+          "oklch(83.6% 0.037 89.1)",
+          "oklch(95.0% 0.011 89.1)"
+        ]
+      },
+      "warn-line-dark": {
+        "role": "semantic",
+        "displayName": "Warn Line, Dark",
+        "canonical": "#b7861f",
+        "tonalRamp": [
+          "oklch(15.0% 0.045 80.4)",
+          "oklch(26.4% 0.079 80.4)",
+          "oklch(37.9% 0.113 80.4)",
+          "oklch(49.3% 0.126 80.4)",
+          "oklch(60.7% 0.126 80.4)",
+          "oklch(72.1% 0.126 80.4)",
+          "oklch(83.6% 0.114 80.4)",
+          "oklch(95.0% 0.035 80.4)"
+        ]
+      },
+      "warn-text-dark": {
+        "role": "semantic",
+        "displayName": "Warn Text, Dark",
+        "canonical": "#fcd34d",
+        "tonalRamp": [
+          "oklch(15.0% 0.055 91.6)",
+          "oklch(26.4% 0.096 91.6)",
+          "oklch(37.9% 0.138 91.6)",
+          "oklch(49.3% 0.153 91.6)",
+          "oklch(60.7% 0.153 91.6)",
+          "oklch(72.1% 0.153 91.6)",
+          "oklch(83.6% 0.140 91.6)",
+          "oklch(95.0% 0.043 91.6)"
+        ]
+      },
+      "danger-soft": {
+        "role": "semantic",
+        "displayName": "Danger Wash",
+        "canonical": "#ffe4e6",
+        "tonalRamp": [
+          "oklch(15.0% 0.011 12.6)",
+          "oklch(26.4% 0.019 12.6)",
+          "oklch(37.9% 0.027 12.6)",
+          "oklch(49.3% 0.030 12.6)",
+          "oklch(60.7% 0.030 12.6)",
+          "oklch(72.1% 0.030 12.6)",
+          "oklch(83.6% 0.027 12.6)",
+          "oklch(95.0% 0.008 12.6)"
+        ]
+      },
+      "danger-softer": {
+        "role": "semantic",
+        "displayName": "Danger Hover Wash",
+        "canonical": "#fff1f2",
+        "tonalRamp": [
+          "oklch(15.0% 0.005 12.4)",
+          "oklch(26.4% 0.010 12.4)",
+          "oklch(37.9% 0.014 12.4)",
+          "oklch(49.3% 0.015 12.4)",
+          "oklch(60.7% 0.015 12.4)",
+          "oklch(72.1% 0.015 12.4)",
+          "oklch(83.6% 0.014 12.4)",
+          "oklch(95.0% 0.004 12.4)"
+        ]
+      },
+      "danger-line": {
+        "role": "semantic",
+        "displayName": "Danger Line",
+        "canonical": "#fda4af",
+        "tonalRamp": [
+          "oklch(15.0% 0.038 11.6)",
+          "oklch(26.4% 0.067 11.6)",
+          "oklch(37.9% 0.096 11.6)",
+          "oklch(49.3% 0.106 11.6)",
+          "oklch(60.7% 0.106 11.6)",
+          "oklch(72.1% 0.106 11.6)",
+          "oklch(83.6% 0.097 11.6)",
+          "oklch(95.0% 0.029 11.6)"
+        ]
+      },
+      "danger-text": {
+        "role": "semantic",
+        "displayName": "Danger Text",
+        "canonical": "#9f1239",
+        "tonalRamp": [
+          "oklch(15.0% 0.061 13.7)",
+          "oklch(26.4% 0.108 13.7)",
+          "oklch(37.9% 0.155 13.7)",
+          "oklch(49.3% 0.171 13.7)",
+          "oklch(60.7% 0.171 13.7)",
+          "oklch(72.1% 0.171 13.7)",
+          "oklch(83.6% 0.156 13.7)",
+          "oklch(95.0% 0.048 13.7)"
+        ]
+      },
+      "danger-soft-dark": {
+        "role": "semantic",
+        "displayName": "Danger Wash, Dark",
+        "canonical": "#4a1d2a",
+        "tonalRamp": [
+          "oklch(15.0% 0.025 4.1)",
+          "oklch(26.4% 0.044 4.1)",
+          "oklch(37.9% 0.063 4.1)",
+          "oklch(49.3% 0.070 4.1)",
+          "oklch(60.7% 0.070 4.1)",
+          "oklch(72.1% 0.070 4.1)",
+          "oklch(83.6% 0.064 4.1)",
+          "oklch(95.0% 0.019 4.1)"
+        ]
+      },
+      "danger-softer-dark": {
+        "role": "semantic",
+        "displayName": "Danger Hover Wash, Dark",
+        "canonical": "#3a1820",
+        "tonalRamp": [
+          "oklch(15.0% 0.019 6.7)",
+          "oklch(26.4% 0.034 6.7)",
+          "oklch(37.9% 0.049 6.7)",
+          "oklch(49.3% 0.055 6.7)",
+          "oklch(60.7% 0.055 6.7)",
+          "oklch(72.1% 0.055 6.7)",
+          "oklch(83.6% 0.050 6.7)",
+          "oklch(95.0% 0.015 6.7)"
+        ]
+      },
+      "danger-line-dark": {
+        "role": "semantic",
+        "displayName": "Danger Line, Dark",
+        "canonical": "#be4a5e",
+        "tonalRamp": [
+          "oklch(15.0% 0.053 12.8)",
+          "oklch(26.4% 0.094 12.8)",
+          "oklch(37.9% 0.135 12.8)",
+          "oklch(49.3% 0.150 12.8)",
+          "oklch(60.7% 0.150 12.8)",
+          "oklch(72.1% 0.150 12.8)",
+          "oklch(83.6% 0.136 12.8)",
+          "oklch(95.0% 0.042 12.8)"
+        ]
+      },
+      "danger-text-dark": {
+        "role": "semantic",
+        "displayName": "Danger Text, Dark",
+        "canonical": "#fda4af",
+        "tonalRamp": [
+          "oklch(15.0% 0.038 11.6)",
+          "oklch(26.4% 0.067 11.6)",
+          "oklch(37.9% 0.096 11.6)",
+          "oklch(49.3% 0.106 11.6)",
+          "oklch(60.7% 0.106 11.6)",
+          "oklch(72.1% 0.106 11.6)",
+          "oklch(83.6% 0.097 11.6)",
+          "oklch(95.0% 0.029 11.6)"
+        ]
+      },
+      "shift-morning": {
+        "role": "data",
+        "displayName": "Morning Dot",
+        "canonical": "#d97706",
+        "tonalRamp": [
+          "oklch(15.0% 0.056 58.3)",
+          "oklch(26.4% 0.099 58.3)",
+          "oklch(37.9% 0.142 58.3)",
+          "oklch(49.3% 0.157 58.3)",
+          "oklch(60.7% 0.157 58.3)",
+          "oklch(72.1% 0.157 58.3)",
+          "oklch(83.6% 0.143 58.3)",
+          "oklch(95.0% 0.044 58.3)"
+        ]
+      },
+      "shift-afternoon": {
+        "role": "data",
+        "displayName": "Afternoon Dot",
+        "canonical": "#2563eb",
+        "tonalRamp": [
+          "oklch(15.0% 0.077 262.9)",
+          "oklch(26.4% 0.135 262.9)",
+          "oklch(37.9% 0.194 262.9)",
+          "oklch(49.3% 0.215 262.9)",
+          "oklch(60.7% 0.215 262.9)",
+          "oklch(72.1% 0.215 262.9)",
+          "oklch(83.6% 0.196 262.9)",
+          "oklch(95.0% 0.060 262.9)"
+        ]
+      },
+      "shift-night": {
+        "role": "data",
+        "displayName": "Night Dot",
+        "canonical": "#7c3aed",
+        "tonalRamp": [
+          "oklch(15.0% 0.088 293.0)",
+          "oklch(26.4% 0.155 293.0)",
+          "oklch(37.9% 0.223 293.0)",
+          "oklch(49.3% 0.247 293.0)",
+          "oklch(60.7% 0.247 293.0)",
+          "oklch(72.1% 0.247 293.0)",
+          "oklch(83.6% 0.225 293.0)",
+          "oklch(95.0% 0.068 293.0)"
+        ]
+      },
+      "shift-morning-dark": {
+        "role": "data",
+        "displayName": "Morning Dot, Dark",
+        "canonical": "#f59e0b",
+        "tonalRamp": [
+          "oklch(15.0% 0.059 70.1)",
+          "oklch(26.4% 0.104 70.1)",
+          "oklch(37.9% 0.149 70.1)",
+          "oklch(49.3% 0.165 70.1)",
+          "oklch(60.7% 0.165 70.1)",
+          "oklch(72.1% 0.165 70.1)",
+          "oklch(83.6% 0.150 70.1)",
+          "oklch(95.0% 0.046 70.1)"
+        ]
+      },
+      "shift-afternoon-dark": {
+        "role": "data",
+        "displayName": "Afternoon Dot, Dark",
+        "canonical": "#60a5fa",
+        "tonalRamp": [
+          "oklch(15.0% 0.051 254.6)",
+          "oklch(26.4% 0.090 254.6)",
+          "oklch(37.9% 0.129 254.6)",
+          "oklch(49.3% 0.143 254.6)",
+          "oklch(60.7% 0.143 254.6)",
+          "oklch(72.1% 0.143 254.6)",
+          "oklch(83.6% 0.131 254.6)",
+          "oklch(95.0% 0.040 254.6)"
+        ]
+      },
+      "shift-night-dark": {
+        "role": "data",
+        "displayName": "Night Dot, Dark",
+        "canonical": "#a78bfa",
+        "tonalRamp": [
+          "oklch(15.0% 0.057 293.5)",
+          "oklch(26.4% 0.100 293.5)",
+          "oklch(37.9% 0.144 293.5)",
+          "oklch(49.3% 0.159 293.5)",
+          "oklch(60.7% 0.159 293.5)",
+          "oklch(72.1% 0.159 293.5)",
+          "oklch(83.6% 0.145 293.5)",
+          "oklch(95.0% 0.044 293.5)"
+        ]
+      },
+      "slot-morning": {
+        "role": "data",
+        "displayName": "Morning Cell",
+        "canonical": "#fff7e8",
+        "tonalRamp": [
+          "oklch(15.0% 0.008 83.3)",
+          "oklch(26.4% 0.014 83.3)",
+          "oklch(37.9% 0.019 83.3)",
+          "oklch(49.3% 0.022 83.3)",
+          "oklch(60.7% 0.022 83.3)",
+          "oklch(72.1% 0.022 83.3)",
+          "oklch(83.6% 0.020 83.3)",
+          "oklch(95.0% 0.006 83.3)"
+        ]
+      },
+      "slot-afternoon": {
+        "role": "data",
+        "displayName": "Afternoon Cell",
+        "canonical": "#ebf3ff",
+        "tonalRamp": [
+          "oklch(15.0% 0.007 258.4)",
+          "oklch(26.4% 0.011 258.4)",
+          "oklch(37.9% 0.016 258.4)",
+          "oklch(49.3% 0.018 258.4)",
+          "oklch(60.7% 0.018 258.4)",
+          "oklch(72.1% 0.018 258.4)",
+          "oklch(83.6% 0.017 258.4)",
+          "oklch(95.0% 0.005 258.4)"
+        ]
+      },
+      "slot-night": {
+        "role": "data",
+        "displayName": "Night Cell",
+        "canonical": "#f2eeff",
+        "tonalRamp": [
+          "oklch(15.0% 0.008 296.7)",
+          "oklch(26.4% 0.014 296.7)",
+          "oklch(37.9% 0.021 296.7)",
+          "oklch(49.3% 0.023 296.7)",
+          "oklch(60.7% 0.023 296.7)",
+          "oklch(72.1% 0.023 296.7)",
+          "oklch(83.6% 0.021 296.7)",
+          "oklch(95.0% 0.006 296.7)"
+        ]
+      },
+      "slot-morning-dark": {
+        "role": "data",
+        "displayName": "Morning Cell, Dark",
+        "canonical": "#3a3428",
+        "tonalRamp": [
+          "oklch(15.0% 0.008 84.5)",
+          "oklch(26.4% 0.014 84.5)",
+          "oklch(37.9% 0.020 84.5)",
+          "oklch(49.3% 0.022 84.5)",
+          "oklch(60.7% 0.022 84.5)",
+          "oklch(72.1% 0.022 84.5)",
+          "oklch(83.6% 0.020 84.5)",
+          "oklch(95.0% 0.006 84.5)"
+        ]
+      },
+      "slot-afternoon-dark": {
+        "role": "data",
+        "displayName": "Afternoon Cell, Dark",
+        "canonical": "#243044",
+        "tonalRamp": [
+          "oklch(15.0% 0.014 260.4)",
+          "oklch(26.4% 0.025 260.4)",
+          "oklch(37.9% 0.036 260.4)",
+          "oklch(49.3% 0.040 260.4)",
+          "oklch(60.7% 0.040 260.4)",
+          "oklch(72.1% 0.040 260.4)",
+          "oklch(83.6% 0.036 260.4)",
+          "oklch(95.0% 0.011 260.4)"
+        ]
+      },
+      "slot-night-dark": {
+        "role": "data",
+        "displayName": "Night Cell, Dark",
+        "canonical": "#322e46",
+        "tonalRamp": [
+          "oklch(15.0% 0.015 291.4)",
+          "oklch(26.4% 0.027 291.4)",
+          "oklch(37.9% 0.038 291.4)",
+          "oklch(49.3% 0.043 291.4)",
+          "oklch(60.7% 0.043 291.4)",
+          "oklch(72.1% 0.043 291.4)",
+          "oklch(83.6% 0.039 291.4)",
+          "oklch(95.0% 0.012 291.4)"
+        ]
+      },
+      "violet-soft": {
+        "role": "data",
+        "displayName": "Suggestion Wash",
+        "canonical": "#ede9fe",
+        "tonalRamp": [
+          "oklch(15.0% 0.010 294.6)",
+          "oklch(26.4% 0.018 294.6)",
+          "oklch(37.9% 0.026 294.6)",
+          "oklch(49.3% 0.028 294.6)",
+          "oklch(60.7% 0.028 294.6)",
+          "oklch(72.1% 0.028 294.6)",
+          "oklch(83.6% 0.026 294.6)",
+          "oklch(95.0% 0.008 294.6)"
+        ]
+      },
+      "violet-text": {
+        "role": "data",
+        "displayName": "Suggestion Text",
+        "canonical": "#5b21b6",
+        "tonalRamp": [
+          "oklch(15.0% 0.075 292.8)",
+          "oklch(26.4% 0.132 292.8)",
+          "oklch(37.9% 0.190 292.8)",
+          "oklch(49.3% 0.211 292.8)",
+          "oklch(60.7% 0.211 292.8)",
+          "oklch(72.1% 0.211 292.8)",
+          "oklch(83.6% 0.192 292.8)",
+          "oklch(95.0% 0.058 292.8)"
+        ]
+      },
+      "violet-soft-dark": {
+        "role": "data",
+        "displayName": "Suggestion Wash, Dark",
+        "canonical": "#2e2650",
+        "tonalRamp": [
+          "oklch(15.0% 0.026 290.0)",
+          "oklch(26.4% 0.047 290.0)",
+          "oklch(37.9% 0.067 290.0)",
+          "oklch(49.3% 0.074 290.0)",
+          "oklch(60.7% 0.074 290.0)",
+          "oklch(72.1% 0.074 290.0)",
+          "oklch(83.6% 0.067 290.0)",
+          "oklch(95.0% 0.021 290.0)"
+        ]
+      },
+      "violet-text-dark": {
+        "role": "data",
+        "displayName": "Suggestion Text, Dark",
+        "canonical": "#c4b5fd",
+        "tonalRamp": [
+          "oklch(15.0% 0.036 293.6)",
+          "oklch(26.4% 0.064 293.6)",
+          "oklch(37.9% 0.091 293.6)",
+          "oklch(49.3% 0.101 293.6)",
+          "oklch(60.7% 0.101 293.6)",
+          "oklch(72.1% 0.101 293.6)",
+          "oklch(83.6% 0.092 293.6)",
+          "oklch(95.0% 0.028 293.6)"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "display": {
+        "displayName": "Display",
+        "purpose": "The attendance clock only. Tabular numerals, tight tracking. Open shifts use brand text."
+      },
+      "headline": {
+        "displayName": "Headline",
+        "purpose": "Short screen titles such as sign-in and signup."
+      },
+      "title": {
+        "displayName": "Title",
+        "purpose": "Card titles. The week control date is the same tight semibold at 15px."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "The page default. Card copy and hints use 0.875rem with a 1.5rem line."
+      },
+      "label": {
+        "displayName": "Label",
+        "purpose": "Buttons, fields, tabs, and form labels. Day names step down to 0.75rem."
+      }
+    },
+    "shadows": [
+      {
+        "name": "card",
+        "value": "0 1px 2px rgb(28 25 23 / 0.05), 0 8px 16px -10px rgb(28 25 23 / 0.18)",
+        "purpose": "Cards, primary and quiet buttons, the selected tab, the week board, and person chips, at rest. Dark theme: 0 1px 2px rgb(0 0 0 / 0.35), 0 8px 16px -10px rgb(0 0 0 / 0.45)."
+      },
+      {
+        "name": "pop",
+        "value": "0 10px 28px -8px rgb(28 25 23 / 0.28)",
+        "purpose": "Menus, the date picker, settings, and the sign-in card. Dark theme: 0 12px 28px -8px rgb(0 0 0 / 0.55)."
+      }
+    ],
+    "motion": [
+      {
+        "name": "press",
+        "value": "140ms cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "Color, background, border, shadow, opacity, and transform on buttons, links, fields, selects, and tabs. A press scales to 0.97. Reduced motion drops the scale and keeps the color change."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "sm",
+        "value": "640px"
+      },
+      {
+        "name": "lg",
+        "value": "1024px"
+      },
+      {
+        "name": "content",
+        "value": "1440px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The brand action: save, publish, and the attendance punch. The punch uses the same colors at 48px tall.",
+      "html": "<button class=\"ds-btn-primary ds-press\" type=\"button\">Publish week</button>",
+      "css": ".ds-btn-primary{display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 16px;border:0;border-radius:8px;background:var(--brand,#2b5bff);color:var(--on-brand,#ffffff);font-family:Heebo, \"Avenir Next\", \"Segoe UI\", sans-serif;font-size:.875rem;font-weight:500;line-height:1.25rem;box-shadow:0 1px 2px rgb(28 25 23 / 0.05), 0 8px 16px -10px rgb(28 25 23 / 0.18);cursor:pointer;transition:background-color 140ms cubic-bezier(0.23, 1, 0.32, 1),transform 140ms cubic-bezier(0.23, 1, 0.32, 1)}.ds-btn-primary:hover{background:var(--brand-hover,#214fe0)}.ds-btn-primary:focus-visible{outline:2px solid var(--focus,#2b5bff);outline-offset:2px}.ds-btn-primary:active{transform:scale(.97)}@media (prefers-reduced-motion: reduce) { .ds-press:active { transform: none; } }"
+    },
+    {
+      "name": "Quiet Button",
+      "kind": "button",
+      "refersTo": "button-quiet",
+      "description": "The ordinary button on the bar and in the work area: card fill, hairline, ink.",
+      "html": "<button class=\"ds-btn-quiet ds-press\" type=\"button\">This week</button>",
+      "css": ".ds-btn-quiet{display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 16px;border:1px solid var(--line,#e6dfd2);border-radius:8px;background:var(--card,#fffdf8);color:var(--ink,#1c1917);font-family:Heebo, \"Avenir Next\", \"Segoe UI\", sans-serif;font-size:.875rem;font-weight:500;line-height:1.25rem;box-shadow:0 1px 2px rgb(28 25 23 / 0.05), 0 8px 16px -10px rgb(28 25 23 / 0.18);cursor:pointer;transition:background-color 140ms cubic-bezier(0.23, 1, 0.32, 1),border-color 140ms cubic-bezier(0.23, 1, 0.32, 1),transform 140ms cubic-bezier(0.23, 1, 0.32, 1)}.ds-btn-quiet:hover{background:var(--well,#f3eee4);border-color:var(--field-line,#6b6458)}.ds-btn-quiet:focus-visible{outline:2px solid var(--focus,#2b5bff);outline-offset:2px}.ds-btn-quiet:active{transform:scale(.97)}@media (prefers-reduced-motion: reduce) { .ds-press:active { transform: none; } }"
+    },
+    {
+      "name": "Danger Button",
+      "kind": "button",
+      "refersTo": "button-danger",
+      "description": "A destructive action. Card fill, danger text, danger line.",
+      "html": "<button class=\"ds-btn-danger ds-press\" type=\"button\">Remove</button>",
+      "css": ".ds-btn-danger{display:inline-flex;align-items:center;justify-content:center;height:36px;padding:0 16px;border:1px solid var(--danger-line,#fda4af);border-radius:8px;background:var(--card,#fffdf8);color:var(--danger-text,#9f1239);font-family:Heebo, \"Avenir Next\", \"Segoe UI\", sans-serif;font-size:.875rem;font-weight:500;line-height:1.25rem;cursor:pointer;transition:background-color 140ms cubic-bezier(0.23, 1, 0.32, 1),transform 140ms cubic-bezier(0.23, 1, 0.32, 1)}.ds-btn-danger:hover{background:var(--danger-softer,#fff1f2)}.ds-btn-danger:focus-visible{outline:2px solid var(--focus,#2b5bff);outline-offset:2px}.ds-btn-danger:active{transform:scale(.97)}@media (prefers-reduced-motion: reduce) { .ds-press:active { transform: none; } }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "The standard field and the select. Card fill, field line, 40px tall.",
+      "html": "<input class=\"ds-field\" type=\"text\" placeholder=\"Site name\" />",
+      "css": ".ds-field{height:40px;width:240px;border-radius:8px;border:1px solid var(--field-line,#6b6458);background:var(--card,#fffdf8);color:var(--ink,#1c1917);padding:0 12px;font-family:Heebo, \"Avenir Next\", \"Segoe UI\", sans-serif;font-size:.875rem;font-weight:400;transition:border-color 140ms cubic-bezier(0.23, 1, 0.32, 1),background-color 140ms cubic-bezier(0.23, 1, 0.32, 1)}.ds-field::placeholder{color:var(--subtle,#5f584f)}.ds-field:hover{border-color:var(--muted,#57534e)}.ds-field:focus-visible{outline:2px solid var(--focus,#2b5bff);outline-offset:0;border-color:var(--focus,#2b5bff)}"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "A cream card on warm paper, hairline border, soft card shadow.",
+      "html": "<article class=\"ds-card\"><h2>This week</h2><p>Seven columns. Today is the one in brand ink.</p></article>",
+      "css": ".ds-card{max-width:360px;background:var(--card,#fffdf8);color:var(--ink,#1c1917);border:1px solid var(--line,#e6dfd2);border-radius:8px;padding:16px;box-shadow:0 1px 2px rgb(28 25 23 / 0.05), 0 8px 16px -10px rgb(28 25 23 / 0.18);font-family:Heebo, \"Avenir Next\", \"Segoe UI\", sans-serif}.ds-card h2{margin:0;font-size:1rem;font-weight:600;letter-spacing:-.025em;line-height:1.5}.ds-card p{margin:4px 0 0;font-size:.875rem;line-height:1.5rem;font-weight:400;color:var(--muted,#57534e)}"
+    },
+    {
+      "name": "Shell",
+      "kind": "nav",
+      "refersTo": "tab-selected",
+      "description": "A solid brand bar with the wordmark chip, then a paper band and a standard tab track.",
+      "html": "<div class=\"ds-chrome\"><div class=\"ds-bar\"><span class=\"ds-logo-plate\">Rota</span></div><div class=\"ds-tabbar\"><div class=\"ds-tabs\" role=\"tablist\"><button class=\"ds-tab ds-tab-on ds-press\" type=\"button\">Schedule</button><button class=\"ds-tab ds-press\" type=\"button\">Team</button></div></div></div>",
+      "css": ".ds-chrome{width:100%;max-width:640px;font-family:Heebo, \"Avenir Next\", \"Segoe UI\", sans-serif}.ds-bar{display:flex;align-items:center;background:var(--brand,#2b5bff);padding:10px 16px}.ds-logo-plate{display:inline-flex;align-items:center;height:32px;padding:4px 8px;border-radius:6px;background:var(--card,#fffdf8);color:var(--ink,#1c1917);font-weight:700;font-size:1rem;letter-spacing:-.02em}.ds-tabbar{background:color-mix(in srgb,var(--page,#f4f0e6) 85%,transparent);border-bottom:1px solid var(--line,#e6dfd2);padding:8px 16px}.ds-tabs{display:inline-flex;gap:4px;padding:4px;border:1px solid var(--line,#e6dfd2);border-radius:8px;background:var(--track,#e7e0d2)}.ds-tab{min-height:36px;border:0;border-radius:8px;padding:8px 12px;background:transparent;color:var(--muted,#57534e);font-family:inherit;font-size:.875rem;font-weight:500;line-height:1.25rem;cursor:pointer;transition:background-color 140ms cubic-bezier(0.23, 1, 0.32, 1),color 140ms cubic-bezier(0.23, 1, 0.32, 1),transform 140ms cubic-bezier(0.23, 1, 0.32, 1)}.ds-tab:hover{background:color-mix(in srgb,var(--card,#fffdf8) 50%,transparent);color:var(--ink,#1c1917)}.ds-tab-on,.ds-tab-on:hover{background:var(--card,#fffdf8);color:var(--ink,#1c1917);font-weight:600;box-shadow:0 1px 2px rgb(28 25 23 / 0.05), 0 8px 16px -10px rgb(28 25 23 / 0.18)}.ds-tab:focus-visible{outline:2px solid var(--focus,#2b5bff);outline-offset:2px}.ds-tab:active{transform:scale(.97)}@media (prefers-reduced-motion: reduce) { .ds-press:active { transform: none; } }"
+    },
+    {
+      "name": "Logo Plate",
+      "kind": "custom",
+      "refersTo": "logo-plate",
+      "description": "The paper chip that holds the existing wordmark on the brand bar. The specimen word stands in for the light and dark logo files.",
+      "html": "<span class=\"ds-plate\">Rota</span>",
+      "css": ".ds-plate{display:inline-flex;align-items:center;height:32px;padding:4px 8px;border-radius:6px;background:var(--card,#fffdf8);color:var(--ink,#1c1917);font-family:Heebo, \"Avenir Next\", \"Segoe UI\", sans-serif;font-weight:700;font-size:1rem;letter-spacing:-.02em}"
+    },
+    {
+      "name": "Week Columns",
+      "kind": "custom",
+      "description": "Today is the only weekday in brand ink, with a brand tick. Other days keep ink and a field-line tick.",
+      "html": "<div class=\"ds-days\"><div class=\"ds-day\"><span>Mon</span><span class=\"ds-day-date\">26</span><span class=\"ds-day-tick\"></span></div><div class=\"ds-day ds-day-today\"><span>Tue</span><span class=\"ds-day-date\">27</span><span class=\"ds-day-tick\"></span></div><div class=\"ds-day\"><span>Wed</span><span class=\"ds-day-date\">28</span><span class=\"ds-day-tick\"></span></div></div>",
+      "css": ".ds-days{display:flex;gap:8px;font-family:Heebo, \"Avenir Next\", \"Segoe UI\", sans-serif}.ds-day{width:4.5rem;text-align:center;color:var(--ink,#1c1917);font-size:.75rem;font-weight:600}.ds-day-date{display:block;margin-top:2px;font-size:11px;font-weight:400;color:var(--subtle,#5f584f);font-variant-numeric:tabular-nums}.ds-day-tick{display:block;width:32px;height:1px;margin:4px auto 0;background:var(--field-line,#6b6458)}.ds-day-today,.ds-day-today .ds-day-date{color:var(--brand-text,#1438c9)}.ds-day-today .ds-day-tick{background:var(--brand,#2b5bff)}"
+    },
+    {
+      "name": "Attendance Clock",
+      "kind": "custom",
+      "description": "The employee clock. Open uses brand text. Closed stays ink. Both stay left to right and tabular.",
+      "html": "<div class=\"ds-clocks\"><p class=\"ds-clock\">09:41:06</p><p class=\"ds-clock ds-clock-open\">14:32:08</p></div>",
+      "css": ".ds-clocks{display:flex;flex-direction:column;gap:8px;font-family:Heebo, \"Avenir Next\", \"Segoe UI\", sans-serif}.ds-clock{margin:0;font-size:3.75rem;font-weight:600;line-height:1;letter-spacing:-.04em;font-variant-numeric:tabular-nums;color:var(--ink,#1c1917);direction:ltr}.ds-clock-open{color:var(--brand-text,#1438c9)}"
+    },
+    {
+      "name": "Person Chip",
+      "kind": "chip",
+      "description": "An assigned person on a shift cell. Chip fill, hairline, 6px corner, card shadow.",
+      "html": "<span class=\"ds-person\">Staff</span>",
+      "css": ".ds-person{display:inline-flex;align-items:center;border:1px solid var(--line,#e6dfd2);border-radius:6px;background:var(--chip,#ffffff);color:var(--ink,#1c1917);padding:2px 6px;font-family:Heebo, \"Avenir Next\", \"Segoe UI\", sans-serif;font-size:.75rem;font-weight:500;box-shadow:0 1px 2px rgb(28 25 23 / 0.05), 0 8px 16px -10px rgb(28 25 23 / 0.18);transition:border-color 140ms cubic-bezier(0.23, 1, 0.32, 1)}.ds-person:hover{border-color:var(--field-line,#6b6458)}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Paper Week",
+    "overview": "Rota reads as a warm paper week. The page is a light sheet, cards are a slightly brighter cream, and the type is near-black. Heebo carries Hebrew and Latin, so both languages share one size, weight, and color. A solid brand bar holds the existing wordmark on a paper chip and the site control. Under the bar, a standard tab strip sits on the paper. The week itself is a row of seven columns.\n\nToday is the only column drawn in brand ink, with a brand tick under the day name. The other days keep ordinary ink and a hairline tick. On the employee home the clock is the large figure, and an open shift turns that clock to brand text. Morning, afternoon, and night keep their own colors. Controls stay ordinary buttons, tabs, fields, selects, and tables. A press scales to 0.97 and eases out. The same chrome means the same thing for an owner, a manager, and an employee.\n\nThe dark theme turns the page to the near-black of light-theme ink, lifts cards one warm step, and sets type in a warm off-white. Brand blue stays the same blue. Brand text lightens so today and an open clock stay readable on the night card. The confirmed rejection is a grey page with a single blue button: the bar is brand, and the page stays paper.",
+    "keyCharacteristics": [
+      "Warm paper page, cream cards, and near-black ink, with a dark theme that swaps those roles",
+      "A solid brand bar, and the existing wordmark on a paper chip",
+      "Today's weekday column, and an open attendance clock, are the brand-ink signatures",
+      "Morning, afternoon, and night stay data colors",
+      "Standard buttons, tabs, fields, selects, and tables, with an 8px corner and a 0.97 press"
+    ],
+    "rules": [
+      {
+        "name": "The Today Column Rule",
+        "body": "Only the current weekday column is set in brand ink, with a brand tick under the name. Every other day keeps ordinary ink and a 1px field-line tick.",
+        "section": "colors"
+      },
+      {
+        "name": "The Open Clock Rule",
+        "body": "An open attendance clock is set in brand text. A closed clock stays in ink.",
+        "section": "colors"
+      },
+      {
+        "name": "The Data Color Rule",
+        "body": "Morning, afternoon, and night keep their shift dot and slot fill. Brand blue is not a shift color.",
+        "section": "colors"
+      },
+      {
+        "name": "The One Face Rule",
+        "body": "Heebo sets Hebrew and Latin at the same sizes and weights. Clock times and shift hours use tabular numerals.",
+        "section": "typography"
+      },
+      {
+        "name": "The Shared Measure Rule",
+        "body": "The shell, the tab strip, and the work area share one centered measure, 1440px, with 16px of side padding that becomes 24px from the small breakpoint.",
+        "section": "layout"
+      },
+      {
+        "name": "The Clock Direction Rule",
+        "body": "Clock times, shift hours, and time fields stay left to right on a Hebrew page, so the digits do not mirror.",
+        "section": "layout"
+      },
+      {
+        "name": "The Soft Shadow Rule",
+        "body": "Depth is a warm tonal step plus a soft downward shadow. Shadows are blurred and ink-tinted in light, black and heavier in dark.",
+        "section": "elevation"
+      },
+      {
+        "name": "The Eight-Pixel Rule",
+        "body": "Buttons, fields, cards, tabs, and the week board use an 8px corner. Status chips are pills. The wordmark chip is the tighter 6px corner.",
+        "section": "shapes"
+      },
+      {
+        "name": "The Paper Chip Rule",
+        "body": "The shell is a solid brand bar. The wordmark sits on a card-colored chip so the mark stays whole.",
+        "section": "components"
+      },
+      {
+        "name": "The Press Rule",
+        "body": "A pressed control scales to 0.97 and eases with cubic-bezier(0.23, 1, 0.32, 1) over 140ms. Reduced motion drops the scale and keeps the color change.",
+        "section": "components"
+      }
+    ],
+    "dos": [
+      "Do keep the shell a solid brand bar and set the existing wordmark on a card-colored chip.",
+      "Do mark only today's weekday column in brand text, with a brand tick, and give every other day a 1px field-line tick.",
+      "Do set an open attendance clock in brand text and a closed clock in ink.",
+      "Do set Hebrew and Latin in Heebo, and set clock times and shift hours in tabular numerals that stay left to right.",
+      "Do use the 8px corner on buttons, fields, cards, tabs, and the week board, and the soft card and pop shadows.",
+      "Do scale a press to 0.97 over 140ms with cubic-bezier(0.23, 1, 0.32, 1), and drop only the scale when motion is reduced.",
+      "Do keep morning, afternoon, and night on their shift dot and slot fill."
+    ],
+    "donts": [
+      "Don't make the page a neutral grey with brand blue used only on one button.",
+      "Don't color a morning, afternoon, or night shift with brand blue.",
+      "Don't redraw the wordmark. The existing mark sits on the paper chip.",
+      "Don't set every weekday column in brand ink.",
+      "Don't use a hard, unblurred offset shadow. Shadows stay the soft card and pop shadows.",
+      "Don't scale a press when the user prefers reduced motion."
+    ]
+  }
+}

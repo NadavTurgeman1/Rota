@@ -198,6 +198,16 @@ export interface Copy {
   createAccount: string;
   goToSignup: string;
   goToLogin: string;
+  forgotPassword: string;
+  forgotHint: string;
+  forgotSend: string;
+  forgotSent: string;
+  forgotFailed: string;
+  backToSignIn: string;
+  newPasswordTitle: string;
+  newPasswordHint: string;
+  savePassword: string;
+  newPasswordFailed: string;
   signupTitle: string;
   signupHint: string;
   passwordTooShort: string;
@@ -548,8 +558,8 @@ export const copy: Record<Lang, Copy> = {
     addShift: "הוספת משמרת",
     deleteShift: "מחיקה",
     newShift: "משמרת חדשה",
-    signInTitle: "כניסה ל-Rota",
-    signInHint: "כניסה לניהול הסידור, הצוות והאתרים.",
+    signInTitle: "היי!",
+    signInHint: "נפגשנו כבר?",
     email: "אימייל",
     password: "סיסמה",
     signIn: "כניסה",
@@ -557,8 +567,18 @@ export const copy: Record<Lang, Copy> = {
     signInFailed: "האימייל או הסיסמה לא נכונים.",
     demoAccounts: "חשבון הדמו",
     createAccount: "יצירת חשבון",
-    goToSignup: "אין חשבון? יצירת חשבון",
-    goToLogin: "יש חשבון? כניסה",
+    goToSignup: "אין חשבון?",
+    goToLogin: "יש חשבון?",
+    forgotPassword: "שכחתי סיסמה",
+    forgotHint: "נשלח קישור לאימייל הזה לאיפוס הסיסמה.",
+    forgotSend: "שליחת קישור",
+    forgotSent: "אם יש חשבון לאימייל הזה, הקישור בדרך.",
+    forgotFailed: "לא הצלחנו לשלוח את הקישור. נסו שוב.",
+    backToSignIn: "חזרה לכניסה",
+    newPasswordTitle: "סיסמה חדשה",
+    newPasswordHint: "בחרו סיסמה של 6 תווים לפחות.",
+    savePassword: "שמירת סיסמה",
+    newPasswordFailed: "לא הצלחנו לעדכן את הסיסמה. נסו שוב.",
     signupTitle: "יצירת חשבון",
     signupHint: "בוחרים כאן סיסמה של 6 תווים לפחות. אין סיסמה מוכנה. אחרי יצירת החשבון נכנסים עם אותה סיסמה.",
     passwordTooShort: "הסיסמה צריכה 6 תווים לפחות.",
@@ -619,7 +639,7 @@ export const copy: Record<Lang, Copy> = {
     language: "שפה",
     selectAll: "בחר הכל",
     clearAll: "נקה",
-    navInsights: "תובנות AI",
+    navInsights: "דשבורד",
     nameSearch: "חיפוש שם",
     noNameMatches: "אין שמות תואמים",
     inviteStaff: "פתיחת כניסה",
@@ -920,8 +940,8 @@ export const copy: Record<Lang, Copy> = {
     addShift: "Add shift",
     deleteShift: "Delete",
     newShift: "New shift",
-    signInTitle: "Sign in to Rota",
-    signInHint: "Sign in to manage the schedule, team and sites.",
+    signInTitle: "Hi there!",
+    signInHint: "Have we met before?",
     email: "Email",
     password: "Password",
     signIn: "Sign in",
@@ -929,8 +949,18 @@ export const copy: Record<Lang, Copy> = {
     signInFailed: "The email or password is wrong.",
     demoAccounts: "Demo account",
     createAccount: "Create account",
-    goToSignup: "No account? Create one",
-    goToLogin: "Already have an account? Sign in",
+    goToSignup: "Don't have an account?",
+    goToLogin: "Already have an account?",
+    forgotPassword: "Forgot my password",
+    forgotHint: "We'll email a link to reset the password.",
+    forgotSend: "Send link",
+    forgotSent: "If an account exists for this email, the link is on its way.",
+    forgotFailed: "The link could not be sent. Try again.",
+    backToSignIn: "Back to sign in",
+    newPasswordTitle: "New password",
+    newPasswordHint: "Choose a password of at least 6 characters.",
+    savePassword: "Save password",
+    newPasswordFailed: "The password could not be updated. Try again.",
     signupTitle: "Create account",
     signupHint: "Choose a password of at least 6 characters. There is no preset password. Sign in later with that same password.",
     passwordTooShort: "The password needs at least 6 characters.",
@@ -991,7 +1021,7 @@ export const copy: Record<Lang, Copy> = {
     language: "Language",
     selectAll: "Select all",
     clearAll: "Clear",
-    navInsights: "AI insights",
+    navInsights: "Dashboard",
     nameSearch: "Search names",
     noNameMatches: "No matching names",
     inviteStaff: "Open a login",

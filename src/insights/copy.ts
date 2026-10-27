@@ -32,7 +32,7 @@ interface InsightsCopy {
 
 export const insightsCopy: Record<Lang, InsightsCopy> = {
   he: {
-    title: "תובנות AI",
+    title: "דשבורד",
     hint: "ניתוח עומסים, שחיקה, משמרות כפולות וחריגות בצוות, עם המלצות לשבוע הבא.",
     sample: "נתוני דוגמה",
     sampleNote: "המספרים במסך הזה מדומים להמחשה ואינם מחושבים מהסידור.",
@@ -60,7 +60,7 @@ export const insightsCopy: Record<Lang, InsightsCopy> = {
     noPeople: "אין עדיין עובדים באתר הזה.",
   },
   en: {
-    title: "AI insights",
+    title: "Dashboard",
     hint: "Workload, burnout, double shifts and anomalies across the team, with suggestions for next week.",
     sample: "Sample data",
     sampleNote: "Figures on this screen are made up for illustration and are not computed from the schedule.",

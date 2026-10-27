@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { dayName, type Lang, type RotaState } from "../domain";
 import { isRelief } from "../domain/relief";
 import { confirmDeleteEmployee, copy } from "../i18n/copy";
-import { shiftLabel, siteLabel } from "../schedule/display";
+import { columnIsToday, shiftLabel, siteLabel } from "../schedule/display";
 import { agreementCell, availabilityCell, type EmployeePatch } from "../people/edit";
 import { EmployeeAttendance, type AttendanceApi } from "./attendance";
 import { DayDates } from "./day-dates";
@@ -410,18 +410,22 @@ export function WeekGrid({
         <thead>
           <tr>
             <th className="w-24" />
-            {[0, 1, 2, 3, 4, 5, 6].map((day) => (
-              <th key={day} scope="col" className="px-1 pb-1 text-center align-top text-xs font-semibold text-muted">
+            {[0, 1, 2, 3, 4, 5, 6].map((day) => {
+              const today = columnIsToday(state.week, day);
+              return (
+              <th key={day} scope="col" className={`px-1 pb-1 text-center align-top text-xs font-semibold ${today ? "text-brand-text" : "text-muted"}`}>
                 {mode === "availability" ? (
                   <>
-                    <span className="block text-ink">{dayName(day, lang)}</span>
-                    <DayDates week={state.week} day={day} lang={lang} />
+                    <span className={`block ${today ? "text-brand-text" : "text-ink"}`}>{dayName(day, lang)}</span>
+                    <DayDates week={state.week} day={day} lang={lang} today={today} />
                   </>
                 ) : (
                   dayName(day, lang)
                 )}
+                <span aria-hidden="true" className={`mx-auto mt-1 block h-px w-8 ${today ? "bg-brand" : "bg-field-line"}`} />
               </th>
-            ))}
+              );
+            })}
           </tr>
         </thead>
         <tbody>

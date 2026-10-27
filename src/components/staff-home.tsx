@@ -328,9 +328,9 @@ export function StaffHome({
 
   return (
     <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang} className="min-h-screen">
-      <header className="sticky top-0 z-30 border-b border-line bg-page/80 backdrop-blur-xl">
+      <header className="sticky top-0 z-30">
         {saveNote ? (
-          <p role="alert" className="mx-auto max-w-[1440px] px-4 pt-2 text-sm text-danger-text sm:px-6">
+          <p role="alert" className="bg-danger-softer px-4 py-2 text-sm text-danger-text sm:px-6">
             {saveNote === "db"
               ? t.remoteDbMissing
               : saveNote === "blocks"
@@ -340,9 +340,10 @@ export function StaffHome({
                   : t.saveFailed}
           </p>
         ) : null}
-        <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6">
+        <div className="material-bar">
+        <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-4 py-2.5 sm:gap-4 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <Logo />
+            <Logo className="h-8" />
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {sites.length > 1 ? (
@@ -363,8 +364,8 @@ export function StaffHome({
             {toolbar}
           </div>
         </div>
-        <div className="mx-auto max-w-[1440px] px-4 pb-3 sm:px-6">
-          <nav role="tablist" aria-label="Rota" className="grid grid-cols-3 gap-1 rounded-xl border border-line bg-track p-1 sm:inline-flex">
+        <div className="mx-auto max-w-[1440px] px-4 py-2 sm:px-6">
+          <nav role="tablist" aria-label="Rota" className="grid grid-cols-3 gap-1 rounded-lg border border-line bg-track p-1 sm:inline-flex">
             {tabs.map((item) => (
               <button
                 key={item.id}
@@ -382,21 +383,22 @@ export function StaffHome({
             ))}
           </nav>
         </div>
+        </div>
       </header>
       <main className="mx-auto flex max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-6">
         {tab === "attendance" ? null : (
         <section className="flex flex-wrap items-center gap-2">
-          <div className="flex items-center gap-1 rounded-xl border border-line bg-card p-1 shadow-card">
-            <button type="button" data-testid="prev-week" aria-label={t.previousWeek} className="grid h-8 w-8 place-items-center rounded-lg text-lg leading-none text-ink-soft hover:bg-well hover:text-ink" onClick={() => onWeek(-7)}>
-              ‹
+          <div className="flex items-center gap-1 rounded-lg border border-line bg-card p-1 shadow-card">
+            <button type="button" data-testid="prev-week" aria-label={t.previousWeek} className="grid h-8 w-8 place-items-center rounded-lg text-ink-soft hover:bg-well hover:text-ink" onClick={() => onWeek(-7)}>
+              <Chevron dir="prev" />
             </button>
             <WeekPicker
               lang={lang}
               week={state.week}
               onPick={(sunday) => onWeek(Math.round((Date.parse(`${sunday}T00:00:00Z`) - Date.parse(`${state.week}T00:00:00Z`)) / 86_400_000))}
             />
-            <button type="button" data-testid="next-week" aria-label={t.nextWeek} className="grid h-8 w-8 place-items-center rounded-lg text-lg leading-none text-ink-soft hover:bg-well hover:text-ink" onClick={() => onWeek(7)}>
-              ›
+            <button type="button" data-testid="next-week" aria-label={t.nextWeek} className="grid h-8 w-8 place-items-center rounded-lg text-ink-soft hover:bg-well hover:text-ink" onClick={() => onWeek(7)}>
+              <Chevron dir="next" />
             </button>
           </div>
         </section>
@@ -547,5 +549,13 @@ export function StaffHome({
       </main>
       {decision ? <DecisionNotice key={decision.id} decision={decision} lang={lang} onClose={() => onAcknowledge(decision.id)} /> : null}
     </div>
+  );
+}
+
+function Chevron({ dir }: { dir: "prev" | "next" }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d={dir === "prev" ? "M12.5 4.5 7 10l5.5 5.5" : "M7.5 4.5 13 10l-5.5 5.5"} />
+    </svg>
   );
 }

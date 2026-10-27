@@ -22,6 +22,13 @@ const SITE_LABELS: Record<string, string> = {
   Harbor: "נמל",
 };
 
+/** True when this weekday column is the viewer's local calendar day. */
+export function columnIsToday(week: string, day: number, now = new Date()): boolean {
+  const month = String(now.getMonth() + 1).padStart(2, "0");
+  const date = String(now.getDate()).padStart(2, "0");
+  return addDays(week, day) === `${now.getFullYear()}-${month}-${date}`;
+}
+
 export function shiftLabel(name: string, lang: Lang): string {
   return SHIFT_LABELS[name]?.[lang] ?? name;
 }

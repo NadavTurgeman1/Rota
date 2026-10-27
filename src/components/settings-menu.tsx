@@ -57,7 +57,7 @@ export function SettingsMenu({
           role="dialog"
           aria-label={t.settings}
           data-testid="settings-panel"
-          className="absolute end-0 top-full z-40 mt-2 w-64 rounded-2xl border border-line bg-card p-3 shadow-pop"
+          className="pop-in material-pop absolute end-0 top-full z-40 mt-2 w-64 rounded-lg border border-line p-3 shadow-pop"
         >
           <Group title={t.appearance}>
             <Segment
@@ -141,7 +141,7 @@ function GearIcon({ open }: { open: boolean }) {
     <svg
       aria-hidden="true"
       viewBox="0 0 24 24"
-      className={`h-5 w-5 transition-transform duration-300 ${open ? "rotate-45" : ""}`}
+      className={`h-5 w-5 transition-transform duration-150 ease-[cubic-bezier(0.23,1,0.32,1)] motion-reduce:transition-none ${open ? "rotate-45" : ""}`}
       fill="none"
       stroke="currentColor"
       strokeWidth="1.7"
