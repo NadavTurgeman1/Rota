@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { addDays, analyze, applyTrade, slots, sundayOnOrBefore, type Analysis, type Lang, type RotaState, type TradeMove, type TradeSeat } from "../domain";
+import { addDays, analyze, applyTrade, slots, sundayOnOrBefore, type Analysis, type Lang, type RotaState, type Schedule, type TradeMove, type TradeSeat } from "../domain";
 import type { VersionStamp } from "../domain/versions";
 import { peerDuties } from "../domain/peers";
 import { isRelief } from "../domain/relief";
@@ -26,6 +26,14 @@ import {
   publishWeek,
   redo,
   removeEmployee,
+  clearSchedule,
+  copySchedule,
+  deleteWeekVersion,
+  extendToDouble,
+  hasAssignments,
+  hasDraftAssignments,
+  pasteSchedule,
+  scheduleIssuesOpen,
   reportCallOff,
   restoreWeekVersion,
   revertToDraft,
@@ -237,6 +245,10 @@ export function ScheduleApp() {
   const [selection, setSelection] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>("schedule");
   const [schedulePane, setSchedulePane] = useState<"issues" | "summary" | "versions">("issues");
+  const [scheduleClip, setScheduleClip] = useState<{ week: string; schedule: Schedule } | null>(null);
+  useEffect(() => {
+    setScheduleClip(null);
+  }, [workspace.activeSiteId]);
   const activeNav = useRef<HTMLButtonElement>(null);
   useEffect(() => {
     activeNav.current?.scrollIntoView({ inline: "nearest", block: "nearest" });
@@ -1212,17 +1224,19 @@ export function ScheduleApp() {
   const schedule = state.sched[state.week];
   const published = schedule?.status === "published";
   const readOnly = published || !writer;
-  const report = schedule ? analyze(peered, peered.week, lang) : EMPTY;
-  const check = schedule ? publishCheck(peered) : { ready: false, violations: 0, unfilled: 0 };
+  const issuesOpen = scheduleIssuesOpen(state);
+  const fullReport = schedule ? analyze(peered, peered.week, lang) : EMPTY;
+  const report = issuesOpen ? fullReport : EMPTY;
+  const check = issuesOpen ? publishCheck(peered) : { ready: false, violations: 0, unfilled: 0 };
   const openSlots = slots(state, state.week);
   const selectedName = selection ? employeeName(state, parseAssignmentToken(selection)?.employeeId ?? "") : null;
 
   const status = !writer
     ? t.scheduleReadOnly
-    : !schedule
+    : !issuesOpen
       ? t.createBeforePublish
       : published
-        ? report.unfilled.length > 0
+        ? fullReport.unfilled.length > 0
           ? t.publishedOpen
           : t.publishedLock
         : check.ready
@@ -1255,6 +1269,7 @@ export function ScheduleApp() {
           nowHours: nowHours ?? Number.POSITIVE_INFINITY,
         }),
       ),
+    onExtend: (slotKey: string, employeeId: string) => change((current) => extendToDouble(current, slotKey, employeeId)),
   };
 
   const tabs: { id: Exclude<Screen, "approvals">; label: string }[] = [
@@ -1394,6 +1409,41 @@ export function ScheduleApp() {
                 >
                   {schedule ? t.regenerate : t.generate}
                 </button>
+                <button
+                  type="button"
+                  data-testid="copy-schedule"
+                  className={`${button.quiet} ${scheduleClip ? "border-brand bg-brand-soft" : ""}`}
+                  aria-pressed={scheduleClip !== null}
+                  disabled={!writer || !hasAssignments(state)}
+                  onClick={() => {
+                    const snapshot = copySchedule(state);
+                    if (snapshot) setScheduleClip({ week: state.week, schedule: snapshot });
+                  }}
+                >
+                  {t.copySchedule}
+                </button>
+                <button
+                  type="button"
+                  data-testid="paste-schedule"
+                  className={button.quiet}
+                  title={scheduleClip ? formatWeekRange(scheduleClip.week, lang) : undefined}
+                  disabled={!writer || published || !scheduleClip}
+                  onClick={() => {
+                    const source = scheduleClip?.schedule ?? null;
+                    change((current) => pasteSchedule(current, source));
+                  }}
+                >
+                  {t.pasteSchedule}
+                </button>
+                <button
+                  type="button"
+                  data-testid="clear-schedule"
+                  className={button.quiet}
+                  disabled={!writer || published || !hasDraftAssignments(state)}
+                  onClick={() => change(clearSchedule)}
+                >
+                  {t.clearSchedule}
+                </button>
                 <PublishButton
                   lang={lang}
                   canPublish={writer && Boolean(schedule) && !published && check.ready}
@@ -1500,7 +1550,7 @@ export function ScheduleApp() {
                     state={peered}
                     report={report}
                     lang={lang}
-                    hasSchedule={Boolean(schedule)}
+                    hasSchedule={issuesOpen}
                     manager={writer}
                     published={Boolean(published)}
                     aiEnabled={aiEnabled}
@@ -1513,7 +1563,7 @@ export function ScheduleApp() {
                 ) : null}
                 {schedulePane === "summary" ? (
                   schedule ? (
-                    <WeekSummary embedded state={peered} report={report} lang={lang} />
+                    <WeekSummary embedded state={peered} report={fullReport} lang={lang} />
                   ) : (
                     <p className="text-sm text-muted">{t.noSchedule}</p>
                   )
@@ -1525,6 +1575,7 @@ export function ScheduleApp() {
                     lang={lang}
                     canRestore={writer}
                     onRestore={(versionId) => change((current) => restoreWeekVersion(current, actor, versionId))}
+                    onDelete={writer ? (versionId) => change((current) => deleteWeekVersion(current, actor, versionId)) : undefined}
                   />
                 ) : null}
               </div>

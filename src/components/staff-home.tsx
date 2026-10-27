@@ -554,6 +554,7 @@ export function StaffHome({
                       onSwap={() => undefined}
                       onToggleSelect={() => undefined}
                       onCallOff={() => undefined}
+                      onExtend={() => undefined}
                     />
                   ) : (
                     <p className={`${card} text-sm leading-6 text-ink`}>{t.staffUnpublished}</p>

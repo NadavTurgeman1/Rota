@@ -3,7 +3,7 @@ import { coveredSeats, shiftKind, type Lang, type RotaState, type Slot } from ".
 import { callOffLabel, copy, removeLabel } from "../i18n/copy";
 import { employeeName } from "../people/edit";
 import { localizeShiftNames } from "../schedule/display";
-import { assignmentToken, clockLabel, parseAssignmentToken, placementWarning } from "../schedule/edit";
+import { assignmentToken, clockLabel, doubleShiftPlan, parseAssignmentToken, placementWarning } from "../schedule/edit";
 
 const FILL: Record<ReturnType<typeof shiftKind>, string> = {
   m: "bg-slot-m",
@@ -26,6 +26,7 @@ export function SlotCard({
   onSwap,
   onToggleSelect,
   onCallOff,
+  onExtend,
 }: {
   state: RotaState;
   slot: Slot;
@@ -41,6 +42,7 @@ export function SlotCard({
   onSwap: (slotKey: string, employeeId: string, otherId: string) => void;
   onToggleSelect: (token: string) => void;
   onCallOff: (slotKey: string, employeeId: string) => void;
+  onExtend: (slotKey: string, employeeId: string) => void;
 }) {
   const dragged = useRef(false);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
@@ -131,6 +133,7 @@ export function SlotCard({
           const token = assignmentToken(slot.key, employeeId);
           const extension = schedule?.ext?.[token];
           const name = employeeName(state, employeeId);
+          const canDouble = Boolean(extension) || doubleShiftPlan(state, slot.key, employeeId) !== null;
           return (
             <div
               key={employeeId}
@@ -214,6 +217,23 @@ export function SlotCard({
                   {t.callOff}
                 </button>
               ) : null}
+              {published || !canDouble ? null : (
+                <button
+                  type="button"
+                  data-testid={`double-${slot.day}-${shift?.name ?? "shift"}-${name}`}
+                  aria-pressed={Boolean(extension)}
+                  aria-label={extension ? t.clearDoubleLabel(name) : t.extendDoubleLabel(name)}
+                  className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${
+                    extension ? "bg-brand-soft text-brand-text" : "text-ink-soft hover:bg-well hover:text-ink"
+                  }`}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onExtend(slot.key, employeeId);
+                  }}
+                >
+                  {t.extendDouble}
+                </button>
+              )}
               {published ? null : (
                 <button
                   type="button"

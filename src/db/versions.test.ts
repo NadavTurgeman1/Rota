@@ -56,7 +56,13 @@ describe("versions, call-offs and notes in Postgres", () => {
       [sentinel, headquarters, week, "Yossi\nיום שלישי אין מצב בלילה", yossi],
     );
     await expect(db.query(`update public.schedule_versions set number = 2`)).rejects.toThrow(/permission denied/i);
-    await expect(db.query(`delete from public.schedule_versions`)).rejects.toThrow(/permission denied/i);
+    await db.query(`delete from public.schedule_versions where id = $1`, [version]);
+    expect((await db.query(`select id from public.schedule_versions`)).rows).toEqual([]);
+    await db.query(
+      `insert into public.schedule_versions (id, org_id, schedule_id, number, reason, snapshot)
+       values ($1, $2, $3, 1, 'publish', $4::jsonb)`,
+      [version, sentinel, schedule, JSON.stringify(snapshot)],
+    );
 
     await db.exec("reset role");
     const state = await loadSiteWeek(client(db), headquarters, week);
@@ -103,9 +109,14 @@ describe("versions, call-offs and notes in Postgres", () => {
       ),
     ).rejects.toThrow(/row-level security/i);
 
+    await db.query(`delete from public.schedule_versions where id = $1`, [version]);
+
     await asRole(db, "authenticated", outsider);
     expect((await db.query("select id from public.schedule_versions")).rows).toEqual([]);
     expect((await db.query("select id from public.schedule_calloffs")).rows).toEqual([]);
     expect((await db.query("select id from public.constraint_notes")).rows).toEqual([]);
+
+    await db.exec("reset role");
+    expect((await db.query(`select id from public.schedule_versions where id = $1`, [version])).rows).toHaveLength(1);
   });
 });

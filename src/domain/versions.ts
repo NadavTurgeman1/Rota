@@ -50,6 +50,20 @@ export function recordVersion(state: RotaState, reason: VersionReason, stamp: Ve
   return draft;
 }
 
+/** Drop one frozen version of the current week. Later numbers stay as they are. */
+export function deleteVersion(state: RotaState, versionId: string): RotaState {
+  const list = state.versions?.[state.week];
+  if (!list?.some((item) => item.id === versionId)) return state;
+  const draft = structuredClone(state);
+  const next = (draft.versions?.[draft.week] ?? []).filter((item) => item.id !== versionId);
+  const versions = { ...(draft.versions ?? {}) };
+  if (next.length) versions[draft.week] = next;
+  else delete versions[draft.week];
+  if (Object.keys(versions).length) draft.versions = versions;
+  else delete draft.versions;
+  return draft;
+}
+
 /** Bring a version back as a draft. Publishing it again runs the normal checks. */
 export function restoreVersion(state: RotaState, versionId: string): RotaState {
   const version = weekVersions(state).find((item) => item.id === versionId);

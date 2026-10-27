@@ -71,6 +71,12 @@ describe("saving a site", () => {
     expect(loaded.sched[week]?.assign[`0|${morning.id}`]).toEqual([yossi.id]);
     expect(loaded.sched[week]?.restoredFrom).toBe(2);
     expect(loaded.versions?.[week]?.[0]?.by).toBe("Ari");
+
+    const dropped: RotaState = { ...changed, versions: undefined };
+    await db.exec("begin");
+    await saveSite(sql, { orgId: sentinel, siteId: headquarters, state: dropped });
+    await db.exec("commit");
+    expect((await loadSiteWeek(sql, headquarters, week)).versions).toBeUndefined();
   });
 
   it("keeps an inactive teammate on the roster and stores a new draft week", async () => {

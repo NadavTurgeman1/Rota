@@ -18,6 +18,12 @@ export interface Copy {
   yearLabel: string;
   generate: string;
   regenerate: string;
+  copySchedule: string;
+  pasteSchedule: string;
+  clearSchedule: string;
+  extendDouble: string;
+  extendDoubleLabel: (name: string) => string;
+  clearDoubleLabel: (name: string) => string;
   publish: string;
   revert: string;
   undo: string;
@@ -428,6 +434,12 @@ export const copy: Record<Lang, Copy> = {
     yearLabel: "שנה",
     generate: "יצירת סידור",
     regenerate: "יצירה מחדש",
+    copySchedule: "העתקת סידור",
+    pasteSchedule: "הדבקת סידור",
+    clearSchedule: "נקה סידור",
+    extendDouble: "כפולה",
+    extendDoubleLabel: (name) => `הארכה של ${name} לכפולה`,
+    clearDoubleLabel: (name) => `ביטול הכפולה של ${name}`,
     publish: "פרסום",
     revert: "ערוך סידור",
     undo: "ביטול",
@@ -850,6 +862,12 @@ export const copy: Record<Lang, Copy> = {
     yearLabel: "Year",
     generate: "Generate",
     regenerate: "Regenerate",
+    copySchedule: "Copy schedule",
+    pasteSchedule: "Paste schedule",
+    clearSchedule: "Clear schedule",
+    extendDouble: "Double",
+    extendDoubleLabel: (name) => `Extend ${name} into a double`,
+    clearDoubleLabel: (name) => `Remove ${name}'s double`,
     publish: "Publish",
     revert: "Edit schedule",
     undo: "Undo",
@@ -1316,6 +1334,10 @@ export function userErrorText(lang: Lang, error: "name" | "email" | "duplicate" 
 
 export function versionLabel(lang: Lang, number: number): string {
   return lang === "he" ? `גרסה ${number}` : `Version ${number}`;
+}
+
+export function deleteVersionLabel(lang: Lang, number: number): string {
+  return lang === "he" ? `מחיקת גרסה ${number}` : `Delete version ${number}`;
 }
 
 export function restoredFromText(lang: Lang, number: number): string {

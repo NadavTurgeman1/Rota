@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { diffIsEmpty, diffSchedules, weekVersions, type Lang, type RotaState, type ScheduleDiff } from "../domain";
-import { copy, restoredDraftText, restoredFromText, sinceVersionText, versionLabel } from "../i18n/copy";
+import { copy, deleteVersionLabel, restoredDraftText, restoredFromText, sinceVersionText, versionLabel } from "../i18n/copy";
 import { employeeName } from "../people/edit";
 import { slotTitle } from "../schedule/display";
 import { clockLabel } from "../schedule/edit";
@@ -13,12 +13,14 @@ export function VersionsPanel({
   lang,
   canRestore,
   onRestore,
+  onDelete,
   embedded = false,
 }: {
   state: RotaState;
   lang: Lang;
   canRestore: boolean;
   onRestore: (versionId: string) => void;
+  onDelete?: (versionId: string) => void;
   /** Inside a disclosure, so the title and the card frame already exist. */
   embedded?: boolean;
 }) {
@@ -85,15 +87,30 @@ export function VersionsPanel({
                     })}
                   </time>
                   {version.restoredFrom ? <span className="text-warn-text">{restoredFromText(lang, version.restoredFrom)}</span> : null}
-                  {canRestore ? (
-                    <button
-                      type="button"
-                      data-testid={`restore-${version.number}`}
-                      className={`${button.small} ms-auto h-7`}
-                      onClick={() => onRestore(version.id)}
-                    >
-                      {t.restoreVersion}
-                    </button>
+                  {canRestore || onDelete ? (
+                    <div className="ms-auto flex items-center gap-1">
+                      {canRestore ? (
+                        <button
+                          type="button"
+                          data-testid={`restore-${version.number}`}
+                          className={`${button.small} h-7`}
+                          onClick={() => onRestore(version.id)}
+                        >
+                          {t.restoreVersion}
+                        </button>
+                      ) : null}
+                      {onDelete ? (
+                        <button
+                          type="button"
+                          data-testid={`delete-version-${version.number}`}
+                          aria-label={deleteVersionLabel(lang, version.number)}
+                          className="grid h-7 w-7 shrink-0 place-items-center rounded-md text-muted hover:bg-danger-softer hover:text-danger-text"
+                          onClick={() => onDelete(version.id)}
+                        >
+                          <TrashIcon />
+                        </button>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
                 {changes && shown && diff ? <DiffList state={state} lang={lang} diff={diff} /> : null}
@@ -105,6 +122,18 @@ export function VersionsPanel({
         </ol>
       )}
     </section>
+  );
+}
+
+function TrashIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 16 16" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 4.5h10" />
+      <path d="M6.25 4.5V3.25h3.5V4.5" />
+      <path d="M4.25 4.5l.55 8.25h6.4l.55-8.25" />
+      <path d="M6.75 6.75v4" />
+      <path d="M9.25 6.75v4" />
+    </svg>
   );
 }
 

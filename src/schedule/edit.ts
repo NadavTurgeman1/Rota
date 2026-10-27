@@ -3,6 +3,7 @@ import {
   applyCoverage,
   applyExtra,
   coveredSeats,
+  deleteVersion,
   dynamicReason,
   effectiveSlot,
   ensureSchedule,
@@ -139,6 +140,45 @@ export function restoreWeekVersion(state: RotaState, actor: Actor, versionId: st
   return restoreVersion(state, versionId);
 }
 
+/** Remove one frozen version of this week. The live schedule stays as it is. */
+export function deleteWeekVersion(state: RotaState, actor: Actor, versionId: string): RotaState {
+  if (actor.kind !== "manager") return state;
+  return deleteVersion(state, versionId);
+}
+
+/** The current week has at least one assigned person. */
+export function hasAssignments(state: RotaState): boolean {
+  return Object.values(state.sched[state.week]?.assign ?? {}).some((ids) => ids.length > 0);
+}
+
+/** The draft has at least one assigned person. */
+export function hasDraftAssignments(state: RotaState): boolean {
+  return !isPublished(state) && hasAssignments(state);
+}
+
+/** Issues stay hidden on an empty draft. They open once someone is assigned, and a published week always shows them. */
+export function scheduleIssuesOpen(state: RotaState): boolean {
+  const schedule = state.sched[state.week];
+  if (!schedule) return false;
+  if (schedule.status === "published") return true;
+  return hasAssignments(state);
+}
+
+/** Remove every assigned person from the current draft. A published week stays as it is. */
+export function clearSchedule(state: RotaState): RotaState {
+  if (!hasDraftAssignments(state)) return state;
+  return mutate(state, (draft) => {
+    const schedule = ensureSchedule(draft, draft.week);
+    schedule.assign = {};
+    schedule.locked = [];
+    schedule.ext = {};
+    schedule.over = {};
+    schedule.calloffs = [];
+    schedule.status = "draft";
+    delete schedule.restoredFrom;
+  });
+}
+
 /** An empty week is treated as unfilled, so it cannot be published. */
 export function publishCheck(state: RotaState): PublishCheck {
   const draft = cloneState(state);
@@ -213,6 +253,131 @@ export function moveEmployee(state: RotaState, fromKey: string, employeeId: stri
     clearExtensionGroup(schedule, fromKey, employeeId);
     clearOverage(schedule, fromKey, employeeId);
     clearLock(schedule, fromKey, employeeId);
+  });
+}
+
+function near(left: number, right: number): boolean {
+  return Math.abs(left - right) < 0.01;
+}
+
+function keptAssignments(state: RotaState, source: Schedule | null | undefined): Record<string, string[]> | null {
+  if (!source) return null;
+  const open = new Set(slots(state, state.week).map((slot) => slot.key));
+  const people = new Set(state.emps.filter((employee) => employee.active).map((employee) => employee.id));
+  const assign: Record<string, string[]> = {};
+  for (const [key, ids] of Object.entries(source.assign)) {
+    if (!open.has(key)) continue;
+    const kept = ids.filter((id) => people.has(id));
+    if (kept.length > 0) assign[key] = kept;
+  }
+  return Object.keys(assign).length > 0 ? assign : null;
+}
+
+/** A snapshot of the week on screen, for pasting onto another week. */
+export function copySchedule(state: RotaState): Schedule | null {
+  const schedule = state.sched[state.week];
+  if (!schedule || !hasAssignments(state)) return null;
+  return structuredClone(schedule);
+}
+
+/** Replace this week's draft with a copied schedule. A published week stays as it is. */
+export function pasteSchedule(state: RotaState, source: Schedule | null): RotaState {
+  if (isPublished(state)) return state;
+  const assign = keptAssignments(state, source);
+  if (!assign || !source) return state;
+  const open = new Set(slots(state, state.week).map((slot) => slot.key));
+  return mutate(state, (draft) => {
+    const schedule = ensureSchedule(draft, draft.week);
+    schedule.assign = assign;
+    schedule.status = "draft";
+    delete schedule.restoredFrom;
+    schedule.calloffs = [];
+    schedule.locked = (source.locked ?? []).filter((token) => {
+      const parsed = parseAssignmentToken(token);
+      return Boolean(parsed && assign[parsed.slotKey]?.includes(parsed.employeeId));
+    });
+    const ext: NonNullable<Schedule["ext"]> = {};
+    for (const [token, extension] of Object.entries(source.ext ?? {})) {
+      const parsed = parseAssignmentToken(token);
+      if (!parsed || !assign[parsed.slotKey]?.includes(parsed.employeeId) || !open.has(extension.cover)) continue;
+      ext[token] = { ...extension };
+    }
+    schedule.ext = ext;
+    const over: NonNullable<Schedule["over"]> = {};
+    for (const token of Object.keys(source.over ?? {})) {
+      const parsed = parseAssignmentToken(token);
+      if (parsed && assign[parsed.slotKey]?.includes(parsed.employeeId)) over[token] = true;
+    }
+    schedule.over = over;
+  });
+}
+
+/** How far this person's shift can stretch into the touching neighbour, within the site cap. */
+export function doubleShiftPlan(
+  state: RotaState,
+  slotKey: string,
+  employeeId: string,
+): { start: number; end: number; cover: string; full: boolean } | null {
+  const schedule = state.sched[state.week];
+  const employee = state.emps.find((item) => item.id === employeeId);
+  if (!schedule || !employee?.active || !(schedule.assign[slotKey] ?? []).includes(employeeId)) return null;
+  if (schedule.ext?.[`${slotKey}#${employeeId}`]) return null;
+  const open = slots(state, state.week);
+  const slot = open.find((item) => item.key === slotKey);
+  if (!slot) return null;
+  const cap = state.biz.maxShift > 0 ? state.biz.maxShift : 12;
+  const room = cap - (slot.end - slot.start);
+  if (room <= 0.01) return null;
+  const forward = open.find((item) => near(item.start, slot.end));
+  const backward = open.find((item) => near(item.end, slot.start));
+  for (const neighbor of [forward, backward]) {
+    if (!neighbor) continue;
+    if (staticReason(state, employee, neighbor, state.week)) continue;
+    const span = neighbor.end - neighbor.start;
+    const take = Math.min(room, span);
+    if (take <= 0.01) continue;
+    const full = near(take, span);
+    const ahead = neighbor === forward;
+    const start = ahead ? slot.start : slot.start - take;
+    const end = ahead ? slot.end + take : slot.end;
+    const proposed: Slot = { ...slot, start, end };
+    const mine = open
+      .filter((item) => item.key !== slot.key && (!full || item.key !== neighbor.key) && (schedule.assign[item.key] ?? []).includes(employeeId))
+      .map((item) => effectiveSlot(schedule, item, employeeId));
+    if (dynamicReason(state, employee, proposed, mine)) continue;
+    return { start, end, cover: neighbor.key, full };
+  }
+  return null;
+}
+
+/** Extend one assigned shift into the touching neighbour, or remove that extension. */
+export function extendToDouble(state: RotaState, slotKey: string, employeeId: string): RotaState {
+  if (isPublished(state)) return state;
+  const schedule = state.sched[state.week];
+  if (!schedule || !(schedule.assign[slotKey] ?? []).includes(employeeId)) return state;
+  if (schedule.ext?.[`${slotKey}#${employeeId}`]) {
+    return mutate(state, (draft) => {
+      clearExtensionGroup(ensureSchedule(draft, draft.week), slotKey, employeeId);
+    });
+  }
+  const plan = doubleShiftPlan(state, slotKey, employeeId);
+  if (!plan) return state;
+  return mutate(state, (draft) => {
+    const next = ensureSchedule(draft, draft.week);
+    if (plan.full) {
+      next.assign[plan.cover] = (next.assign[plan.cover] ?? []).filter((id) => id !== employeeId);
+      clearExtensionGroup(next, plan.cover, employeeId);
+      clearOverage(next, plan.cover, employeeId);
+      clearLock(next, plan.cover, employeeId);
+    }
+    next.ext = { ...(next.ext ?? {}) };
+    next.ext[`${slotKey}#${employeeId}`] = {
+      start: plan.start,
+      end: plan.end,
+      groupId: `double:${slotKey}#${employeeId}`,
+      cover: plan.cover,
+      groupSize: plan.full ? 1 : 2,
+    };
   });
 }
 

@@ -603,9 +603,18 @@ export async function writeSchedule(
   );
   for (const calloff of input.schedule.calloffs ?? []) await writeCalloff(sql, input.orgId, scheduleId, calloff, input.shiftIds, input.people);
 
+  const keptVersions: string[] = [];
   for (const version of input.versions) {
     if (!UUID.test(version.id) || version.number <= 0) throw new SaveError("version");
     if (version.reason !== "publish" && version.reason !== "calloff" && version.reason !== "trade") throw new SaveError("version");
+    keptVersions.push(version.id);
+  }
+  await sql.query(
+    `delete from public.schedule_versions
+     where schedule_id = $1 and org_id = $2 and not (id = any($3::uuid[]))`,
+    [scheduleId, input.orgId, keptVersions],
+  );
+  for (const version of input.versions) {
     await sql.query(
       `insert into public.schedule_versions (
          id, org_id, schedule_id, number, reason, restored_from, author_name, snapshot, created_at

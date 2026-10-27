@@ -37,7 +37,7 @@ export {
 export type { Lang } from "./rules";
 export { generate } from "./generate";
 export type { DroppedLock, GenerateResult } from "./generate";
-export { diffIsEmpty, diffSchedules, recordVersion, restoreVersion, weekVersions } from "./versions";
+export { deleteVersion, diffIsEmpty, diffSchedules, recordVersion, restoreVersion, weekVersions } from "./versions";
 export type { ExtensionChange, ScheduleDiff, SeatChange, VersionStamp } from "./versions";
 export { analyze } from "./analyze";
 export { applyCoverage, applyExtra, suggest, suggestExtra } from "./suggest";

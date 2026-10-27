@@ -28,6 +28,7 @@ function slotActions(props: {
   onSwap: (slotKey: string, employeeId: string, otherId: string) => void;
   onToggleSelect: (token: string) => void;
   onCallOff: (slotKey: string, employeeId: string) => void;
+  onExtend: (slotKey: string, employeeId: string) => void;
 }) {
   return props;
 }
@@ -47,6 +48,7 @@ export function WeekBoard({
   onSwap,
   onToggleSelect,
   onCallOff,
+  onExtend,
 }: {
   state: RotaState;
   slots: Slot[];
@@ -62,6 +64,7 @@ export function WeekBoard({
   onSwap: (slotKey: string, employeeId: string, otherId: string) => void;
   onToggleSelect: (token: string) => void;
   onCallOff: (slotKey: string, employeeId: string) => void;
+  onExtend: (slotKey: string, employeeId: string) => void;
 }) {
   const t = copy[lang];
   const scroller = useRef<HTMLDivElement>(null);
@@ -82,6 +85,7 @@ export function WeekBoard({
     onSwap,
     onToggleSelect,
     onCallOff,
+    onExtend,
   });
   return (
     <div data-testid="week-board" className="min-w-0 rounded-xl border border-line bg-card p-1.5 sm:p-2">
