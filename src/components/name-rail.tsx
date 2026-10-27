@@ -76,8 +76,8 @@ function PersonList({
             type="button"
             data-testid={`${testId}-${person.id}`}
             aria-pressed={person.id === selectedId}
-            className={`flex min-h-10 w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-start text-sm ${
-              person.id === selectedId ? "bg-brand-soft text-brand-text" : "text-ink hover:bg-well"
+            className={`flex min-h-9 w-full items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-start text-sm ${
+              person.id === selectedId ? "bg-well font-medium text-ink" : "text-muted hover:bg-well/80 hover:text-ink"
             }`}
             onClick={() => onSelect(person.id)}
           >

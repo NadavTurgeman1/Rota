@@ -73,6 +73,7 @@ import { ApprovalsScreen, type SignupApproval, type TenantRow } from "./approval
 import { CreateOrgScreen, CreateSiteScreen, LoginScreen, Logo, NewPasswordScreen, SignupScreen } from "./login-screen";
 import { browserClient } from "../supabase/browser";
 import { remoteConfigured } from "../supabase/public-env";
+import { RailIcon } from "./rail-icon";
 import { WeekBoard } from "./schedule-board";
 import type { AttendanceApi, AttendanceSnapshot } from "./attendance";
 import { StaffHome } from "./staff-home";
@@ -230,6 +231,11 @@ export function ScheduleApp() {
   );
   const [selection, setSelection] = useState<string | null>(null);
   const [screen, setScreen] = useState<Screen>("schedule");
+  const [schedulePane, setSchedulePane] = useState<"issues" | "summary" | "versions">("issues");
+  const activeNav = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    activeNav.current?.scrollIntoView({ inline: "nearest", block: "nearest" });
+  }, [screen]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const staffChain = useRef(Promise.resolve());
   const [nowHours, setNowHours] = useState<number | null>(null);
@@ -986,7 +992,7 @@ export function ScheduleApp() {
 
   if (!remote) {
     return (
-      <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang} className="mx-auto flex min-h-screen max-w-md flex-col gap-4 px-4 py-8">
+      <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang} className="shell mx-auto flex min-h-screen max-w-md flex-col gap-4 bg-page px-4 py-8 text-ink">
         <p role="alert" className="text-sm leading-6 text-ink">
           {t.appDisconnected}
         </p>
@@ -997,7 +1003,7 @@ export function ScheduleApp() {
 
   if (remoteError === "db") {
     return (
-      <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang} className="mx-auto flex min-h-screen max-w-md flex-col gap-4 px-4 py-8">
+      <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang} className="shell mx-auto flex min-h-screen max-w-md flex-col gap-4 bg-page px-4 py-8 text-ink">
         <p role="alert" className="text-sm leading-6 text-danger-text">
           {t.remoteDbMissing}
         </p>
@@ -1054,7 +1060,7 @@ export function ScheduleApp() {
         ) : canCreate ? (
           <CreateOrgScreen lang={lang} toolbar={settings} onCreate={createOrg} />
         ) : (
-          <div className="mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 px-4">
+          <div className="shell mx-auto flex min-h-screen max-w-md flex-col justify-center gap-4 bg-page px-4 text-ink">
             <p className="text-sm leading-6 text-ink">{suspended ? t.tenantSuspended : t.notApprovedTitle}</p>
             {settings}
           </div>
@@ -1143,7 +1149,7 @@ export function ScheduleApp() {
       ),
   };
 
-  const tabs: { id: Screen; label: string }[] = [
+  const tabs: { id: Exclude<Screen, "approvals">; label: string }[] = [
     { id: "schedule", label: t.navSchedule },
     { id: "team", label: t.navTeam },
     { id: "constraints", label: t.navConstraints },
@@ -1154,49 +1160,58 @@ export function ScheduleApp() {
 
   return (
     <HebrewCalendarContext.Provider value={hebrew}>
-    <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang} className="min-h-dvh">
-      <div className="flex min-h-dvh">
-        <aside className="sticky top-0 z-30 flex h-dvh w-48 shrink-0 flex-col self-start border-e border-line bg-paper">
-          <div className="flex h-14 shrink-0 items-center px-4">
-            <Logo className="h-8" />
+    <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang} className="shell min-h-dvh bg-page text-ink">
+      <div className="flex min-h-dvh flex-col md:flex-row">
+        <aside className="sticky top-0 z-30 flex w-full shrink-0 flex-col border-b border-line bg-paper md:h-dvh md:w-56 md:self-start md:border-e md:border-b-0">
+          <div className="flex h-14 shrink-0 items-center px-4 md:h-16 md:px-5">
+            <Logo className="h-7" />
           </div>
-          <nav role="tablist" aria-label="Rota" className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-2 pb-4">
+          <p className="hidden px-5 pb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-muted md:block">{t.railLabel}</p>
+          <nav role="tablist" aria-label="Rota" className="flex gap-0.5 overflow-x-auto px-2 pb-2 md:min-h-0 md:flex-1 md:flex-col md:overflow-y-auto md:px-3 md:pb-4">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
                 type="button"
                 role="tab"
                 data-testid={`nav-${tab.id}`}
+                ref={screen === tab.id ? activeNav : undefined}
                 aria-selected={screen === tab.id}
-                className={`flex min-h-9 w-full items-center rounded-lg px-3 py-2 text-start text-sm font-medium leading-5 ${
-                  screen === tab.id ? "bg-card font-semibold text-ink shadow-card" : "text-muted hover:bg-card/70 hover:text-ink"
+                className={`flex min-h-9 shrink-0 items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-[13px] leading-5 md:w-full ${
+                  screen === tab.id ? "bg-well font-medium text-ink" : "text-muted hover:bg-well/80 hover:text-ink"
                 }`}
                 onClick={() => {
                   setSelection(null);
                   setScreen(tab.id);
                 }}
               >
+                <RailIcon name={tab.id} />
                 {tab.label}
               </button>
             ))}
           </nav>
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
-      <header className="sticky top-0 z-30">
-        {saveNote ? (
-          <p role="alert" className="bg-danger-softer px-4 py-2 text-sm text-danger-text sm:px-6">
-            {saveNote === "db" ? t.remoteDbMissing : t.saveFailed}
-          </p>
-        ) : null}
-        <div className="material-bar">
-        <div className="flex min-h-14 items-center gap-3 px-4 py-2.5 sm:gap-4 sm:px-6">
-          <div className="flex min-w-0 flex-1 items-center gap-2">
-            <label className="flex items-center gap-2 text-sm">
-              <span className="sr-only font-medium text-ink-soft sm:not-sr-only">{t.site}</span>
+      {saveNote ? (
+        <p role="alert" className="bg-danger-softer px-6 py-2 text-sm text-danger-text sm:px-8">
+          {saveNote === "db" ? t.remoteDbMissing : t.saveFailed}
+        </p>
+      ) : null}
+      {supportOrg ? <p className="px-6 pt-4 text-sm text-ink-soft sm:px-8">{t.supportBanner}</p> : null}
+      <main className={`flex flex-col gap-8 px-6 py-6 sm:px-8 ${selection ? "pb-28" : ""}`}>
+        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+          <div className="min-w-0">
+            <h1 className="text-[2rem] font-semibold leading-none tracking-[-0.03em] text-ink">
+              {screen === "approvals" ? t.approvalsTitle : tabs.find((tab) => tab.id === screen)?.label}
+            </h1>
+            <p className="mt-2 text-sm text-muted">{siteLabel(state.biz.name, lang)}</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="flex items-center">
+              <span className="sr-only">{t.site}</span>
               <select
                 data-testid="site-select"
                 aria-label={t.site}
-                className={`${button.quiet} max-w-36 px-3 sm:max-w-none`}
+                className={`${button.quiet} max-w-44 px-3`}
                 value={live.activeSiteId}
                 onChange={(event) => switchSite(event.target.value)}
               >
@@ -1207,8 +1222,6 @@ export function ScheduleApp() {
                 ))}
               </select>
             </label>
-          </div>
-          <div className="flex shrink-0 items-center gap-2">
             {reviewable.length > 0 ? (
               <button type="button" data-testid="trade-queue" className={button.quiet} onClick={() => tradeLater.clear()}>
                 {t.tradeManagerQueue(reviewable.length)}
@@ -1230,12 +1243,6 @@ export function ScheduleApp() {
             {settings}
           </div>
         </div>
-        {supportOrg ? (
-          <p className="px-4 pb-2.5 text-sm text-ink-soft sm:px-6">{t.supportBanner}</p>
-        ) : null}
-        </div>
-      </header>
-      <main className={`flex flex-col gap-6 px-4 py-6 sm:px-6 ${selection ? "pb-28" : ""}`}>
         {writer ? null : (
           <p
             data-testid="read-only-banner"
@@ -1247,7 +1254,7 @@ export function ScheduleApp() {
         )}
         {weekly ? (
           <section className="flex flex-wrap items-center gap-2">
-            <div className="flex items-center gap-1 rounded-lg border border-line bg-card p-1 shadow-card">
+            <div className="flex items-center gap-1 rounded-lg border border-line bg-card p-1">
               <button
                 type="button"
                 data-testid="prev-week"
@@ -1331,41 +1338,81 @@ export function ScheduleApp() {
           </section>
         ) : null}
         {screen === "schedule" ? (
-          <div className="flex flex-col items-start gap-6">
-            <WeekBoard {...boardProps} />
-            <div className="flex min-w-0 flex-col gap-4">
-              <IssuesPanel
-                state={peered}
-                report={report}
-                lang={lang}
-                hasSchedule={Boolean(schedule)}
-                manager={writer}
-                published={Boolean(published)}
-                aiEnabled={aiEnabled}
-                onApprove={(slot, index) => change((current) => approveProposal(current, slot, index))}
-                onReplace={(slot, employeeId) =>
-                  change((current) => approveReplacement(current, actor, slot.key, employeeId))
-                }
-                onEmergency={(slot, choice) => change((current) => approveEmergency(current, actor, slot.key, choice))}
-              />
-              {schedule ? null : (
-                <VersionsPanel
-                  state={state}
-                  lang={lang}
-                  canRestore={writer}
-                  onRestore={(versionId) => change((current) => restoreWeekVersion(current, actor, versionId))}
-                />
-              )}
+          <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,22rem)]">
+            <div className="min-w-0">
+              <WeekBoard {...boardProps} />
             </div>
-            {schedule ? <WeekSummary state={peered} report={report} lang={lang} /> : null}
-            {schedule ? (
-              <VersionsPanel
-                state={state}
-                lang={lang}
-                canRestore={writer}
-                onRestore={(versionId) => change((current) => restoreWeekVersion(current, actor, versionId))}
-              />
-            ) : null}
+            <div
+              className={`flex min-w-0 flex-col rounded-xl border border-line bg-card p-3 lg:sticky lg:top-4 lg:overflow-hidden ${
+                selection ? "lg:max-h-[calc(100dvh-7rem)]" : "lg:max-h-[calc(100dvh-2rem)]"
+              }`}
+            >
+              <div role="tablist" aria-label={t.issues} className="grid shrink-0 grid-cols-3 gap-1 rounded-lg bg-well p-1">
+                {(
+                  [
+                    ["issues", t.issues],
+                    ["summary", t.summaryTitle],
+                    ["versions", t.versionsTitle],
+                  ] as const
+                ).map(([id, label]) => {
+                  const count =
+                    id === "issues" && schedule
+                      ? report.violations.length + report.unfilled.length + report.overQuota.length + report.under.length
+                      : 0;
+                  return (
+                    <button
+                      key={id}
+                      type="button"
+                      role="tab"
+                      data-testid={`schedule-pane-${id}`}
+                      aria-selected={schedulePane === id}
+                      className={`min-h-9 rounded-lg border px-1.5 py-1 text-center text-xs font-medium leading-4 ${
+                        schedulePane === id ? "border-line bg-card text-ink" : "border-transparent text-muted hover:text-ink"
+                      }`}
+                      onClick={() => setSchedulePane(id)}
+                    >
+                      {label}
+                      {count > 0 ? <span className="ms-1 tabular-nums text-danger-text">{count}</span> : null}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="mt-3 min-h-0 overflow-y-auto overscroll-y-contain">
+                {schedulePane === "issues" ? (
+                  <IssuesPanel
+                    embedded
+                    state={peered}
+                    report={report}
+                    lang={lang}
+                    hasSchedule={Boolean(schedule)}
+                    manager={writer}
+                    published={Boolean(published)}
+                    aiEnabled={aiEnabled}
+                    onApprove={(slot, index) => change((current) => approveProposal(current, slot, index))}
+                    onReplace={(slot, employeeId) =>
+                      change((current) => approveReplacement(current, actor, slot.key, employeeId))
+                    }
+                    onEmergency={(slot, choice) => change((current) => approveEmergency(current, actor, slot.key, choice))}
+                  />
+                ) : null}
+                {schedulePane === "summary" ? (
+                  schedule ? (
+                    <WeekSummary embedded state={peered} report={report} lang={lang} />
+                  ) : (
+                    <p className="text-sm text-muted">{t.noSchedule}</p>
+                  )
+                ) : null}
+                {schedulePane === "versions" ? (
+                  <VersionsPanel
+                    embedded
+                    state={state}
+                    lang={lang}
+                    canRestore={writer}
+                    onRestore={(versionId) => change((current) => restoreWeekVersion(current, actor, versionId))}
+                  />
+                ) : null}
+              </div>
+            </div>
           </div>
         ) : null}
         {screen === "team" ? (
@@ -1498,7 +1545,7 @@ export function ScheduleApp() {
         </div>
       </div>
       {selectedName ? (
-        <div className="fixed bottom-0 end-0 start-48 z-20 border-t border-line bg-card/90 px-4 py-3 shadow-pop backdrop-blur-xl sm:px-6">
+        <div className="fixed bottom-0 end-0 start-0 z-20 border-t border-line bg-card px-6 py-3 sm:px-8 md:start-56">
           <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3">
             <p className="text-sm font-medium">{selectionHint(lang, selectedName)}</p>
             <button type="button" className={button.quiet} onClick={() => setSelection(null)}>
@@ -1682,7 +1729,7 @@ const stepButton = "grid h-8 w-8 place-items-center rounded-lg text-ink-soft hov
 
 function Chevron({ dir }: { dir: "prev" | "next" }) {
   return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    <svg aria-hidden="true" viewBox="0 0 20 20" className="week-chevron h-4 w-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
       <path d={dir === "prev" ? "M12.5 4.5 7 10l5.5 5.5" : "M7.5 4.5 13 10l-5.5 5.5"} />
     </svg>
   );

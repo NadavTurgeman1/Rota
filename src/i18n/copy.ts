@@ -269,6 +269,8 @@ export interface Copy {
   selectAll: string;
   clearAll: string;
   navInsights: string;
+  railLabel: string;
+  staffRail: string;
   nameSearch: string;
   noNameMatches: string;
   inviteStaff: string;
@@ -389,7 +391,7 @@ export const copy: Record<Lang, Copy> = {
     generate: "יצירת סידור",
     regenerate: "יצירה מחדש",
     publish: "פרסום",
-    revert: "החזרה לטיוטה",
+    revert: "ערוך סידור",
     undo: "ביטול",
     redo: "שחזר",
     publishedLock: "השבוע פורסם. העריכה נעולה עד החזרה לטיוטה.",
@@ -640,6 +642,8 @@ export const copy: Record<Lang, Copy> = {
     selectAll: "בחר הכל",
     clearAll: "נקה",
     navInsights: "דשבורד",
+    railLabel: "ניהול",
+    staffRail: "שלי",
     nameSearch: "חיפוש שם",
     noNameMatches: "אין שמות תואמים",
     inviteStaff: "פתיחת כניסה",
@@ -771,7 +775,7 @@ export const copy: Record<Lang, Copy> = {
     generate: "Generate",
     regenerate: "Regenerate",
     publish: "Publish",
-    revert: "Back to draft",
+    revert: "Edit schedule",
     undo: "Undo",
     redo: "Redo",
     publishedLock: "This week is published. Editing stays locked until it returns to draft.",
@@ -1022,6 +1026,8 @@ export const copy: Record<Lang, Copy> = {
     selectAll: "Select all",
     clearAll: "Clear",
     navInsights: "Dashboard",
+    railLabel: "Manage",
+    staffRail: "Mine",
     nameSearch: "Search names",
     noNameMatches: "No matching names",
     inviteStaff: "Open a login",

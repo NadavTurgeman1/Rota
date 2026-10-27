@@ -13,11 +13,14 @@ export function VersionsPanel({
   lang,
   canRestore,
   onRestore,
+  embedded = false,
 }: {
   state: RotaState;
   lang: Lang;
   canRestore: boolean;
   onRestore: (versionId: string) => void;
+  /** Inside a disclosure, so the title and the card frame already exist. */
+  embedded?: boolean;
 }) {
   const t = copy[lang];
   const schedule = state.sched[state.week];
@@ -30,8 +33,8 @@ export function VersionsPanel({
   }
 
   return (
-    <section data-testid="versions" className={`${surface} p-4 sm:p-5`}>
-      <h2 className="mb-3 text-base font-semibold tracking-tight">{t.versionsTitle}</h2>
+    <section data-testid="versions" className={embedded ? "pt-3" : `${surface} p-4 sm:p-5`}>
+      {embedded ? null : <h2 className="mb-3 text-base font-semibold tracking-tight">{t.versionsTitle}</h2>}
       {schedule?.restoredFrom && schedule.status === "draft" ? (
         <p data-testid="restored-banner" className="mb-3 rounded-lg bg-warn-soft px-3 py-2 text-xs font-medium text-warn-text">
           {restoredDraftText(lang, schedule.restoredFrom)}

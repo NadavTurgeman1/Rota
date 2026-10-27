@@ -75,7 +75,7 @@ export function ApprovalsScreen({
           role="tab"
           data-testid={`admin-tab-${id}`}
           aria-selected={tab === id}
-          className={`min-h-9 rounded-lg px-3 text-sm font-medium ${tab === id ? "bg-card font-semibold text-ink shadow-card" : "text-muted"}`}
+          className={`min-h-9 rounded-lg px-3 text-sm font-medium ${tab === id ? "bg-card font-medium text-ink" : "text-muted hover:text-ink"}`}
           onClick={() => setTab(id)}
         >
           {label}
@@ -159,7 +159,7 @@ export function ApprovalsScreen({
   );
   if (bare) return <div className="mx-auto flex w-full max-w-lg flex-col gap-4">{body}</div>;
   return (
-    <div className="relative flex min-h-screen flex-col">
+    <div className="shell relative flex min-h-screen flex-col bg-page text-ink">
       <header className="flex items-center justify-between gap-3 px-4 py-4 sm:px-6">
         <div className="flex items-center gap-3">
           <Logo className="h-10" />

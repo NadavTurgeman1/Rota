@@ -22,7 +22,18 @@ function hoursLabel(hours: number): string {
 }
 
 /** Shifts and hours each active person got this week, against their agreed count. */
-export function WeekSummary({ state, report, lang }: { state: RotaState; report: Analysis; lang: Lang }) {
+export function WeekSummary({
+  state,
+  report,
+  lang,
+  embedded = false,
+}: {
+  state: RotaState;
+  report: Analysis;
+  lang: Lang;
+  /** Inside a disclosure, so the title and the card frame already exist. */
+  embedded?: boolean;
+}) {
   const t = copy[lang];
   const label: Record<Standing, string> = { under: t.underQuota, within: t.withinQuota, over: t.overQuota, none: t.noQuota };
   const people = state.emps.filter((employee) => employee.active && !isRelief(employee, state.siteId));
@@ -36,9 +47,9 @@ export function WeekSummary({ state, report, lang }: { state: RotaState; report:
   const totalHours = rows.reduce((sum, row) => sum + row.hours, 0);
 
   return (
-    <section data-testid="week-summary" className={`${surface} min-w-0 p-3 sm:p-4`}>
-      <h2 className="text-sm font-semibold tracking-tight text-ink">{t.summaryTitle}</h2>
-      <p className="mt-1 text-xs leading-5 text-muted">{t.summaryHint}</p>
+    <section data-testid="week-summary" className={embedded ? "min-w-0 pt-3" : `${surface} min-w-0 p-3 sm:p-4`}>
+      {embedded ? null : <h2 className="text-sm font-semibold tracking-tight text-ink">{t.summaryTitle}</h2>}
+      <p className={`${embedded ? "" : "mt-1 "}text-xs leading-5 text-muted`}>{t.summaryHint}</p>
       {people.length === 0 ? (
         <p className="mt-3 text-sm text-muted">{t.noEmployees}</p>
       ) : (

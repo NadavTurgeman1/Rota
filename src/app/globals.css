@@ -380,6 +380,88 @@ input[type="time"]::-webkit-datetime-edit-text {
   cursor: pointer;
 }
 
+/*
+ * Signed-in workspace. Login, signup, and the org screens stay on :root,
+ * so this palette never reaches them. Cool neutrals, hairline cards, the same brand blue.
+ */
+.shell {
+  --page: #f5f5f6;
+  --paper: #f7f7f8;
+  --card: #ffffff;
+  --ink: #18181b;
+  --ink-soft: #3f3f46;
+  --muted: #52525b;
+  --subtle: #52525b;
+  --line: #e6e6ea;
+  --field-line: #71717a;
+  --well: #efeff1;
+  --well-strong: #e4e4e7;
+  --track: #efeff1;
+  --chip: #ffffff;
+  --slot-m: #f4f4f5;
+  --slot-a: #eef2ff;
+  --slot-n: #f4f2f8;
+  --scroll-track: #f4f4f5;
+  --scroll-thumb: #d4d4d8;
+  --elev-1: 0 1px 2px rgb(24 24 27 / 0.04);
+  --elev-2: 0 8px 24px -6px rgb(24 24 27 / 0.12);
+  color-scheme: light;
+  background: var(--page);
+  color: var(--ink);
+  font-family: var(--font-inter), var(--font-heebo), sans-serif;
+  font-variant-numeric: tabular-nums;
+  scrollbar-color: var(--scroll-thumb) transparent;
+}
+
+.shell ::selection {
+  background: #dce4ff;
+  color: #18181b;
+}
+
+:root.dark .shell {
+  --page: #0c0c0e;
+  --paper: #111113;
+  --card: #18181b;
+  --ink: #fafafa;
+  --ink-soft: #e4e4e7;
+  --muted: #a1a1aa;
+  --subtle: #a1a1aa;
+  --line: #2a2a2e;
+  --field-line: #a1a1aa;
+  --well: #232327;
+  --well-strong: #2e2e33;
+  --track: #232327;
+  --chip: #1f1f23;
+  --slot-m: #222226;
+  --slot-a: #1c2436;
+  --slot-n: #262230;
+  --scroll-track: #111113;
+  --scroll-thumb: #3f3f46;
+  --elev-1: 0 1px 2px rgb(0 0 0 / 0.4);
+  --elev-2: 0 12px 32px -8px rgb(0 0 0 / 0.5);
+  color-scheme: dark;
+}
+
+:root.dark .shell ::selection {
+  background: #243056;
+  color: #fafafa;
+}
+
+.shell .material-pop {
+  background: var(--card);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+
+/* The week stepper sits in a row that flips with the language. Flip the glyph with the nearest dir, not the document. */
+[dir="rtl"] .week-chevron {
+  scale: -1 1;
+}
+
+[dir="ltr"] .week-chevron {
+  scale: 1 1;
+}
+
 .rota-logo-dark {
   display: none;
 }

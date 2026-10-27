@@ -26,6 +26,7 @@ export function IssuesPanel({
   onApprove,
   onReplace,
   onEmergency,
+  embedded = false,
 }: {
   state: RotaState;
   report: Analysis;
@@ -37,16 +38,18 @@ export function IssuesPanel({
   onApprove: (slot: Slot, index: number) => void;
   onReplace: (slot: Slot, employeeId: string) => void;
   onEmergency: (slot: Slot, choice: EmergencyChoice) => void;
+  /** Inside the schedule side box, so the frame and the title already exist. */
+  embedded?: boolean;
 }) {
   const t = copy[lang];
   const clear = hasSchedule && report.violations.length === 0 && report.unfilled.length === 0;
   const showPublishHint = manager && !published;
 
   return (
-    <aside data-testid="issues" className={`${surface} p-4 sm:p-5`}>
-      <h2 className={cardTitle}>{t.issues}</h2>
-      {!hasSchedule ? <p className="mt-3 text-sm text-muted">{t.noSchedule}</p> : null}
-      {clear ? <p className="mt-3 rounded-xl bg-ok-softer px-3 py-2 text-sm font-medium text-ok-text">{showPublishHint ? t.allClear : t.publishedClear}</p> : null}
+    <aside data-testid="issues" className={embedded ? "min-w-0" : `${surface} p-4 sm:p-5`}>
+      {embedded ? null : <h2 className={cardTitle}>{t.issues}</h2>}
+      {!hasSchedule ? <p className={`${embedded ? "" : "mt-3 "}text-sm text-muted`}>{t.noSchedule}</p> : null}
+      {clear ? <p className={`${embedded ? "" : "mt-3 "}rounded-xl bg-ok-softer px-3 py-2 text-sm font-medium text-ok-text`}>{showPublishHint ? t.allClear : t.publishedClear}</p> : null}
       {report.violations.length > 0 ? (
         <section className="mt-4">
           <h3 className="text-sm font-medium text-danger-text">{t.violations}</h3>

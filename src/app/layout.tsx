@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Heebo } from "next/font/google";
+import { Heebo, Inter } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
 
@@ -9,6 +9,12 @@ const heebo = Heebo({
   variable: "--font-heebo",
 });
 
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
+
 export const metadata: Metadata = {
   title: "Rota",
   description: "סידור משמרות",
@@ -16,7 +22,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
-    <html lang="he" dir="rtl" className={heebo.variable}>
+    <html lang="he" dir="rtl" className={`${heebo.variable} ${inter.variable}`}>
       <body>{children}</body>
     </html>
   );

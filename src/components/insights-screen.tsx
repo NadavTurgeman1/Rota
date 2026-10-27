@@ -44,32 +44,21 @@ export function InsightsScreen({ state, lang }: { state: RotaState; lang: Lang }
 
   return (
     <div data-testid="insights-screen" className="flex flex-col gap-6">
-      <section className={`${card} flex flex-wrap items-start justify-between gap-3`}>
-        <div className="min-w-0">
-          <h2 className={`${cardTitle} flex items-center gap-2 text-lg`}>
-            <SparkIcon />
-            {t.title}
-          </h2>
-          <p className={cardHint}>{t.hint}</p>
-        </div>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <p className="max-w-2xl text-sm leading-6 text-muted">{t.hint}</p>
         <div className="flex flex-col items-start gap-1 sm:items-end">
           <span data-testid="insights-sample" className={`${pill} bg-violet-soft text-violet-text`}>
             {t.sample}
           </span>
           <p className="max-w-80 text-xs leading-5 text-muted sm:text-end">{t.sampleNote}</p>
         </div>
-      </section>
+      </div>
 
       <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         {stats.map((stat) => (
-          <div key={stat.id} data-testid={`insight-${stat.id}`} className={`${surface} min-w-0 p-4`}>
-            <p className="text-sm text-muted">{stat.label}</p>
-            <p className={`mt-1 text-2xl font-bold tracking-tight tabular-nums ${stat.tone}`}>{stat.value}</p>
-            {stat.id === "coverage" ? (
-              <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-track" aria-hidden="true">
-                <div className="h-full rounded-full bg-brand" style={{ width: `${Math.min(100, data.coverage)}%` }} />
-              </div>
-            ) : null}
+          <div key={stat.id} data-testid={`insight-${stat.id}`} className={`${surface} min-w-0 px-4 py-4`}>
+            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-muted">{stat.label}</p>
+            <p className={`mt-3 text-[1.75rem] font-semibold leading-none tracking-[-0.03em] tabular-nums ${stat.tone}`}>{stat.value}</p>
           </div>
         ))}
       </section>
@@ -82,7 +71,7 @@ export function InsightsScreen({ state, lang }: { state: RotaState; lang: Lang }
           <div className={`mt-4 overflow-x-auto ${data.people.length === 0 ? "hidden" : ""}`}>
             <table data-testid="insights-workload" className="w-full min-w-[520px] text-sm">
               <thead>
-                <tr className="border-b border-line text-start text-xs text-muted">
+                <tr className="border-b border-line text-start text-[11px] font-medium uppercase tracking-[0.06em] text-muted">
                   <th className="py-2 pe-3 text-start font-medium">{t.employee}</th>
                   <th className="px-3 py-2 text-start font-medium">{t.shifts}</th>
                   <th className="w-1/3 px-3 py-2 text-start font-medium">{t.load}</th>
@@ -186,13 +175,5 @@ export function InsightsScreen({ state, lang }: { state: RotaState; lang: Lang }
         </section>
       </div>
     </div>
-  );
-}
-
-function SparkIcon() {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-5 w-5 text-brand" fill="currentColor">
-      <path d="M10 1.5l1.7 4.6a3 3 0 0 0 1.8 1.8L18 9.6l-4.5 1.7a3 3 0 0 0-1.8 1.8L10 17.6l-1.7-4.5a3 3 0 0 0-1.8-1.8L2 9.6l4.5-1.7a3 3 0 0 0 1.8-1.8L10 1.5Z" />
-    </svg>
   );
 }

@@ -413,16 +413,16 @@ export function WeekGrid({
             {[0, 1, 2, 3, 4, 5, 6].map((day) => {
               const today = columnIsToday(state.week, day);
               return (
-              <th key={day} scope="col" className={`px-1 pb-1 text-center align-top text-xs font-semibold ${today ? "text-brand-text" : "text-muted"}`}>
+              <th key={day} scope="col" className={`px-1 pb-1 text-center align-top text-[11px] font-medium ${today ? "text-brand-text" : "text-muted"}`}>
                 {mode === "availability" ? (
                   <>
-                    <span className={`block ${today ? "text-brand-text" : "text-ink"}`}>{dayName(day, lang)}</span>
+                    <span className={`block ${today ? "text-brand-text" : "text-muted"}`}>{dayName(day, lang)}</span>
                     <DayDates week={state.week} day={day} lang={lang} today={today} />
                   </>
                 ) : (
                   dayName(day, lang)
                 )}
-                <span aria-hidden="true" className={`mx-auto mt-1 block h-px w-8 ${today ? "bg-brand" : "bg-field-line"}`} />
+                <span aria-hidden="true" className={`mx-auto mt-1.5 block h-px w-8 ${today ? "bg-brand" : "bg-line"}`} />
               </th>
               );
             })}
