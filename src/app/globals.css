@@ -24,12 +24,12 @@
   --well: #f1f5f9;
   --well-strong: #e2e8f0;
   --track: #e8edf4;
-  --brand: #4f46e5;
-  --brand-hover: #4338ca;
+  --brand: #2b5bff;
+  --brand-hover: #214fe0;
   --on-brand: #ffffff;
-  --brand-soft: #eef2ff;
-  --brand-text: #3730a3;
-  --focus: #4f46e5;
+  --brand-soft: #e8eeff;
+  --brand-text: #1438c9;
+  --focus: #2b5bff;
   --ok-soft: #dcfce7;
   --ok-softer: #f0fdf4;
   --ok-text: #166534;
@@ -73,12 +73,12 @@
   --well: #253247;
   --well-strong: #334155;
   --track: #0b1222;
-  --brand: #818cf8;
-  --brand-hover: #a5b4fc;
-  --on-brand: #0f172a;
-  --brand-soft: #272d5a;
-  --brand-text: #c7d2fe;
-  --focus: #a5b4fc;
+  --brand: #3368ff;
+  --brand-hover: #2b5bff;
+  --on-brand: #ffffff;
+  --brand-soft: #172554;
+  --brand-text: #d6e2ff;
+  --focus: #3368ff;
   --ok-soft: #12372a;
   --ok-softer: #0f2c22;
   --ok-text: #86efac;
@@ -313,4 +313,16 @@ input[type="time"]::-webkit-datetime-edit-text {
   margin: 0;
   opacity: 1;
   cursor: pointer;
+}
+
+.rota-logo-dark {
+  display: none;
+}
+
+:root.dark .rota-logo-light {
+  display: none;
+}
+
+:root.dark .rota-logo-dark {
+  display: block;
 }

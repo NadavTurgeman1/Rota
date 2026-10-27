@@ -70,10 +70,11 @@ import { ConstraintsScreen } from "./constraints-screen";
 import { InsightsScreen } from "./insights-screen";
 import { IssuesPanel } from "./issues-panel";
 import { ApprovalsScreen, type SignupApproval, type TenantRow } from "./approvals-screen";
-import { BrandMark, CreateOrgScreen, CreateSiteScreen, LoginScreen, SignupScreen, Wordmark } from "./login-screen";
+import { CreateOrgScreen, CreateSiteScreen, LoginScreen, Logo, SignupScreen } from "./login-screen";
 import { browserClient } from "../supabase/browser";
 import { remoteConfigured } from "../supabase/public-env";
 import { WeekBoard } from "./schedule-board";
+import type { AttendanceApi, AttendanceSnapshot } from "./attendance";
 import { StaffHome } from "./staff-home";
 import { TeamScreen } from "./team-screen";
 import { HebrewCalendarContext } from "./day-dates";
@@ -304,6 +305,24 @@ export function ScheduleApp() {
     void loadTrades();
     return result.ok ? null : result.code;
   }
+
+  async function attendanceRequest(path: string, body?: object): Promise<AttendanceSnapshot | string> {
+    if (!tokenRef.current) return "forbidden";
+    const response = await fetch(path, {
+      method: body ? "POST" : "GET",
+      headers: authHeaders(Boolean(body)),
+      body: body ? JSON.stringify(body) : undefined,
+    }).catch(() => null);
+    const data = (await response?.json().catch(() => null)) as (AttendanceSnapshot & { error?: string }) | null;
+    if (!response?.ok) return data?.error ?? "attendance";
+    return data ?? "attendance";
+  }
+
+  const attendanceApi: AttendanceApi = {
+    load: (siteId) => attendanceRequest(`/api/attendance?siteId=${encodeURIComponent(siteId)}`),
+    employee: (employeeId) => attendanceRequest(`/api/attendance?employeeId=${encodeURIComponent(employeeId)}`),
+    punch: (input) => attendanceRequest("/api/attendance", input),
+  };
 
   const tradeApi: TradeApi = {
     async options(siteId, week, slotKey) {
@@ -1034,6 +1053,7 @@ export function ScheduleApp() {
         trades={trades.trades}
         takeable={trades.takeable}
         tradeApi={remote ? tradeApi : undefined}
+        attendanceApi={attendanceApi}
       />
       </HebrewCalendarContext.Provider>
     );
@@ -1107,8 +1127,7 @@ export function ScheduleApp() {
         ) : null}
         <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <BrandMark />
-            <Wordmark />
+            <Logo />
           </div>
           <div className="flex shrink-0 items-center gap-2">
             <label className="flex items-center gap-2 text-sm">
@@ -1358,6 +1377,7 @@ export function ScheduleApp() {
             onSites={(employeeId, siteIds, homeSiteId) =>
               changeWorkspace((current) => setEmployeeSites(current, employeeId, siteIds, currentWeek, homeSiteId))
             }
+            loadAttendance={attendanceApi.employee}
           />
         ) : null}
         {screen === "constraints" ? (

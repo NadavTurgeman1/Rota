@@ -4,6 +4,7 @@ import { isRelief } from "../domain/relief";
 import { confirmDeleteEmployee, copy } from "../i18n/copy";
 import { shiftLabel, siteLabel } from "../schedule/display";
 import { agreementCell, availabilityCell, type EmployeePatch } from "../people/edit";
+import { EmployeeAttendance, type AttendanceApi } from "./attendance";
 import { DayDates } from "./day-dates";
 import { NameRail } from "./name-rail";
 import { button, card, cardHint, cardTitle, field, label as labelClass, labelText, select, surface } from "./ui";
@@ -26,6 +27,7 @@ export function TeamScreen({
   assignedSiteIds,
   lockedSiteIds,
   onSites,
+  loadAttendance,
 }: {
   state: RotaState;
   lang: Lang;
@@ -45,6 +47,7 @@ export function TeamScreen({
   assignedSiteIds: string[];
   lockedSiteIds: string[];
   onSites: (employeeId: string, siteIds: string[], homeSiteId: string) => void;
+  loadAttendance: AttendanceApi["employee"];
 }) {
   const t = copy[lang];
   const employee = state.emps.find((item) => item.id === selectedId) ?? null;
@@ -110,6 +113,7 @@ export function TeamScreen({
           homeSiteId={employee.homeSiteId ?? null}
           lockedSiteIds={lockedSiteIds}
           onSites={onSites}
+          loadAttendance={loadAttendance}
         />
       ) : (
         <p className={`${card} text-sm text-muted`}>{t.pickEmployee}</p>
@@ -135,6 +139,7 @@ function EmployeeCard({
   homeSiteId,
   lockedSiteIds,
   onSites,
+  loadAttendance,
 }: {
   state: RotaState;
   lang: Lang;
@@ -151,6 +156,7 @@ function EmployeeCard({
   homeSiteId: string | null;
   lockedSiteIds: string[];
   onSites: (employeeId: string, siteIds: string[], homeSiteId: string) => void;
+  loadAttendance: AttendanceApi["employee"];
 }) {
   const t = copy[lang];
   const employee = state.emps.find((item) => item.id === employeeId)!;
@@ -297,6 +303,8 @@ function EmployeeCard({
           </div>
         ) : null}
       </section>
+
+      <EmployeeAttendance employeeId={employeeId} lang={lang} load={loadAttendance} />
 
       <section className={card}>
         <div className="flex flex-wrap items-center justify-between gap-2">

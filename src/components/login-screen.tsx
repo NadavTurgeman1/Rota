@@ -4,27 +4,13 @@ import { copy } from "../i18n/copy";
 import { button, card, field, label, labelText } from "./ui";
 import { accessLabel } from "./users-panel";
 
-export function BrandMark() {
+/** The wordmark. Letters switch to light in the dark theme; the mark itself stays. */
+export function Logo({ className = "h-9" }: { className?: string }) {
   return (
-    <img
-      src="/rota-logo.png"
-      alt=""
-      aria-hidden="true"
-      className="h-11 w-11 shrink-0 translate-y-1 object-contain"
-    />
-  );
-}
-
-/** The t takes the star's pink, purple, and cyan, a little larger than the other letters. */
-export function Wordmark() {
-  return (
-    <p dir="ltr" className="translate-y-1 text-xl font-bold leading-none tracking-tight text-ink">
-      Ro
-      <span className="mx-px inline-block bg-[linear-gradient(180deg,#ff4ec8_0%,#e038d8_30%,#7c3aed_58%,#2f8bff_82%,#22d3ee_100%)] bg-clip-text text-[1.05em] font-extrabold leading-none text-transparent">
-        t
-      </span>
-      a
-    </p>
+    <span className={`inline-flex shrink-0 ${className}`}>
+      <img src="/rota-logo.png" alt="Rota" className="rota-logo-light h-full w-auto" />
+      <img src="/rota-logo-dark.png" alt="Rota" className="rota-logo-dark h-full w-auto" />
+    </span>
   );
 }
 
@@ -60,8 +46,7 @@ export function LoginScreen({
       />
       <header className="relative flex items-center justify-between gap-3 px-4 py-4 sm:px-6">
         <div className="flex items-center gap-3">
-          <BrandMark />
-          <Wordmark />
+          <Logo className="h-10" />
         </div>
         <div className="flex items-center gap-2">{toolbar}</div>
       </header>
@@ -190,8 +175,7 @@ export function SignupScreen({
     <div className="relative flex min-h-screen flex-col overflow-hidden">
       <header className="relative flex items-center justify-between gap-3 px-4 py-4 sm:px-6">
         <div className="flex items-center gap-3">
-          <BrandMark />
-          <Wordmark />
+          <Logo className="h-10" />
         </div>
         <div className="flex items-center gap-2">{toolbar}</div>
       </header>
@@ -308,8 +292,7 @@ export function CreateOrgScreen({
     <div className="relative flex min-h-screen flex-col">
       <header className="flex items-center justify-between gap-3 px-4 py-4 sm:px-6">
         <div className="flex items-center gap-3">
-          <BrandMark />
-          <Wordmark />
+          <Logo className="h-10" />
         </div>
         <div className="flex items-center gap-2">{toolbar}</div>
       </header>
@@ -361,8 +344,7 @@ export function CreateSiteScreen({
     <div className="relative flex min-h-screen flex-col">
       <header className="flex items-center justify-between gap-3 px-4 py-4 sm:px-6">
         <div className="flex items-center gap-3">
-          <BrandMark />
-          <Wordmark />
+          <Logo className="h-10" />
         </div>
         <div className="flex items-center gap-2">{toolbar}</div>
       </header>

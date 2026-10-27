@@ -266,6 +266,37 @@ export interface Copy {
   invitePending: string;
   staffConstraints: string;
   staffSchedule: string;
+  staffAttendance: string;
+  attendanceHint: string;
+  attendanceIn: string;
+  attendanceOut: string;
+  attendanceClockOk: string;
+  attendanceClockBad: string;
+  attendanceClockSkew: string;
+  attendanceClockZone: string;
+  attendanceAsking: string;
+  attendanceAllow: string;
+  attendanceRetry: string;
+  attendanceLocating: string;
+  attendanceLocatingMeters: (meters: string) => string;
+  attendanceCoarse: (meters: string) => string;
+  attendanceLocked: (meters: string) => string;
+  attendanceDenied: string;
+  attendanceNoFix: string;
+  attendanceWide: string;
+  attendanceSaved: string;
+  attendanceEmpty: string;
+  attendanceDate: string;
+  attendanceInAt: string;
+  attendanceOutAt: string;
+  attendanceDuration: string;
+  attendancePlace: string;
+  attendanceMap: string;
+  attendanceOpen: string;
+  attendanceSince: (time: string) => string;
+  attendanceLog: string;
+  attendanceLogHint: string;
+  attendanceLoading: string;
   staffConstraintsHint: string;
   staffUnpublished: string;
   staffUnlinked: string;
@@ -575,7 +606,7 @@ export const copy: Record<Lang, Copy> = {
     newSiteName: "שם האתר החדש",
     siteNameTaken: "כבר יש אתר בשם הזה.",
     usersTitle: "הוספת מנהלי משמרת",
-    usersHint: "עובד מגיש אילוצים ורואה סידור אחרי פרסום. מנהל משמרות עורך את האתרים שלו. רק בעל העסק מנהל משתמשים.",
+    usersHint: "עובד נכנס ויוצא, מגיש אילוצים ורואה סידור אחרי פרסום. מנהל משמרות עורך את האתרים שלו. רק בעל העסק מנהל משתמשים.",
     addUser: "הוספת משתמש",
     removeUser: "הסרה",
     you: "(את/ה)",
@@ -592,10 +623,41 @@ export const copy: Record<Lang, Copy> = {
     nameSearch: "חיפוש שם",
     noNameMatches: "אין שמות תואמים",
     inviteStaff: "פתיחת כניסה",
-    inviteStaffHint: "העובד נכנס רק להגשת האילוצים שלו ולסידור אחרי שהוא מתפרסם.",
+    inviteStaffHint: "העובד נכנס לכניסה ויציאה, להגשת האילוצים שלו ולסידור אחרי שהוא מתפרסם.",
     invitePending: "ממתין לכניסה",
     staffConstraints: "האילוצים שלי",
     staffSchedule: "הסידור",
+    staffAttendance: "כניסה ויציאה",
+    attendanceHint: "השעה נלקחת משעון הטלפון ונבדקת מול השרת ואזור הזמן של האתר. הגישה למיקום מתבקשת עם פתיחת המסך, והכניסה נפתחת רק אחרי שהמיקום נעול.",
+    attendanceIn: "כניסה",
+    attendanceOut: "יציאה",
+    attendanceClockOk: "השעון מעודכן",
+    attendanceClockBad: "השעון לא תקין",
+    attendanceClockSkew: "שעון הטלפון לא מעודכן. מפעילים שעון אוטומטי ומרעננים.",
+    attendanceClockZone: "אזור הזמן בטלפון לא תואם לאתר. צריך לכוון את השעון לאזור הזמן של האתר.",
+    attendanceAsking: "מבקש גישה למיקום…",
+    attendanceAllow: "אשר מיקום",
+    attendanceRetry: "נסה שוב",
+    attendanceLocating: "מאתר מיקום…",
+    attendanceLocatingMeters: (meters) => `מאתר מיקום… ${meters} מ׳`,
+    attendanceCoarse: (meters) => `הרדיוס עכשיו ${meters} מ׳. הכניסה תיפתח כשהמיקום יינעל.`,
+    attendanceLocked: (meters) => `המיקום נעול, ${meters} מ׳`,
+    attendanceDenied: "כדי להירשם צריך לאשר גישה למיקום בעת השימוש.",
+    attendanceNoFix: "לא התקבל מיקום. יוצאים החוצה ומחכים שה-GPS יינעל.",
+    attendanceWide: "המיקום רחב מדי. צריך עד 100 מטר. יוצאים החוצה ומפעילים מיקום מדויק.",
+    attendanceSaved: "נשמר",
+    attendanceEmpty: "אין עדיין כניסות ויציאות.",
+    attendanceDate: "תאריך",
+    attendanceInAt: "כניסה",
+    attendanceOutAt: "יציאה",
+    attendanceDuration: "משך",
+    attendancePlace: "מיקום",
+    attendanceMap: "מפה",
+    attendanceOpen: "פתוח",
+    attendanceSince: (time) => `נכנסת ב-${time}`,
+    attendanceLog: "כניסות ויציאות",
+    attendanceLogHint: "השעה היא שעת השרת. המיקום והרדיוס הם מה שהטלפון מדד.",
+    attendanceLoading: "טוען…",
     staffConstraintsHint: "הבקשה ממתינה לאישור מנהל המשמרות. האילוצים השבועיים לא משתנים עד האישור.",
     staffUnpublished: "הסידור לשבוע הזה עוד לא פורסם.",
     staffUnlinked: "החשבון הזה עדיין לא מקושר לעובד בסידור.",
@@ -916,7 +978,7 @@ export const copy: Record<Lang, Copy> = {
     newSiteName: "New site name",
     siteNameTaken: "A site with this name already exists.",
     usersTitle: "Add shift managers",
-    usersHint: "An employee submits constraints and sees a schedule after it is published. A shift manager edits their sites. Only the owner manages users.",
+    usersHint: "An employee clocks in and out, submits constraints, and sees a schedule after it is published. A shift manager edits their sites. Only the owner manages users.",
     addUser: "Add user",
     removeUser: "Remove",
     you: "(you)",
@@ -933,10 +995,41 @@ export const copy: Record<Lang, Copy> = {
     nameSearch: "Search names",
     noNameMatches: "No matching names",
     inviteStaff: "Open a login",
-    inviteStaffHint: "The employee can only submit their constraints and see a schedule after it is published.",
+    inviteStaffHint: "The employee signs in to clock in and out, to submit their constraints, and to see the schedule after it is published.",
     invitePending: "Waiting to sign in",
     staffConstraints: "My constraints",
     staffSchedule: "Schedule",
+    staffAttendance: "Clock in / out",
+    attendanceHint: "The time comes from the phone clock and is checked against the server and the site timezone. Location access is requested when this screen opens, and clock-in appears after the location locks.",
+    attendanceIn: "Clock in",
+    attendanceOut: "Clock out",
+    attendanceClockOk: "Clock is current",
+    attendanceClockBad: "Clock needs a fix",
+    attendanceClockSkew: "The phone clock is not current. Turn on automatic time, then refresh.",
+    attendanceClockZone: "The phone timezone does not match the site. Set the clock to the site timezone.",
+    attendanceAsking: "Asking for location…",
+    attendanceAllow: "Allow location",
+    attendanceRetry: "Try again",
+    attendanceLocating: "Finding location…",
+    attendanceLocatingMeters: (meters) => `Finding location… ${meters} m`,
+    attendanceCoarse: (meters) => `The radius is ${meters} m. Clock-in opens once the location locks.`,
+    attendanceLocked: (meters) => `Location locked, ${meters} m`,
+    attendanceDenied: "Allow location access while using the site to clock in or out.",
+    attendanceNoFix: "No location came back. Step outside and wait for GPS to lock.",
+    attendanceWide: "The location is too wide. It has to be within 100 meters. Step outside and turn on precise location.",
+    attendanceSaved: "Saved",
+    attendanceEmpty: "No clock-ins or clock-outs yet.",
+    attendanceDate: "Date",
+    attendanceInAt: "In",
+    attendanceOutAt: "Out",
+    attendanceDuration: "Duration",
+    attendancePlace: "Location",
+    attendanceMap: "Map",
+    attendanceOpen: "Open",
+    attendanceSince: (time) => `Clocked in at ${time}`,
+    attendanceLog: "Clock-ins and clock-outs",
+    attendanceLogHint: "The time is the server time. The location and radius are what the phone measured.",
+    attendanceLoading: "Loading…",
     staffConstraintsHint: "The request waits for the shift manager. Weekly constraints stay as they are until it is approved.",
     staffUnpublished: "This week's schedule is not published yet.",
     staffUnlinked: "This account is not linked to anyone on the schedule yet.",

@@ -1,7 +1,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import type { Lang } from "../domain";
 import { copy } from "../i18n/copy";
-import { BrandMark, Wordmark } from "./login-screen";
+import { Logo } from "./login-screen";
 import { button, card, field, label, labelText } from "./ui";
 
 export interface TenantRow {
@@ -162,8 +162,7 @@ export function ApprovalsScreen({
     <div className="relative flex min-h-screen flex-col">
       <header className="flex items-center justify-between gap-3 px-4 py-4 sm:px-6">
         <div className="flex items-center gap-3">
-          <BrandMark />
-          <Wordmark />
+          <Logo className="h-10" />
         </div>
         <div className="flex items-center gap-2">{toolbar}</div>
       </header>

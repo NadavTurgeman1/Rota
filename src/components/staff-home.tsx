@@ -7,9 +7,10 @@ import { hebrewWeekRange } from "../schedule/hebrew-calendar";
 import { constraintWindowOpen, constraintWindowText } from "../schedule/constraint-window";
 import { weekCsv, weekExcelXml, weekExport, weekText } from "../schedule/export";
 import type { StaffDecision, StaffRequest } from "../workspace/workspace";
+import { AttendanceScreen, type AttendanceApi } from "./attendance";
 import { WeekGrid } from "./team-screen";
 import { WeekBoard } from "./schedule-board";
-import { BrandMark, Wordmark } from "./login-screen";
+import { Logo } from "./login-screen";
 import { downloadBlob, downloadWeekPng } from "./week-png";
 import { useHebrewCalendar } from "./day-dates";
 import { StaffTrades, type ShiftTrade, type TradeApi } from "./trades";
@@ -257,7 +258,7 @@ function downloadIcs(filename: string, body: string) {
   URL.revokeObjectURL(url);
 }
 
-/** The signed-in employee's home: their constraints, and the week after it is published. */
+/** The signed-in employee's home. Clock-in and clock-out open first. */
 export function StaffHome({
   state,
   lang,
@@ -277,6 +278,7 @@ export function StaffHome({
   trades = [],
   takeable = [],
   tradeApi,
+  attendanceApi,
 }: {
   state: RotaState;
   lang: Lang;
@@ -297,10 +299,11 @@ export function StaffHome({
   takeable?: string[];
   /** Swaps and giveaways go through the server, so they are off without one. */
   tradeApi?: TradeApi;
+  attendanceApi: AttendanceApi;
 }) {
   const t = copy[lang];
   const hebrew = useHebrewCalendar();
-  const [tab, setTab] = useState<"schedule" | "constraints">("schedule");
+  const [tab, setTab] = useState<"attendance" | "schedule" | "constraints">("attendance");
   const [copied, setCopied] = useState(false);
   const employee = selfId ? state.emps.find((item) => item.id === selfId) ?? null : null;
   const siteName = siteLabel(state.biz.name, lang);
@@ -318,6 +321,7 @@ export function StaffHome({
   const hasPublished = publishedStates.length > 0;
   const decision = decisions[0] ?? null;
   const tabs = [
+    { id: "attendance" as const, label: t.staffAttendance },
     { id: "schedule" as const, label: t.staffSchedule },
     { id: "constraints" as const, label: t.staffConstraints },
   ];
@@ -338,8 +342,7 @@ export function StaffHome({
         ) : null}
         <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-4 py-3 sm:gap-4 sm:px-6">
           <div className="flex min-w-0 flex-1 items-center gap-2">
-            <BrandMark />
-            <Wordmark />
+            <Logo />
           </div>
           <div className="flex shrink-0 items-center gap-2">
             {sites.length > 1 ? (
@@ -361,7 +364,7 @@ export function StaffHome({
           </div>
         </div>
         <div className="mx-auto max-w-[1440px] px-4 pb-3 sm:px-6">
-          <nav role="tablist" aria-label="Rota" className="grid grid-cols-2 gap-1 rounded-xl border border-line bg-track p-1 sm:inline-flex">
+          <nav role="tablist" aria-label="Rota" className="grid grid-cols-3 gap-1 rounded-xl border border-line bg-track p-1 sm:inline-flex">
             {tabs.map((item) => (
               <button
                 key={item.id}
@@ -381,6 +384,7 @@ export function StaffHome({
         </div>
       </header>
       <main className="mx-auto flex max-w-[1440px] flex-col gap-6 px-4 py-6 sm:px-6">
+        {tab === "attendance" ? null : (
         <section className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1 rounded-xl border border-line bg-card p-1 shadow-card">
             <button type="button" data-testid="prev-week" aria-label={t.previousWeek} className="grid h-8 w-8 place-items-center rounded-lg text-lg leading-none text-ink-soft hover:bg-well hover:text-ink" onClick={() => onWeek(-7)}>
@@ -396,6 +400,7 @@ export function StaffHome({
             </button>
           </div>
         </section>
+        )}
         {selfId && tradeApi ? (
           <StaffTrades
             lang={lang}
@@ -411,6 +416,8 @@ export function StaffHome({
         ) : null}
         {!selfId ? (
           <p className={`${card} text-sm leading-6 text-ink`}>{t.staffUnlinked}</p>
+        ) : tab === "attendance" ? (
+          <AttendanceScreen lang={lang} siteId={activeSiteId} api={attendanceApi} />
         ) : tab === "constraints" ? (
           employee ? (
             <StaffConstraints
