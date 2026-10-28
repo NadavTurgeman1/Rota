@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Business } from "../domain/types";
-import { constraintWindowOpen, constraintWindowText, withConstraintExtension } from "./constraint-window";
+import { constraintWindowOpen, constraintWindowText, staffCanSubmitConstraints, staffConstraintWeek, underwayWeek, withConstraintExtension } from "./constraint-window";
 
 const site: Business = {
   name: "דרום",
@@ -55,5 +55,17 @@ describe("constraint window", () => {
     expect(closed.constraintExtensionUntil).toBeUndefined();
     expect(constraintWindowOpen(closed, now)).toBe(false);
     expect(withConstraintExtension(closed, null)).toBe(closed);
+  });
+
+  it("lets an employee submit constraints only for the week after the one underway", () => {
+    const wednesday = new Date("2026-10-28T10:00:00.000Z");
+    expect(underwayWeek(wednesday)).toBe("2026-10-25");
+    expect(staffConstraintWeek(wednesday)).toBe("2026-11-01");
+    expect(staffCanSubmitConstraints("2026-11-01", wednesday)).toBe(true);
+    expect(staffCanSubmitConstraints("2026-10-25", wednesday)).toBe(false);
+    expect(staffCanSubmitConstraints("2026-11-08", wednesday)).toBe(false);
+    const sunday = new Date("2026-11-01T00:30:00.000Z");
+    expect(underwayWeek(sunday)).toBe("2026-11-01");
+    expect(staffConstraintWeek(sunday)).toBe("2026-11-08");
   });
 });

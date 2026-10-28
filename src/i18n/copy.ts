@@ -370,6 +370,7 @@ export interface Copy {
   staffAutoHint: string;
   staffPending: string;
   staffSameRequest: string;
+  staffWeekOnly: string;
   exceptionGrant: string;
   exceptionGrantHint: string;
   exceptionGranted: string;
@@ -758,7 +759,7 @@ export const copy: Record<Lang, Copy> = {
     attendanceLog: "כניסות ויציאות",
     attendanceLogHint: "השעה היא שעת השרת. המיקום והרדיוס הם מה שהטלפון מדד.",
     attendanceLoading: "טוען…",
-    staffConstraintsHint: "הבקשה ממתינה לאישור מנהל המשמרות. האילוצים השבועיים לא משתנים עד האישור.",
+    staffConstraintsHint: "בלי מגבלת חסימות, השליחה יוצרת בקשה למנהל המשמרות. האילוצים השבועיים משתנים רק אחרי אישור.",
     staffUnpublished: "הסידור לשבוע הזה עוד לא פורסם.",
     staffUnlinked: "החשבון הזה עדיין לא מקושר לעובד בסידור.",
     addToCalendar: "הוספה ללוח שנה",
@@ -787,6 +788,7 @@ export const copy: Record<Lang, Copy> = {
     staffAutoHint: "האילוצים בתוך המגבלה ונשמרים מיד, בלי אישור של מנהל.",
     staffPending: "הבקשה ממתינה לאישור מנהל המשמרות",
     staffSameRequest: "האילוצים זהים לאילוצים שכבר אושרו לשבוע הזה. שנו לפחות משמרת אחת כדי לשלוח בקשה חדשה.",
+    staffWeekOnly: "אפשר להגיש אילוצים רק לשבוע הבא, לא לשבוע שכבר מתקיים ולא לשבוע רחוק יותר.",
     exceptionGrant: "אילוצים בלי מגבלה",
     exceptionGrantHint: "העובד יכול לחסום כל מספר משמרות השבוע, כולל את כולן.",
     exceptionGranted: "המנהל אישר לך להגיש אילוצים בלי מגבלת חסימות.",
@@ -1186,7 +1188,7 @@ export const copy: Record<Lang, Copy> = {
     attendanceLog: "Clock-ins and clock-outs",
     attendanceLogHint: "The time is the server time. The location and radius are what the phone measured.",
     attendanceLoading: "Loading…",
-    staffConstraintsHint: "The request waits for the shift manager. Weekly constraints stay as they are until it is approved.",
+    staffConstraintsHint: "Without a block cap, sending creates a request for the shift manager. Weekly constraints change only after it is approved.",
     staffUnpublished: "This week's schedule is not published yet.",
     staffUnlinked: "This account is not linked to anyone on the schedule yet.",
     addToCalendar: "Add to calendar",
@@ -1215,6 +1217,7 @@ export const copy: Record<Lang, Copy> = {
     staffAutoHint: "These constraints are inside the limit and are saved at once, without a manager.",
     staffPending: "The request is waiting for the shift manager",
     staffSameRequest: "These constraints match the ones already approved for this week. Change at least one shift to send a new request.",
+    staffWeekOnly: "Constraints can be sent only for next week, not for the week already underway and not for a later week.",
     exceptionGrant: "Constraints without a cap",
     exceptionGrantHint: "This person can block any number of shifts this week, including every shift.",
     exceptionGranted: "A manager let you submit constraints without a block cap.",

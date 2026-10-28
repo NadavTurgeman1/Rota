@@ -1,5 +1,6 @@
 import type { Lang } from "../domain/rules";
 import { dayName } from "../domain/rules";
+import { addDays, sundayOnOrBefore } from "../domain/time";
 import type { Business } from "../domain/types";
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -57,6 +58,33 @@ export function constraintWindowOpen(biz: Business, now = new Date()): boolean {
   const current = day * 1440 + minute;
   if (end >= start) return current >= start && current <= end;
   return current >= start || current <= end;
+}
+
+function jerusalemToday(now: Date): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "Asia/Jerusalem",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(now);
+}
+
+/** Sunday of the week that contains today in Jerusalem. That week is already underway. */
+export function underwayWeek(now = new Date()): string {
+  return sundayOnOrBefore(jerusalemToday(now));
+}
+
+/**
+ * The only week an employee may submit constraints for.
+ * The week already underway is closed, and so is any week further out.
+ * Kept in step with the Jerusalem Sunday query in submitAvailabilityRequest.
+ */
+export function staffConstraintWeek(now = new Date()): string {
+  return addDays(underwayWeek(now), 7);
+}
+
+export function staffCanSubmitConstraints(week: string, now = new Date()): boolean {
+  return week === staffConstraintWeek(now);
 }
 
 export function constraintWindowText(biz: Business, lang: Lang): string {

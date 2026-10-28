@@ -124,6 +124,12 @@ async function writeAvailabilityWeek(
   if (inserted.length !== shiftIds.length) throw new SaveError("availability");
 }
 
+/** Next Sunday in Asia/Jerusalem. Employees may submit constraints for that week only. */
+export const STAFF_CONSTRAINT_WEEK_SQL = `to_char(
+  (date_trunc('week', (now() at time zone 'Asia/Jerusalem') + interval '1 day') - interval '1 day' + interval '7 days')::date,
+  'YYYY-MM-DD'
+)`;
+
 /** Store a request, or write the week at once when the block cap is on. A grant lifts the cap. */
 export async function submitAvailabilityRequest(
   sql: SqlClient,
@@ -141,6 +147,8 @@ export async function submitAvailabilityRequest(
     );
     const employee = mine[0];
     if (!employee) throw new SaveError("forbidden");
+    const allowedWeek = await sql.query<{ week: string }>(`select ${STAFF_CONSTRAINT_WEEK_SQL} as week`);
+    if (allowedWeek[0]?.week?.slice(0, 10) !== input.week) throw new SaveError("week");
     const open = await sql.query<{ open: boolean }>(`select private.constraint_window_open($1) as open`, [input.siteId]);
     if (open[0]?.open !== true) throw new SaveError("window");
     const { shiftIds, weekdays } = flattenGrid(shifts);

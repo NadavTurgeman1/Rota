@@ -13,7 +13,11 @@ function gridFrom(value: unknown): string[][] | null {
 function statusFor(error: unknown): Response {
   if (
     error instanceof SaveError &&
-    (error.message === "forbidden" || error.message === "window" || error.message === "blocks" || error.message === "same")
+    (error.message === "forbidden" ||
+      error.message === "window" ||
+      error.message === "blocks" ||
+      error.message === "same" ||
+      error.message === "week")
   ) {
     return Response.json({ error: error.message }, { status: 403 });
   }

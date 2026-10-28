@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { acknowledgeAvailabilityRequest, decideAvailabilityRequest, submitAvailabilityRequest } from "./availability";
+import { addDays } from "../domain";
+import { staffConstraintWeek } from "../schedule/constraint-window";
+import { acknowledgeAvailabilityRequest, decideAvailabilityRequest, STAFF_CONSTRAINT_WEEK_SQL, submitAvailabilityRequest } from "./availability";
 import { SaveError, saveSite } from "./save";
 import { asRole, client, openTestDatabase } from "./test-db";
 import { inviteStaffLogin, loadStoredWorkspace, saveStoredWorkspace } from "./workspace-store";
@@ -11,12 +13,14 @@ const manager = "cccccccc-cccc-4ccc-8ccc-ccccccccccc2";
 const worker = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee";
 const existing = "ffffffff-ffff-4fff-8fff-ffffffffffff";
 const draftWeek = "2026-11-08";
-const constraintWeek = "2026-11-01";
 
 describe("a roster employee login", () => {
   it("links the login to that person, keeps drafts hidden, and shows a published week", async () => {
     const db = await openTestDatabase();
     const sql = client(db);
+    const nextWeek = await sql.query<{ week: string }>(`select ${STAFF_CONSTRAINT_WEEK_SQL} as week`);
+    const constraintWeek = nextWeek[0]?.week?.slice(0, 10) ?? "";
+    expect(constraintWeek).toBe(staffConstraintWeek());
     const people = await sql.query<{ id: string; name: string }>(
       `select e.id, e.name
        from public.employees e
@@ -107,32 +111,32 @@ describe("a roster employee login", () => {
     await db.exec("reset role");
     await asRole(db, "authenticated", worker);
     await expect(
-      sql.query(`select private.set_constraint_grant($1, $2, '2026-10-18'::date, true)`, [headquarters, staff.id]),
+      sql.query(`select private.set_constraint_grant($1, $2, $3::date, true)`, [headquarters, staff.id, constraintWeek]),
     ).rejects.toThrow(/forbidden/i);
     await asRole(db, "authenticated", owner);
-    await sql.query(`select private.set_constraint_grant($1, $2, '2026-10-18'::date, true)`, [headquarters, staff.id]);
+    await sql.query(`select private.set_constraint_grant($1, $2, $3::date, true)`, [headquarters, staff.id, constraintWeek]);
     await asRole(db, "authenticated", worker);
-    const cleared = await submitAvailabilityRequest(sql, { siteId: headquarters, week: "2026-10-18", shifts: [[], [], [], [], [], [], []] });
+    const cleared = await submitAvailabilityRequest(sql, { siteId: headquarters, week: constraintWeek, shifts: [[], [], [], [], [], [], []] });
     expect(cleared.automatic).toBe(true);
     await asRole(db, "authenticated", owner);
     const grantedWeek = await loadStoredWorkspace(sql, constraintWeek);
-    expect(grantedWeek?.sites[0]?.state.avail["2026-10-18"]?.[staff.id]).toEqual([[], [], [], [], [], [], []]);
-    expect(grantedWeek?.sites[0]?.state.constraintGrants?.["2026-10-18"]).toEqual([staff.id]);
+    expect(grantedWeek?.sites[0]?.state.avail[constraintWeek]?.[staff.id]).toEqual([[], [], [], [], [], [], []]);
+    expect(grantedWeek?.sites[0]?.state.constraintGrants?.[constraintWeek]).toEqual([staff.id]);
     expect(grantedWeek?.sites[0]?.requests ?? []).toEqual([]);
     await db.exec("reset role");
-    await sql.query(`delete from public.availability_weeks where employee_id = $1 and week_start = '2026-10-18'`, [staff.id]);
+    await sql.query(`delete from public.availability_weeks where employee_id = $1 and week_start = $2::date`, [staff.id, constraintWeek]);
     await sql.query(`delete from public.constraint_grants where employee_id = $1`, [staff.id]);
     await sql.query(`update public.sites set constraint_max_blocks = 100 where id = $1`, [headquarters]);
     await asRole(db, "authenticated", worker);
-    const automatic = await submitAvailabilityRequest(sql, { siteId: headquarters, week: "2026-10-25", shifts: grid });
+    const automatic = await submitAvailabilityRequest(sql, { siteId: headquarters, week: constraintWeek, shifts: grid });
     expect(automatic.automatic).toBe(true);
     await asRole(db, "authenticated", owner);
     const autoSaved = await loadStoredWorkspace(sql, constraintWeek);
-    expect(autoSaved?.sites[0]?.state.avail["2026-10-25"]?.[staff.id]?.[0]).toEqual([morning.id]);
+    expect(autoSaved?.sites[0]?.state.avail[constraintWeek]?.[staff.id]?.[0]).toEqual([morning.id]);
     expect(autoSaved?.sites[0]?.requests ?? []).toEqual([]);
     expect(autoSaved?.decisions ?? []).toEqual([]);
     await db.exec("reset role");
-    await sql.query(`delete from public.availability_weeks where employee_id = $1 and week_start = '2026-10-25'`, [staff.id]);
+    await sql.query(`delete from public.availability_weeks where employee_id = $1 and week_start = $2::date`, [staff.id, constraintWeek]);
     await sql.query(`update public.sites set constraint_block_limit = false where id = $1`, [headquarters]);
 
     await asRole(db, "authenticated", worker);
@@ -203,9 +207,10 @@ describe("a roster employee login", () => {
 
     await asRole(db, "authenticated", owner);
     await expect(acknowledgeAvailabilityRequest(sql, submitted.id)).rejects.toBeInstanceOf(SaveError);
-    const rejectedWeek = "2026-11-15";
     await asRole(db, "authenticated", worker);
-    const denied = await submitAvailabilityRequest(sql, { siteId: headquarters, week: rejectedWeek, shifts: grid });
+    await expect(submitAvailabilityRequest(sql, { siteId: headquarters, week: addDays(constraintWeek, 7), shifts: grid })).rejects.toThrow("week");
+    await expect(submitAvailabilityRequest(sql, { siteId: headquarters, week: addDays(constraintWeek, -7), shifts: grid })).rejects.toThrow("week");
+    const denied = await submitAvailabilityRequest(sql, { siteId: headquarters, week: constraintWeek, shifts: [[], [morning.id], [], [], [], [], []] });
     await asRole(db, "authenticated", owner);
     await decideAvailabilityRequest(sql, { requestId: denied.id, approve: false });
     await asRole(db, "authenticated", worker);
@@ -214,7 +219,7 @@ describe("a roster employee login", () => {
       [submitted.id, "approved"],
       [denied.id, "rejected"],
     ]);
-    expect(answered?.sites[0]?.state.avail[rejectedWeek]?.[staff.id]).toBeUndefined();
+    expect(answered?.sites[0]?.state.avail[constraintWeek]?.[staff.id]?.[0]).toEqual([morning.id]);
     await acknowledgeAvailabilityRequest(sql, submitted.id);
     await acknowledgeAvailabilityRequest(sql, denied.id);
     await acknowledgeAvailabilityRequest(sql, submitted.id);
@@ -248,7 +253,7 @@ describe("a roster employee login", () => {
       `select name, email from public.profiles where user_id = '${owner}'`,
     );
     expect(visible.rows).toEqual([{ name: "Owner Person", email: "owner.portal@example.com" }]);
-    const workspace = await loadStoredWorkspace(sql, constraintWeek);
+    const workspace = await loadStoredWorkspace(sql, staffConstraintWeek());
     const ownerRow = workspace?.users.find((user) => user.email === "owner.portal@example.com");
     expect(ownerRow?.name).toBe("Owner Person");
     expect(workspace?.users.some((user) => user.email === "platform.admin@example.com")).toBe(true);

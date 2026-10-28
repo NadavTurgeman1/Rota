@@ -4,7 +4,7 @@ import { copy } from "../i18n/copy";
 import { exportFileName, formatWeekRange, pngFileName, siteLabel } from "../schedule/display";
 import { calendarTitle, ownPublishedShifts, shiftsIcs } from "../schedule/calendar";
 import { hebrewWeekRange } from "../schedule/hebrew-calendar";
-import { constraintWindowOpen, constraintWindowText } from "../schedule/constraint-window";
+import { constraintWindowOpen, constraintWindowText, staffCanSubmitConstraints, staffConstraintWeek, underwayWeek } from "../schedule/constraint-window";
 import { useCountdown } from "./duration-wheel";
 import { weekCsv, weekExcelXml, weekExport, weekText } from "../schedule/export";
 import type { StaffDecision, StaffRequest } from "../workspace/workspace";
@@ -61,18 +61,20 @@ function StaffConstraints({
   const employee = state.emps.find((item) => item.id === employeeId);
   const accessOn = state.biz.staffAccess !== false;
   const open = accessOn && constraintWindowOpen(state.biz);
-  const locked = Boolean(pending) || !open;
   const [draft, setDraft] = useState<string[][]>(() => (pending ? pending.shifts.map((day) => [...day]) : officialGrid(state, employeeId)));
   const [refused, setRefused] = useState(false);
+  const [sameNotice, setSameNotice] = useState(false);
   const limit = blockLimitOf(state.biz);
   const granted = hasConstraintGrant(state, employeeId);
   const capped = limit !== null && !granted;
   const blocked = countBlocks(state, employeeId, draft);
   const over = capped && blocked > (limit ?? 0);
   const countdown = useCountdown(state.biz.constraintExtensionUntil);
-  const shown = withGrid(state, employeeId, pending ? pending.shifts : draft);
   const approved = state.avail[state.week]?.[employeeId];
-  const unchanged = Boolean(approved) && sameGrid(approved ?? [], draft);
+  const waiting = Boolean(pending) && !(approved && sameGrid(approved, pending?.shifts ?? []));
+  const weekAllowed = staffCanSubmitConstraints(state.week);
+  const locked = waiting || !open || !weekAllowed;
+  const shown = withGrid(state, employeeId, waiting && pending ? pending.shifts : draft);
   if (!employee) return null;
   return (
     <section data-testid="staff-constraints" className={card}>
@@ -89,6 +91,7 @@ function StaffConstraints({
             disabled={locked}
             onClick={() => {
               setRefused(false);
+              setSameNotice(false);
               setDraft(openAvailabilityGrid(state, employeeId));
             }}
           >
@@ -106,6 +109,7 @@ function StaffConstraints({
                 return;
               }
               setRefused(false);
+              setSameNotice(false);
               setDraft(cleared);
             }}
           >
@@ -127,6 +131,7 @@ function StaffConstraints({
                 return;
               }
               setRefused(false);
+              setSameNotice(false);
               setDraft(next);
             }}
           >
@@ -142,7 +147,7 @@ function StaffConstraints({
           {t.extraWindowRemaining(countdown)}
         </p>
       ) : null}
-      {pending ? (
+      {waiting ? (
         <p data-testid="staff-pending" className="mt-2 text-sm font-medium text-ink">
           {t.staffPending}
         </p>
@@ -153,6 +158,10 @@ function StaffConstraints({
       ) : !open ? (
         <p role="alert" data-testid="staff-window-closed" className="mt-2 text-sm font-medium text-ink">
           {t.staffWindowClosed}: {constraintWindowText(state.biz, lang)}
+        </p>
+      ) : !weekAllowed ? (
+        <p role="alert" data-testid="staff-week-only" className="mt-2 text-sm font-medium text-ink">
+          {t.staffWeekOnly}
         </p>
       ) : null}
       {capped ? (
@@ -174,10 +183,11 @@ function StaffConstraints({
             return;
           }
           setRefused(false);
+          setSameNotice(false);
           setDraft(next);
         }}
       />
-      {!locked && unchanged ? (
+      {sameNotice ? (
         <p data-testid="staff-same-request" className="mt-4 text-sm text-muted">
           {t.staffSameRequest}
         </p>
@@ -186,8 +196,15 @@ function StaffConstraints({
         type="button"
         data-testid="submit-request"
         className={`${button.primary} mt-4`}
-        disabled={locked || unchanged || over}
-        onClick={() => onSubmit(draft)}
+        disabled={locked || over}
+        onClick={() => {
+          if (approved && sameGrid(approved, draft)) {
+            setSameNotice(true);
+            return;
+          }
+          setSameNotice(false);
+          onSubmit(draft);
+        }}
       >
         {limit !== null ? t.staffSave : t.staffSubmit}
       </button>
@@ -336,6 +353,20 @@ export function StaffHome({
   ];
 
   const pageTitle = tabs.find((item) => item.id === tab)?.label ?? "";
+
+  function weekDelta(from: string, to: string): number {
+    return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
+  }
+
+  function openTab(next: "attendance" | "schedule" | "constraints") {
+    if (next === tab) return;
+    setTab(next);
+    const target = next === "constraints" ? staffConstraintWeek() : next === "schedule" ? underwayWeek() : null;
+    if (!target) return;
+    const delta = weekDelta(state.week, target);
+    if (delta !== 0) onWeek(delta);
+  }
+
   useEffect(() => {
     activeNav.current?.scrollIntoView({ inline: "nearest", block: "nearest" });
   }, [tab]);
@@ -360,7 +391,7 @@ export function StaffHome({
                 className={`flex min-h-9 shrink-0 items-center gap-2.5 rounded-lg px-2.5 py-2 text-start text-[13px] leading-5 md:w-full ${
                   tab === item.id ? "bg-well font-medium text-ink" : "text-muted hover:bg-well/80 hover:text-ink"
                 }`}
-                onClick={() => setTab(item.id)}
+                onClick={() => openTab(item.id)}
               >
                 <RailIcon name={item.id} />
                 {item.label}
@@ -377,7 +408,9 @@ export function StaffHome({
               ? t.blockLimitReached
               : saveNote === "same"
                 ? t.staffSameRequest
-                : t.saveFailed}
+                : saveNote === "week"
+                  ? t.staffWeekOnly
+                  : t.saveFailed}
         </p>
       ) : null}
       <main className="flex flex-col gap-8 px-6 py-6 sm:px-8">
@@ -387,21 +420,6 @@ export function StaffHome({
             <p className="mt-2 text-sm text-muted">{siteName}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            {tab === "attendance" ? null : (
-              <div className="flex items-center gap-1 rounded-lg border border-line bg-card p-1">
-                <button type="button" data-testid="prev-week" aria-label={t.previousWeek} className="grid h-8 w-8 place-items-center rounded-lg text-ink-soft hover:bg-well hover:text-ink" onClick={() => onWeek(-7)}>
-                  <Chevron dir="prev" />
-                </button>
-                <WeekPicker
-                  lang={lang}
-                  week={state.week}
-                  onPick={(sunday) => onWeek(Math.round((Date.parse(`${sunday}T00:00:00Z`) - Date.parse(`${state.week}T00:00:00Z`)) / 86_400_000))}
-                />
-                <button type="button" data-testid="next-week" aria-label={t.nextWeek} className="grid h-8 w-8 place-items-center rounded-lg text-ink-soft hover:bg-well hover:text-ink" onClick={() => onWeek(7)}>
-                  <Chevron dir="next" />
-                </button>
-              </div>
-            )}
             {sites.length > 1 ? (
               <select
                 data-testid="site-select"
@@ -420,6 +438,23 @@ export function StaffHome({
             {toolbar}
           </div>
         </div>
+        {tab === "attendance" ? null : (
+          <section className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-1 rounded-lg border border-line bg-card p-1">
+              <button type="button" data-testid="prev-week" aria-label={t.previousWeek} className="grid h-8 w-8 place-items-center rounded-lg text-ink-soft hover:bg-well hover:text-ink" onClick={() => onWeek(-7)}>
+                <Chevron dir="prev" />
+              </button>
+              <WeekPicker
+                lang={lang}
+                week={state.week}
+                onPick={(sunday) => onWeek(weekDelta(state.week, sunday))}
+              />
+              <button type="button" data-testid="next-week" aria-label={t.nextWeek} className="grid h-8 w-8 place-items-center rounded-lg text-ink-soft hover:bg-well hover:text-ink" onClick={() => onWeek(7)}>
+                <Chevron dir="next" />
+              </button>
+            </div>
+          </section>
+        )}
         {selfId && tradeApi ? (
           <StaffTrades
             lang={lang}

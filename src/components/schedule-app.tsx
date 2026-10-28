@@ -95,7 +95,7 @@ import { ManagerTradePrompt, tradeStillHeld, useSetAside, type ShiftTrade, type 
 import { useAiEnabled } from "./use-ai";
 import { SettingsMenu, type Theme } from "./settings-menu";
 import { VersionsPanel } from "./versions-panel";
-import { withConstraintExtension } from "../schedule/constraint-window";
+import { staffCanSubmitConstraints, withConstraintExtension } from "../schedule/constraint-window";
 import { WeekPicker } from "./week-picker";
 import { WeekSummary } from "./week-summary";
 import { button } from "./ui";
@@ -718,6 +718,10 @@ export function ScheduleApp() {
           : site,
       ),
     }));
+    patchPresent((current) => ({
+      ...current,
+      avail: { ...current.avail, [week]: { ...current.avail[week], [employeeId]: shifts } },
+    }));
   }
 
   function dropRequest(siteId: string, requestId: string) {
@@ -734,6 +738,10 @@ export function ScheduleApp() {
     if (!selfId) return;
     const siteId = live.activeSiteId;
     const week = state.week;
+    if (!staffCanSubmitConstraints(week)) {
+      setSaveNote("week");
+      return;
+    }
     if (!remote) {
       const limit = blockLimitOf(state.biz);
       const over = limit !== null && !hasConstraintGrant(state, selfId) && !withinBlockLimit(state, selfId, shifts);
@@ -760,7 +768,7 @@ export function ScheduleApp() {
       });
       const body = (await response.json().catch(() => null)) as { request?: StaffRequest & { automatic?: boolean }; error?: string } | null;
       if (!response.ok || !body?.request) {
-        setSaveNote(body?.error === "blocks" || body?.error === "same" ? body.error : "failed");
+        setSaveNote(body?.error === "blocks" || body?.error === "same" || body?.error === "week" ? body.error : "failed");
         return;
       }
       setSaveNote(null);
