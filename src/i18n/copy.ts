@@ -24,6 +24,14 @@ export interface Copy {
   extendDouble: string;
   extendDoubleLabel: (name: string) => string;
   clearDoubleLabel: (name: string) => string;
+  editShiftLabel: (filled: number, required: number) => string;
+  requiredOnShift: string;
+  fewerRequired: string;
+  moreRequired: string;
+  shortenShift: string;
+  noDoubleRoom: string;
+  callOffHint: string;
+  closePanel: string;
   publish: string;
   revert: string;
   undo: string;
@@ -441,6 +449,14 @@ export const copy: Record<Lang, Copy> = {
     extendDouble: "כפולה",
     extendDoubleLabel: (name) => `הארכה של ${name} לכפולה`,
     clearDoubleLabel: (name) => `ביטול הכפולה של ${name}`,
+    editShiftLabel: (filled, required) => `עריכת משמרת, ${filled} מתוך ${required}`,
+    requiredOnShift: "עובדים נדרשים",
+    fewerRequired: "פחות עובדים",
+    moreRequired: "יותר עובדים",
+    shortenShift: "קיצור",
+    noDoubleRoom: "אין משמרת צמודה להארכה",
+    callOffHint: "אפשר לסמן חיסור על עובד במשמרת הזו.",
+    closePanel: "סגירה",
     publish: "פרסום",
     revert: "ערוך סידור",
     undo: "ביטול",
@@ -870,6 +886,14 @@ export const copy: Record<Lang, Copy> = {
     extendDouble: "Double",
     extendDoubleLabel: (name) => `Extend ${name} into a double`,
     clearDoubleLabel: (name) => `Remove ${name}'s double`,
+    editShiftLabel: (filled, required) => `Edit shift, ${filled} of ${required}`,
+    requiredOnShift: "Employees required",
+    fewerRequired: "Fewer employees",
+    moreRequired: "More employees",
+    shortenShift: "Shorten",
+    noDoubleRoom: "No touching shift to extend into",
+    callOffHint: "Mark a call-off for someone on this shift.",
+    closePanel: "Close",
     publish: "Publish",
     revert: "Edit schedule",
     undo: "Undo",

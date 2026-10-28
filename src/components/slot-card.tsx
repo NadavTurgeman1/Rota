@@ -1,9 +1,10 @@
 import { useRef, useState, type DragEvent } from "react";
 import { coveredSeats, shiftKind, type Lang, type RotaState, type Slot } from "../domain";
-import { callOffLabel, copy, removeLabel } from "../i18n/copy";
+import { copy, removeLabel } from "../i18n/copy";
 import { employeeName } from "../people/edit";
 import { localizeShiftNames } from "../schedule/display";
-import { assignmentToken, clockLabel, doubleShiftPlan, parseAssignmentToken, placementWarning } from "../schedule/edit";
+import { assignmentToken, clockLabel, parseAssignmentToken, placementWarning } from "../schedule/edit";
+import { SlotEditor } from "./slot-editor";
 
 const FILL: Record<ReturnType<typeof shiftKind>, string> = {
   m: "bg-slot-m",
@@ -27,6 +28,7 @@ export function SlotCard({
   onToggleSelect,
   onCallOff,
   onExtend,
+  onRequired,
 }: {
   state: RotaState;
   slot: Slot;
@@ -43,10 +45,12 @@ export function SlotCard({
   onToggleSelect: (token: string) => void;
   onCallOff: (slotKey: string, employeeId: string) => void;
   onExtend: (slotKey: string, employeeId: string) => void;
+  onRequired: (shiftId: string, day: number, count: number) => void;
 }) {
   const dragged = useRef(false);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
   const [dragging, setDragging] = useState<string | null>(null);
+  const [editing, setEditing] = useState(false);
   const t = copy[lang];
   const schedule = state.sched[state.week];
   const ids = schedule?.assign[slot.key] ?? [];
@@ -57,6 +61,7 @@ export function SlotCard({
   const short = filled < slot.required;
   const over = ids.length > slot.required;
   const testId = `slot-${slot.day}-${shift?.name ?? slot.shiftId}`;
+  const canEdit = !published || canCallOff;
 
   const candidates = state.emps
     .filter((employee) => !ids.includes(employee.id))
@@ -81,25 +86,45 @@ export function SlotCard({
       }}
       onDrop={acceptDrop}
       onClick={() => {
-        if (!selectedToken || published) return;
-        const parsed = parseAssignmentToken(selectedToken);
-        if (!parsed) return;
-        if (parsed.slotKey === slot.key) onToggleSelect(selectedToken);
-        else onMove(parsed.slotKey, parsed.employeeId, slot.key);
+        if (selectedToken && !published) {
+          const parsed = parseAssignmentToken(selectedToken);
+          if (!parsed) return;
+          if (parsed.slotKey === slot.key) onToggleSelect(selectedToken);
+          else onMove(parsed.slotKey, parsed.employeeId, slot.key);
+          return;
+        }
+        if (canEdit) setEditing(true);
       }}
       className={`flex h-full min-h-[4.75rem] flex-col gap-1 rounded-lg border border-line p-1.5 ${FILL[kind]} ${
-        selectedToken && !published ? "cursor-pointer hover:ring-2 hover:ring-focus/60" : ""
+        selectedToken && !published ? "cursor-pointer hover:ring-2 hover:ring-focus/60" : canEdit ? "cursor-pointer hover:ring-2 hover:ring-focus/40" : ""
       }`}
     >
       <div className="flex items-center justify-between gap-1">
-        <span
-          data-testid={`${testId}-count`}
-          className={`rounded-full px-1.5 text-[11px] font-semibold leading-5 tabular-nums ${
-            short ? "bg-danger-soft text-danger-text" : over ? "bg-warn-soft text-warn-text" : "bg-ok-soft text-ok-text"
-          }`}
-        >
-          {filled}/{slot.required}
-        </span>
+        {canEdit ? (
+          <button
+            type="button"
+            data-testid={`${testId}-count`}
+            aria-label={t.editShiftLabel(filled, slot.required)}
+            className={`rounded-full px-1.5 text-[11px] font-semibold leading-5 tabular-nums ${
+              short ? "bg-danger-soft text-danger-text" : over ? "bg-warn-soft text-warn-text" : "bg-ok-soft text-ok-text"
+            }`}
+            onClick={(event) => {
+              event.stopPropagation();
+              setEditing(true);
+            }}
+          >
+            {filled}/{slot.required}
+          </button>
+        ) : (
+          <span
+            data-testid={`${testId}-count`}
+            className={`rounded-full px-1.5 text-[11px] font-semibold leading-5 tabular-nums ${
+              short ? "bg-danger-soft text-danger-text" : over ? "bg-warn-soft text-warn-text" : "bg-ok-soft text-ok-text"
+            }`}
+          >
+            {filled}/{slot.required}
+          </span>
+        )}
         {published ? null : (
           <span
             title={t.addEmployee}
@@ -133,7 +158,6 @@ export function SlotCard({
           const token = assignmentToken(slot.key, employeeId);
           const extension = schedule?.ext?.[token];
           const name = employeeName(state, employeeId);
-          const canDouble = Boolean(extension) || doubleShiftPlan(state, slot.key, employeeId) !== null;
           return (
             <div
               key={employeeId}
@@ -162,6 +186,7 @@ export function SlotCard({
                 event.stopPropagation();
                 onSwap(slot.key, parsed.employeeId, employeeId);
               }}
+              onClick={(event) => event.stopPropagation()}
               className={`flex items-center gap-0.5 rounded-md border border-line bg-chip py-0.5 ps-1.5 pe-0.5 text-xs font-medium shadow-card hover:border-field-line ${
                 selectedToken === token || dropTarget === employeeId || focusEmployeeId === employeeId ? "ring-2 ring-focus" : ""
               } ${dragging === employeeId ? "opacity-50" : ""} ${
@@ -203,37 +228,6 @@ export function SlotCard({
                   <span className="text-[11px] font-semibold text-warn-text">{t.overQuota}</span>
                 ) : null}
               </button>
-              {canCallOff && nowHours !== null && (extension?.end ?? slot.end) > nowHours ? (
-                <button
-                  type="button"
-                  data-testid={`calloff-${slot.day}-${shift?.name ?? "shift"}-${name}`}
-                  aria-label={callOffLabel(lang, name)}
-                  className="shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold text-danger-text hover:bg-danger-softer"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onCallOff(slot.key, employeeId);
-                  }}
-                >
-                  {t.callOff}
-                </button>
-              ) : null}
-              {published || !canDouble ? null : (
-                <button
-                  type="button"
-                  data-testid={`double-${slot.day}-${shift?.name ?? "shift"}-${name}`}
-                  aria-pressed={Boolean(extension)}
-                  aria-label={extension ? t.clearDoubleLabel(name) : t.extendDoubleLabel(name)}
-                  className={`shrink-0 rounded-md px-1.5 py-0.5 text-[11px] font-semibold ${
-                    extension ? "bg-brand-soft text-brand-text" : "text-ink-soft hover:bg-well hover:text-ink"
-                  }`}
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    onExtend(slot.key, employeeId);
-                  }}
-                >
-                  {t.extendDouble}
-                </button>
-              )}
               {published ? null : (
                 <button
                   type="button"
@@ -264,6 +258,19 @@ export function SlotCard({
             </p>
           ))}
       </div>
+      {editing ? (
+        <SlotEditor
+          state={state}
+          slot={slot}
+          lang={lang}
+          published={published}
+          nowHours={nowHours}
+          onClose={() => setEditing(false)}
+          onRequired={onRequired}
+          onExtend={onExtend}
+          onCallOff={onCallOff}
+        />
+      ) : null}
     </div>
   );
 }

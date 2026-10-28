@@ -1278,6 +1278,8 @@ export function ScheduleApp() {
         }),
       ),
     onExtend: (slotKey: string, employeeId: string) => change((current) => extendToDouble(current, slotKey, employeeId)),
+    onRequired: (shiftId: string, day: number, count: number) =>
+      change((current) => setShiftRequirement(current, actor, shiftId, day, count)),
   };
 
   const tabs: { id: Exclude<Screen, "approvals">; label: string }[] = [
