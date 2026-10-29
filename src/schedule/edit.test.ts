@@ -384,6 +384,26 @@ describe("setAssignmentHours", () => {
     expect(publishWeek(state, { id: "blocked", at: "2026-10-11T08:00:00.000Z", by: "manager" }, { anyway: true })).toBe(state);
   });
 
+  it("refuses to publish a seat that breaks the standing agreement", () => {
+    const state = sundayOnly();
+    const dana = state.emps.find((employee) => employee.id === SENTINEL.dana)!;
+    dana.grid = dana.grid!.map((day, index) => (index === 0 ? day.filter((id) => id !== SENTINEL.morning) : day));
+    expect(publishCheck(state).constraint).toBeGreaterThan(0);
+    expect(publishWeek(state, { id: "agreement", at: "2026-10-11T08:00:00.000Z", by: "manager" }, { anyway: true })).toBe(state);
+  });
+
+  it("keeps a published week published, and blocks the next publish after editing", () => {
+    const state = sundayOnly();
+    const published = publishWeek(state, { id: "ok", at: "2026-10-11T08:00:00.000Z", by: "manager" });
+    expect(published.sched[state.week]?.status).toBe("published");
+    const dana = published.emps.find((employee) => employee.id === SENTINEL.dana)!;
+    dana.grid = dana.grid!.map((day, index) => (index === 0 ? day.filter((id) => id !== SENTINEL.morning) : day));
+    expect(published.sched[state.week]?.status).toBe("published");
+    const draft = revertToDraft(published);
+    expect(draft.sched[state.week]?.status).toBe("draft");
+    expect(publishWeek(draft, { id: "again", at: "2026-10-11T09:00:00.000Z", by: "manager" }, { anyway: true })).toBe(draft);
+  });
+
   it("records the shortened hours as a change", () => {
     const state = sundayOnly();
     const next = setAssignmentHours(state, morning, SENTINEL.dana, 6, 13);

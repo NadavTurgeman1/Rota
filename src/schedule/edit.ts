@@ -70,7 +70,7 @@ export interface PublishCheck {
   violations: number;
   unfilled: number;
   coverage: number;
-  /** Seats on a submitted constraint. Publishing stays refused. */
+  /** Seats on an agreement constraint or a weekly constraint. Publishing stays refused. */
   constraint: number;
 }
 
@@ -233,6 +233,8 @@ export function clearSchedule(state: RotaState): RotaState {
   });
 }
 
+const CONSTRAINT_CODES = new Set(["agreement", "unavailable", "shabbat", "holiday"]);
+
 /** An empty week is unfilled. Publishing it needs an explicit confirmation. A seat on a constraint never publishes. */
 export function publishCheck(state: RotaState): PublishCheck {
   const draft = cloneState(state);
@@ -243,7 +245,7 @@ export function publishCheck(state: RotaState): PublishCheck {
     violations: report.violations.length,
     unfilled: report.unfilled.length,
     coverage: report.coverage.length,
-    constraint: report.violations.filter((item) => item.reason?.code === "unavailable").length,
+    constraint: report.violations.filter((item) => item.reason && CONSTRAINT_CODES.has(item.reason.code)).length,
   };
 }
 
