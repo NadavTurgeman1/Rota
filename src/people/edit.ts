@@ -1,6 +1,8 @@
-import { addDays, agreementAllows, type Employee, type EmployeeProfile, type RotaState } from "../domain";
+import { addDays, agreementAllows, type Business, type Employee, type EmployeeProfile, type RotaState } from "../domain";
+import { isRelief } from "../domain/relief";
 import { cleanProfile, employeeProfile } from "../domain/profile";
 import { constraintDraftWritable, parseConstraints, type LineOverride } from "../parser/parse";
+import { blockedCells, blockBuckets, normalizeCustom } from "./blocks";
 
 /** What the signed-in user may do. `viewer` reads everything and writes nothing. */
 export type Actor = { kind: "manager" } | { kind: "viewer" } | { kind: "employee"; employeeId: string };
@@ -19,6 +21,8 @@ export interface EmployeePatch {
   hourlyWage?: number;
   active?: boolean;
   profile?: Partial<EmployeeProfile>;
+  /** `null` clears a personal override and returns the person to the primary site's numbers. */
+  customBlocks?: Employee["customBlocks"] | null;
 }
 
 function cloneState(state: RotaState): RotaState {
@@ -29,9 +33,15 @@ function findEmployee(state: RotaState, employeeId: string): Employee | undefine
   return state.emps.find((employee) => employee.id === employeeId);
 }
 
+/** A reinforcement employee is edited on the primary site. The secondary site only displays the grid. */
+function reliefLocked(state: RotaState, employeeId: string): boolean {
+  const employee = findEmployee(state, employeeId);
+  return Boolean(employee && isRelief(employee, state.siteId));
+}
+
 export const DEFAULT_SHIFTS_PER_WEEK = 5;
 
-/** `null` means the site does not cap weekly blocks. */
+/** `null` means the site does not cap weekly blocks. The number is the general cap; other splits use `blockBuckets`. */
 export function blockLimitOf(biz: RotaState["biz"]): number | null {
   if (biz.blockLimit !== true) return null;
   const max = biz.maxBlocks ?? 0;
@@ -52,20 +62,13 @@ export function openAvailabilityGrid(state: RotaState, employeeId: string): stri
 
 /** Open shifts missing from `grid`. A missing week is not a submission, so it has no blocks. */
 export function countBlocks(state: RotaState, employeeId: string, grid: string[][] | undefined): number {
-  if (!grid) return 0;
-  const open = openAvailabilityGrid(state, employeeId);
-  let blocks = 0;
-  for (let day = 0; day < 7; day += 1) {
-    const marked = new Set(grid[day] ?? []);
-    for (const shiftId of open[day] ?? []) if (!marked.has(shiftId)) blocks += 1;
-  }
-  return blocks;
+  return blockedCells(state, employeeId, grid).length;
 }
 
-export function withinBlockLimit(state: RotaState, employeeId: string, grid: string[][]): boolean {
-  const limit = blockLimitOf(state.biz);
-  if (limit === null) return true;
-  return countBlocks(state, employeeId, grid) <= limit;
+/** `home` is the primary site. It decides the split and the numbers, including on a reinforcement site. */
+export function withinBlockLimit(state: RotaState, employeeId: string, grid: string[][], home: Business = state.biz): boolean {
+  if (home.blockLimit !== true) return true;
+  return blockBuckets(state, employeeId, grid, home).every((bucket) => bucket.used <= bucket.max);
 }
 
 /** The manager lifted the block cap for this person and week. */
@@ -171,6 +174,14 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
   if (patch.maxHours !== undefined) next.maxHours = nonNegative(patch.maxHours);
   if (patch.hourlyWage !== undefined) next.hourlyWage = nonNegative(patch.hourlyWage);
   if (patch.active !== undefined) next.active = patch.active;
+  if (patch.customBlocks !== undefined) {
+    if (patch.customBlocks === null) delete next.customBlocks;
+    else {
+      const cleaned = normalizeCustom(patch.customBlocks);
+      if (!cleaned) return state;
+      next.customBlocks = cleaned;
+    }
+  }
   if (patch.profile !== undefined) {
     const cleaned = cleanProfile({ ...employeeProfile(employee), ...patch.profile });
     if (cleaned) next.profile = cleaned;
@@ -186,6 +197,7 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
     next.maxHours === employee.maxHours &&
     (next.hourlyWage ?? 0) === (employee.hourlyWage ?? 0) &&
     next.active === employee.active &&
+    JSON.stringify(next.customBlocks ?? null) === JSON.stringify(employee.customBlocks ?? null) &&
     JSON.stringify(cleanProfile(next.profile) ?? null) === JSON.stringify(cleanProfile(employee.profile) ?? null)
   ) {
     return state;
@@ -194,6 +206,7 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
   const index = draft.emps.findIndex((item) => item.id === employeeId);
   const saved = { ...draft.emps[index], ...next, grid: draft.emps[index].grid };
   if (!next.profile) delete saved.profile;
+  if (!next.customBlocks) delete saved.customBlocks;
   draft.emps[index] = saved;
   return draft;
 }
@@ -346,8 +359,9 @@ export function setAvailability(
   day: number,
   shiftId: string,
   available: boolean,
+  home: Business = state.biz,
 ): RotaState {
-  if (!canEditAvailability(actor, employeeId) || day < 0 || day > 6) return state;
+  if (!canEditAvailability(actor, employeeId) || day < 0 || day > 6 || reliefLocked(state, employeeId)) return state;
   const employee = findEmployee(state, employeeId);
   if (!employee || siteClosed(state, day, shiftId) || !agreementAllows(employee, day, shiftId)) return state;
 
@@ -356,7 +370,7 @@ export function setAvailability(
   if (available === hasShift && (current || available)) return state;
 
   const row = gridWithCell(state, employeeId, current, day, shiftId, available);
-  if (!withinBlockLimit(state, employeeId, row)) return state;
+  if (!withinBlockLimit(state, employeeId, row, home)) return state;
   const draft = cloneState(state);
   (draft.avail[draft.week] ??= {})[employeeId] = row;
   return draft;
@@ -371,14 +385,14 @@ export function replaceAvailability(
   week: string,
   shifts: string[][],
 ): RotaState {
-  if (actor.kind !== "manager" || !findEmployee(state, employeeId) || shifts.length !== 7) return state;
+  if (actor.kind !== "manager" || reliefLocked(state, employeeId) || !findEmployee(state, employeeId) || shifts.length !== 7) return state;
   const draft = cloneState(state);
   (draft.avail[week] ??= {})[employeeId] = shifts.map((day) => [...day]);
   return draft;
 }
 
-export function copyAvailability(state: RotaState, actor: Actor, employeeId: string): RotaState {
-  if (!canEditAvailability(actor, employeeId) || !findEmployee(state, employeeId)) return state;
+export function copyAvailability(state: RotaState, actor: Actor, employeeId: string, home: Business = state.biz): RotaState {
+  if (!canEditAvailability(actor, employeeId) || reliefLocked(state, employeeId) || !findEmployee(state, employeeId)) return state;
   const employee = findEmployee(state, employeeId)!;
   const previous = state.avail[addDays(state.week, -7)]?.[employeeId];
   const current = state.avail[state.week]?.[employeeId];
@@ -392,7 +406,7 @@ export function copyAvailability(state: RotaState, actor: Actor, employeeId: str
   const copied = [0, 1, 2, 3, 4, 5, 6].map((day) =>
     (previous[day] ?? []).filter((shiftId) => agreementAllows(employee, day, shiftId) && !siteClosed(state, day, shiftId)),
   );
-  if (!withinBlockLimit(state, employeeId, copied)) return state;
+  if (!withinBlockLimit(state, employeeId, copied, home)) return state;
   if (sameCells(current, copied)) return state;
   const draft = cloneState(state);
   (draft.avail[draft.week] ??= {})[employeeId] = copied;
@@ -400,10 +414,10 @@ export function copyAvailability(state: RotaState, actor: Actor, employeeId: str
 }
 
 /** Mark every open shift available, or block every open shift when the cap allows it. */
-export function setWholeAvailability(state: RotaState, actor: Actor, employeeId: string, available: boolean): RotaState {
-  if (!canEditAvailability(actor, employeeId) || !findEmployee(state, employeeId)) return state;
+export function setWholeAvailability(state: RotaState, actor: Actor, employeeId: string, available: boolean, home: Business = state.biz): RotaState {
+  if (!canEditAvailability(actor, employeeId) || reliefLocked(state, employeeId) || !findEmployee(state, employeeId)) return state;
   const grid = available ? openAvailabilityGrid(state, employeeId) : [[], [], [], [], [], [], []];
-  if (!withinBlockLimit(state, employeeId, grid)) return state;
+  if (!withinBlockLimit(state, employeeId, grid, home)) return state;
   const current = state.avail[state.week]?.[employeeId];
   if (sameCells(current, grid)) return state;
   const draft = cloneState(state);
@@ -439,7 +453,13 @@ export function availabilitySubmitted(state: RotaState, employeeId: string): boo
  * Unknown names and ambiguous lines stay out of the row. The agreement is untouched.
  * Only the grid is kept: the message itself is not stored, so a later manual edit is the final word.
  */
-export function applyConstraintText(state: RotaState, actor: Actor, raw: string, overrides: LineOverride[] = []): RotaState {
+export function applyConstraintText(
+  state: RotaState,
+  actor: Actor,
+  raw: string,
+  overrides: LineOverride[] = [],
+  homeOf: (employeeId: string) => Business = () => state.biz,
+): RotaState {
   if (actor.kind !== "manager") return state;
   const draft = parseConstraints(raw, state, overrides);
   if (!constraintDraftWritable(draft)) return state;
@@ -451,7 +471,7 @@ export function applyConstraintText(state: RotaState, actor: Actor, raw: string,
   let changed = false;
   for (const employeeId of employeeIds) {
     const employee = findEmployee(next, employeeId);
-    if (!employee) continue;
+    if (!employee || isRelief(employee, next.siteId)) continue;
     const proposal = draft.proposals[employeeId].map((dayShifts, day) =>
       next.biz.shifts
         .map((shift) => shift.id)
@@ -464,7 +484,7 @@ export function applyConstraintText(state: RotaState, actor: Actor, raw: string,
         .map((shift) => shift.id)
         .filter((shiftId) => agreementAllows(employee, day, shiftId) && !siteClosed(next, day, shiftId)),
     );
-    if (!withinBlockLimit(next, employeeId, proposal)) continue;
+    if (!withinBlockLimit(next, employeeId, proposal, homeOf(employeeId))) continue;
     if (sameCells(week[employeeId] ?? implicit, proposal)) continue;
     week[employeeId] = proposal;
     changed = true;

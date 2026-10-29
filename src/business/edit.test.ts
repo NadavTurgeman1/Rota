@@ -38,6 +38,13 @@ describe("business edits", () => {
     expect(updateBusiness(state, MANAGER, { blockLimit: true, maxBlocks: 3 }).biz).toMatchObject({ blockLimit: true, maxBlocks: 3 });
     expect(updateBusiness(state, MANAGER, { maxBlocks: -1 })).toBe(state);
     expect(updateBusiness(state, MANAGER, { maxBlocks: 1.5 })).toBe(state);
+    expect(updateBusiness(state, MANAGER, { blockSplit: "weekday", weekdayBlocks: 2, weekendBlocks: 1 }).biz).toMatchObject({
+      blockSplit: "weekday",
+      weekdayBlocks: 2,
+      weekendBlocks: 1,
+    });
+    expect(updateBusiness(state, MANAGER, { weekendBlocks: -1 })).toBe(state);
+    expect(updateBusiness(state, MANAGER, { blockSplit: "general" }).biz.blockSplit).toBeUndefined();
     expect(updateBusiness(state, MANAGER, { constraintStartDay: 7 })).toBe(state);
     expect(updateBusiness(state, MANAGER, { constraintOpens: "25:00" })).toBe(state);
     expect(state.biz.minRest).not.toBe(10);

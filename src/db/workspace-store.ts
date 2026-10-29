@@ -10,6 +10,7 @@ import { normalizeGrid } from "./availability";
 import { listMemberships, resolveActiveOrg, type Membership, type OrgRole } from "../auth/session";
 import { orgSlug } from "./slug";
 import { deleteOrphanEmployees, SaveError, saveSite } from "./save";
+import type { SaveScope } from "./save-scope";
 import { ensurePrimarySites } from "../people/sites";
 import { loadSiteWeek } from "./load";
 import type { SqlClient } from "./types";
@@ -102,11 +103,12 @@ export async function loadStoredWorkspace(sql: SqlClient, week: string): Promise
 }
 
 /** Owners can rename the business. Managers can write sites. Employees cannot. */
-export async function saveStoredWorkspace(sql: SqlClient, workspace: Workspace): Promise<void> {
+export async function saveStoredWorkspace(sql: SqlClient, workspace: Workspace, scope?: SaveScope): Promise<void> {
   const active = await actingMembership(sql, workspace.org.id);
   if (!active || active.role === "employee") throw new SaveError("forbidden");
   if (workspace.sites.length === 0) throw new SaveError("sites");
-  if (active.role === "owner") {
+  const writeOrg = !scope || scope.org;
+  if (active.role === "owner" && writeOrg) {
     const name = workspace.org.name.trim();
     if (!name) throw new SaveError("organization");
     await sql.query(`update public.organizations set name = $1, kind = $2, hebrew_calendar = $3 where id = $4`, [
@@ -125,7 +127,9 @@ export async function saveStoredWorkspace(sql: SqlClient, workspace: Workspace):
     if (workspace.sites.some((site) => !allowedIds.has(site.id))) throw new SaveError("forbidden");
   }
   for (const site of workspace.sites) {
-    await saveSite(sql, { orgId: workspace.org.id, siteId: site.id, state: site.state });
+    const siteScope = scope?.sites[site.id];
+    if (scope && !siteScope) continue;
+    await saveSite(sql, { orgId: workspace.org.id, siteId: site.id, state: site.state, scope: siteScope });
   }
   if (active.role === "owner") {
     await sql.query(`delete from public.sites where org_id = $1 and not (id = any($2::uuid[]))`, [

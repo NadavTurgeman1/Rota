@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { addDays, agreementAllows, slots, type Lang, type RotaState } from "../domain";
+import { addDays, agreementAllows, slots, type Business, type Lang, type RotaState } from "../domain";
 import { copy } from "../i18n/copy";
 import { exportFileName, formatWeekRange, pngFileName, siteLabel } from "../schedule/display";
 import { calendarTitle, ownPublishedShifts, shiftsIcs } from "../schedule/calendar";
@@ -17,7 +17,9 @@ import { downloadBlob, downloadWeekPng } from "./week-png";
 import { useHebrewCalendar } from "./day-dates";
 import { StaffTrades, type ShiftTrade, type TradeApi } from "./trades";
 import { WeekPicker } from "./week-picker";
-import { availabilitySubmitted, blockLimitOf, countBlocks, gridWithCell, hasConstraintGrant, openAvailabilityGrid, withinBlockLimit } from "../people/edit";
+import { overBucketIds } from "../people/blocks";
+import { availabilitySubmitted, gridWithCell, hasConstraintGrant, openAvailabilityGrid } from "../people/edit";
+import { BlockLimitNote } from "./block-limit";
 import { button, card, cardTitle, pill } from "./ui";
 
 function officialGrid(state: RotaState, employeeId: string): string[][] {
@@ -49,12 +51,18 @@ function StaffConstraints({
   lang,
   employeeId,
   pending,
+  home,
+  homeName,
+  away,
   onSubmit,
 }: {
   state: RotaState;
   lang: Lang;
   employeeId: string;
   pending: StaffRequest | null;
+  home: Business;
+  homeName: string;
+  away: boolean;
   onSubmit: (shifts: string[][]) => void;
 }) {
   const t = copy[lang];
@@ -62,13 +70,12 @@ function StaffConstraints({
   const accessOn = state.biz.staffAccess !== false;
   const open = accessOn && constraintWindowOpen(state.biz);
   const [draft, setDraft] = useState<string[][]>(() => (pending ? pending.shifts.map((day) => [...day]) : officialGrid(state, employeeId)));
-  const [refused, setRefused] = useState(false);
+  const [refused, setRefused] = useState<string[]>([]);
   const [sameNotice, setSameNotice] = useState(false);
-  const limit = blockLimitOf(state.biz);
+  const limited = home.blockLimit === true;
   const granted = hasConstraintGrant(state, employeeId);
-  const capped = limit !== null && !granted;
-  const blocked = countBlocks(state, employeeId, draft);
-  const over = capped && blocked > (limit ?? 0);
+  const capped = limited && !granted;
+  const over = capped && overBucketIds(state, employeeId, draft, home).length > 0;
   const countdown = useCountdown(state.biz.constraintExtensionUntil);
   const approved = state.avail[state.week]?.[employeeId];
   const waiting = Boolean(pending) && !(approved && sameGrid(approved, pending?.shifts ?? []));
@@ -90,7 +97,7 @@ function StaffConstraints({
             className={button.small}
             disabled={locked}
             onClick={() => {
-              setRefused(false);
+              setRefused([]);
               setSameNotice(false);
               setDraft(openAvailabilityGrid(state, employeeId));
             }}
@@ -104,11 +111,12 @@ function StaffConstraints({
             disabled={locked}
             onClick={() => {
               const cleared = [[], [], [], [], [], [], []];
-              if (capped && !withinBlockLimit(state, employeeId, cleared)) {
-                setRefused(true);
+              const blocked = capped ? overBucketIds(state, employeeId, cleared, home) : [];
+              if (blocked.length) {
+                setRefused(blocked);
                 return;
               }
-              setRefused(false);
+              setRefused([]);
               setSameNotice(false);
               setDraft(cleared);
             }}
@@ -126,11 +134,12 @@ function StaffConstraints({
                     (previous[day] ?? []).filter((shiftId) => agreementAllows(employee, day, shiftId) && Number(state.biz.shifts.find((shift) => shift.id === shiftId)?.req[day] || 0) > 0),
                   )
                 : officialGrid({ ...state, avail: {} }, employeeId);
-              if (capped && !withinBlockLimit(state, employeeId, next)) {
-                setRefused(true);
+              const blocked = capped ? overBucketIds(state, employeeId, next, home) : [];
+              if (blocked.length) {
+                setRefused(blocked);
                 return;
               }
-              setRefused(false);
+              setRefused([]);
               setSameNotice(false);
               setDraft(next);
             }}
@@ -140,7 +149,7 @@ function StaffConstraints({
         </div>
       </div>
       <p className="mt-2 text-sm leading-6 text-muted">
-        {limit === null ? t.staffConstraintsHint : granted ? t.exceptionGranted : t.staffAutoHint}
+        {!limited ? t.staffConstraintsHint : granted ? t.exceptionGranted : t.staffAutoHint}
       </p>
       {countdown ? (
         <p data-testid="staff-extra-window" className="mt-2 text-sm font-medium tabular-nums text-ink">
@@ -165,10 +174,17 @@ function StaffConstraints({
         </p>
       ) : null}
       {capped ? (
-        <p data-testid="staff-block-limit" role={refused ? "alert" : undefined} className={`mt-2 text-sm ${refused ? "font-medium text-danger-text" : "text-muted"}`}>
-          {t.blockLimitStatus(blocked, limit ?? 0)}
-          {refused ? ` ${t.blockLimitReached}` : ""}
-        </p>
+        <BlockLimitNote
+          state={state}
+          employeeId={employeeId}
+          grid={draft}
+          home={home}
+          lang={lang}
+          refusedIds={refused}
+          testId="staff-block-limit"
+          homeName={homeName}
+          away={away}
+        />
       ) : null}
       <WeekGrid
         state={shown}
@@ -178,11 +194,12 @@ function StaffConstraints({
         editable={!locked}
         onToggle={(day, shiftId, checked) => {
           const next = gridWithCell(state, employeeId, draft, day, shiftId, checked);
-          if (capped && !withinBlockLimit(state, employeeId, next)) {
-            setRefused(true);
+          const blocked = capped ? overBucketIds(state, employeeId, next, home) : [];
+          if (blocked.length) {
+            setRefused(blocked);
             return;
           }
-          setRefused(false);
+          setRefused([]);
           setSameNotice(false);
           setDraft(next);
         }}
@@ -206,7 +223,7 @@ function StaffConstraints({
           onSubmit(draft);
         }}
       >
-        {limit !== null ? t.staffSave : t.staffSubmit}
+        {limited ? t.staffSave : t.staffSubmit}
       </button>
     </section>
   );
@@ -332,6 +349,10 @@ export function StaffHome({
   const activeNav = useRef<HTMLButtonElement>(null);
   const [copied, setCopied] = useState(false);
   const employee = selfId ? state.emps.find((item) => item.id === selfId) ?? null : null;
+  const homeSite = employee?.homeSiteId ? rosterSites.find((site) => site.id === employee.homeSiteId) : undefined;
+  const homeBiz = homeSite?.state.biz ?? state.biz;
+  const homeName = homeSite ? siteLabel(homeSite.name, lang) : siteLabel(state.biz.name, lang);
+  const homeAway = Boolean(employee?.homeSiteId && employee.homeSiteId !== activeSiteId && homeSite);
   const siteName = siteLabel(state.biz.name, lang);
   const title = calendarTitle(siteName, orgName);
   const mine = selfId
@@ -410,7 +431,9 @@ export function StaffHome({
                 ? t.staffSameRequest
                 : saveNote === "week"
                   ? t.staffWeekOnly
-                  : t.saveFailed}
+                  : saveNote === "home"
+                    ? t.constraintHomeOnly
+                    : t.saveFailed}
         </p>
       ) : null}
       <main className="flex flex-col gap-8 px-6 py-6 sm:px-8">
@@ -475,11 +498,14 @@ export function StaffHome({
         ) : tab === "constraints" ? (
           employee ? (
             <StaffConstraints
-              key={`${activeSiteId}-${state.week}-${employee.id}-${pending?.id ?? "open"}`}
-              state={state}
+              key={`${homeAway && homeSite ? homeSite.id : activeSiteId}-${state.week}-${employee.id}-${pending?.id ?? "open"}`}
+              state={homeAway && homeSite ? { ...homeSite.state, week: state.week } : state}
               lang={lang}
               employeeId={employee.id}
               pending={pending}
+              home={homeBiz}
+              homeName={homeName}
+              away={homeAway}
               onSubmit={onSubmit}
             />
           ) : (
@@ -591,6 +617,7 @@ export function StaffHome({
                       onCallOff={() => undefined}
                       onHours={() => undefined}
                       onRequired={() => undefined}
+                      onToggleLock={() => undefined}
                     />
                   ) : (
                     <p className={`${card} text-sm leading-6 text-ink`}>{t.staffUnpublished}</p>

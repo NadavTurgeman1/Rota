@@ -13,6 +13,7 @@ import {
   setWholeAgreement,
   grantConstraintException,
   hasConstraintGrant,
+  replaceAvailability,
   setAvailability,
   setWholeAvailability,
   updateEmployee,
@@ -154,5 +155,20 @@ describe("people edits", () => {
 
     open.avail[open.week] = { [SENTINEL.dana]: [0, 1, 2, 3, 4, 5, 6].map(() => open.biz.shifts.map((shift) => shift.id)) };
     expect(setWholeAgreement(open, MANAGER, SENTINEL.dana, false).avail[open.week][SENTINEL.dana]).toEqual([[], [], [], [], [], [], []]);
+  });
+
+  it("keeps a reinforcement employee's constraints unchanged away from the primary site", () => {
+    const open = sentinelState("2026-10-11");
+    const away = {
+      ...open,
+      siteId: "secondary",
+      emps: open.emps.map((employee) => (employee.id === SENTINEL.dana ? { ...employee, homeSiteId: "primary" } : employee)),
+    };
+    expect(setAvailability(away, MANAGER, SENTINEL.dana, 0, SENTINEL.morning, false)).toBe(away);
+    expect(setWholeAvailability(away, MANAGER, SENTINEL.dana, false)).toBe(away);
+    expect(replaceAvailability(away, MANAGER, SENTINEL.dana, away.week, [[], [], [], [], [], [], []])).toBe(away);
+
+    const home = { ...away, siteId: "primary" };
+    expect(setAvailability(home, MANAGER, SENTINEL.dana, 0, SENTINEL.morning, false)).not.toBe(home);
   });
 });

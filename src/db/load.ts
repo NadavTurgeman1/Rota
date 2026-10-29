@@ -40,6 +40,10 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
        to_char(s.constraint_closes, 'HH24:MI') as constraint_closes,
        s.constraint_block_limit,
        s.constraint_max_blocks::int as constraint_max_blocks,
+       s.constraint_block_split,
+       s.constraint_weekday_blocks::int as constraint_weekday_blocks,
+       s.constraint_weekend_blocks::int as constraint_weekend_blocks,
+       s.constraint_shift_blocks,
        to_json(s.constraint_extension_until) #>> '{}' as constraint_extension_until,
        o.name as org_name,
        o.kind as org_kind
@@ -86,7 +90,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
         [siteId],
       ),
       sql.query<EmployeeRow>(
-        `select e.id, e.name, e.email, e.phone, e.home_site_id, e.job_title, e.weekly_shift_quota,
+        `select e.id, e.name, e.email, e.phone, e.home_site_id, e.constraint_limits, e.job_title, e.weekly_shift_quota,
                 e.max_weekly_hours::float8 as max_weekly_hours, e.active,
                 e.hourly_wage::float8 as hourly_wage,
                 coalesce(p.email, open_invite.email, '') as login_email,
@@ -108,7 +112,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
         [siteId],
       ),
       sql.query<EmployeeRow>(
-        `select e.id, e.name, e.email, e.phone, e.home_site_id, e.job_title, e.weekly_shift_quota,
+        `select e.id, e.name, e.email, e.phone, e.home_site_id, e.constraint_limits, e.job_title, e.weekly_shift_quota,
                 e.max_weekly_hours::float8 as max_weekly_hours, e.active,
                 e.hourly_wage::float8 as hourly_wage,
                 '' as login_email,

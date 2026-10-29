@@ -19,12 +19,13 @@ export interface GenerateResult {
  * Then greedy fill, then a single-swap repair for seats that stayed open.
  * Mutates `state.sched[week]`.
  */
-export function generate(state: RotaState, week: string): GenerateResult {
+export function generate(state: RotaState, week: string, random?: () => number): GenerateResult {
   const schedule = ensureSchedule(state, week);
   schedule.ext = {};
   delete schedule.hours;
   schedule.over = {};
   const previous = schedule.assign;
+  const originalLocked = [...(schedule.locked ?? [])];
   const openSlots = slots(state, week);
   const employees = state.emps.filter((employee) => employee.active);
   const automatic = employees.filter((employee) => !isRelief(employee, state.siteId));
@@ -61,6 +62,13 @@ export function generate(state: RotaState, week: string): GenerateResult {
     kept.push(token);
   }
   schedule.locked = kept;
+  const frozenKeys = new Set(
+    Object.entries(previous).flatMap(([key, ids]) => {
+      if (ids.length === 0 || !ids.every((id) => originalLocked.includes(`${key}#${id}`))) return [];
+      if (!ids.every((id) => kept.includes(`${key}#${id}`))) return [];
+      return [key];
+    }),
+  );
 
   const scarcity = (slot: Slot) =>
     automatic.filter((employee) => !staticReason(state, employee, slot, week)).length / slot.required;
@@ -72,6 +80,7 @@ export function generate(state: RotaState, week: string): GenerateResult {
 
   const queue: Slot[] = [];
   for (const slot of [...openSlots].sort((a, b) => scarcity(a) - scarcity(b))) {
+    if (frozenKeys.has(slot.key)) continue;
     for (let seat = assign[slot.key].length; seat < slot.required; seat += 1) queue.push(slot);
   }
 
@@ -83,8 +92,10 @@ export function generate(state: RotaState, week: string): GenerateResult {
         !dynamicReason(state, employee, slot, mine[employee.id]),
     );
     if (!candidates.length) continue;
-    candidates.sort((a, b) => score(a, slot) - score(b, slot));
-    const chosen = candidates[0];
+    const chosen = random
+      ? candidates[Math.min(candidates.length - 1, Math.floor(random() * candidates.length))]
+      : candidates.sort((a, b) => score(a, slot) - score(b, slot))[0];
+    if (!chosen) continue;
     assign[slot.key].push(chosen.id);
     mine[chosen.id].push(slot);
   }
@@ -118,6 +129,7 @@ export function generate(state: RotaState, week: string): GenerateResult {
   };
 
   for (const slot of openSlots) {
+    if (frozenKeys.has(slot.key)) continue;
     while (assign[slot.key].length < slot.required && rebalance(slot)) {
       // Each success fills exactly one open seat.
     }
@@ -129,7 +141,15 @@ export function generate(state: RotaState, week: string): GenerateResult {
     for (const other of automatic) {
       if (other.id === employee.id || assign[given.key].includes(other.id) || staticReason(state, other, given, week)) continue;
       for (const taken of mine[other.id]) {
-        if (pinned(taken, other.id) || assign[taken.key].includes(employee.id) || staticReason(state, employee, taken, week)) continue;
+        if (
+          pinned(taken, other.id) ||
+          frozenKeys.has(taken.key) ||
+          frozenKeys.has(given.key) ||
+          assign[taken.key].includes(employee.id) ||
+          staticReason(state, employee, taken, week)
+        ) {
+          continue;
+        }
         const otherKept = mine[other.id].filter((item) => item !== taken);
         if (dynamicReason(state, other, given, otherKept) || dynamicReason(state, employee, taken, kept)) continue;
         if (sameDayTight(heldWithPeers(other.id, otherKept), given, state.biz.minRest)) continue;

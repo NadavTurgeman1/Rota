@@ -18,6 +18,9 @@ export interface Copy {
   yearLabel: string;
   generate: string;
   regenerate: string;
+  slotLock: string;
+  slotLockHint: string;
+  slotLockEmpty: string;
   copySchedule: string;
   pasteSchedule: string;
   clearSchedule: string;
@@ -115,6 +118,7 @@ export interface Copy {
   reliefSitesHint: string;
   noReliefSites: string;
   reliefRoster: string;
+  reliefConstraints: string;
   reliefHeld: string;
   role: string;
   qualifications: string;
@@ -232,6 +236,20 @@ export interface Copy {
   blockLimitCount: string;
   blockLimitStatus: (used: number, max: number) => string;
   blockLimitReached: string;
+  blockSplitTitle: string;
+  blockSplitGeneral: string;
+  blockSplitWeekday: string;
+  blockSplitShift: string;
+  blockSplitGeneralHint: string;
+  blockSplitWeekdayHint: string;
+  blockSplitShiftHint: string;
+  blockWeekdays: string;
+  blockWeekend: string;
+  blockLimitBucket: (label: string, used: number, max: number) => string;
+  blockLimitHome: (name: string) => string;
+  customBlocksTitle: string;
+  customBlocksHint: string;
+  customBlocksHome: (name: string) => string;
   markAll: string;
   clearEverything: string;
   addShift: string;
@@ -290,6 +308,7 @@ export interface Copy {
   remoteDbMissing: string;
   appDisconnected: string;
   saveFailed: string;
+  constraintHomeOnly: string;
   accessOwner: string;
   accessWrite: string;
   accessRead: string;
@@ -453,6 +472,9 @@ export const copy: Record<Lang, Copy> = {
     yearLabel: "שנה",
     generate: "יצירת סידור",
     regenerate: "יצירה מחדש",
+    slotLock: "נעילת משמרת",
+    slotLockHint: "האנשים במשמרת הזו נשארים. יצירה מחדש מערבבת את שאר המשמרות לפי האילוצים והחוקים.",
+    slotLockEmpty: "אפשר לנעול משמרת אחרי שמשובץ בה מישהו.",
     copySchedule: "העתקת סידור",
     pasteSchedule: "הדבקת סידור",
     clearSchedule: "נקה סידור",
@@ -550,6 +572,7 @@ export const copy: Record<Lang, Copy> = {
     reliefSitesHint: "באתרי תגבור העובד לא משובץ אוטומטית. אפשר לשבץ אותו ידנית רק אחרי שהסידור באתר הראשי מוכן לפרסום.",
     noReliefSites: "אין אתרים נוספים בעסק.",
     reliefRoster: "מתגברים",
+    reliefConstraints: "האילוצים נקבעים באתר הראשי. כאן אפשר רק לראות אותם.",
     reliefHeld: "{name} יכול להשלים את המשמרת רק כשהסידור באתר הראשי מוכן לפרסום, בלי הפרות ובלי משמרות פתוחות.",
     role: "תפקיד",
     qualifications: "הסמכות",
@@ -664,10 +687,24 @@ export const copy: Record<Lang, Copy> = {
     anyRole: "כל תפקיד",
     staffingHint: "המספרים הם עובדים נדרשים בכל יום (0 = סגור). משמרת שמסתיימת לפני שעת ההתחלה שלה חוצה חצות.",
     blockLimitTitle: "הגבלת כמות חסימות באילוצים השבועיים",
-    blockLimitHint: "כבוי: בלי הגבלה. דלוק: לכל עובד יש מספר מרבי של משמרות שאפשר לחסום השבוע.",
+    blockLimitHint: "כבוי: בלי הגבלה. דלוק: בוחרים איך לחלק את החסימות, ומספר לכל חלק.",
     blockLimitCount: "כמה חסימות מותר",
     blockLimitStatus: (used, max) => `חסימות השבוע: ${used} מתוך ${max}.`,
     blockLimitReached: "אי אפשר לחסום עוד משמרת.",
+    blockSplitTitle: "איך מחלקים את החסימות",
+    blockSplitGeneral: "כללי",
+    blockSplitWeekday: "ימי שבוע וסופ״ש",
+    blockSplitShift: "לפי משמרות",
+    blockSplitGeneralHint: "מספר אחד לכל השבוע.",
+    blockSplitWeekdayHint: "ראשון עד חמישי בנפרד, ושישי ושבת בנפרד.",
+    blockSplitShiftHint: "מספר נפרד לכל משמרת, לאורך כל השבוע.",
+    blockWeekdays: "ראשון–חמישי",
+    blockWeekend: "שישי–שבת",
+    blockLimitBucket: (label, used, max) => `${label}: ${used} מתוך ${max}.`,
+    blockLimitHome: (name) => `החלוקה לפי האתר הראשי, ${name}.`,
+    customBlocksTitle: "אילוצים מותאמים אישית",
+    customBlocksHint: "כבוי: המספרים של האתר הראשי. דלוק: מספרים משלו, באותה חלוקה.",
+    customBlocksHome: (name) => `החלוקה נקבעת באתר הראשי, ${name}.`,
     markAll: "סמן הכל",
     clearEverything: "נקה הכל",
     addShift: "הוספת משמרת",
@@ -726,6 +763,7 @@ export const copy: Record<Lang, Copy> = {
     remoteDbMissing: "חסרה כתובת מסד הנתונים בשרת. מוסיפים SUPABASE_DB_URL לקובץ הסביבה המקומי.",
     appDisconnected: "Rota לא מחובר לענן. צריך קובץ בשם .env.local ליד הפרויקט, ואז להפעיל מחדש את השרת. בלי החיבור הזה האפליקציה לא נפתחת.",
     saveFailed: "השמירה לענן נכשלה.",
+    constraintHomeOnly: "האילוצים נשמרים באתר הראשי.",
     accessOwner: "מנהל עסק",
     accessWrite: "מנהל משמרות",
     accessRead: "עובד",
@@ -900,6 +938,9 @@ export const copy: Record<Lang, Copy> = {
     yearLabel: "Year",
     generate: "Generate",
     regenerate: "Regenerate",
+    slotLock: "Lock shift",
+    slotLockHint: "The people on this shift stay. Regenerate shuffles the other shifts, following the constraints and the rules.",
+    slotLockEmpty: "A shift can be locked after someone is assigned to it.",
     copySchedule: "Copy schedule",
     pasteSchedule: "Paste schedule",
     clearSchedule: "Clear schedule",
@@ -997,6 +1038,7 @@ export const copy: Record<Lang, Copy> = {
     reliefSitesHint: "On reinforcement sites the employee is never scheduled automatically. They can be placed by hand only after the primary site's schedule is ready to publish.",
     noReliefSites: "The business has no other sites.",
     reliefRoster: "Reinforcement",
+    reliefConstraints: "Constraints are set on the primary site. Here they can only be viewed.",
     reliefHeld: "{name} can fill this shift only once the primary site's schedule is ready to publish, with no violations and no open shifts.",
     role: "Role",
     qualifications: "Qualifications",
@@ -1111,10 +1153,24 @@ export const copy: Record<Lang, Copy> = {
     anyRole: "Any role",
     staffingHint: "Numbers are employees required per day (0 = closed). A shift ending at or before its start crosses midnight.",
     blockLimitTitle: "Limit weekly constraint blocks",
-    blockLimitHint: "Off: no cap. On: each person can block only this many shifts in a week.",
+    blockLimitHint: "Off: no cap. On: choose how the blocks are split, and a number for each part.",
     blockLimitCount: "Allowed blocks",
     blockLimitStatus: (used, max) => `Blocks this week: ${used} of ${max}.`,
     blockLimitReached: "No more shifts can be blocked.",
+    blockSplitTitle: "How blocks are split",
+    blockSplitGeneral: "General",
+    blockSplitWeekday: "Weekdays and weekend",
+    blockSplitShift: "By shift",
+    blockSplitGeneralHint: "One number for the whole week.",
+    blockSplitWeekdayHint: "Sunday to Thursday apart from Friday and Saturday.",
+    blockSplitShiftHint: "A separate number for each shift, across the week.",
+    blockWeekdays: "Sunday–Thursday",
+    blockWeekend: "Friday–Saturday",
+    blockLimitBucket: (label, used, max) => `${label}: ${used} of ${max}.`,
+    blockLimitHome: (name) => `The split follows the primary site, ${name}.`,
+    customBlocksTitle: "Custom constraints",
+    customBlocksHint: "Off: the primary site's numbers. On: this person's own numbers, in the same split.",
+    customBlocksHome: (name) => `The split is set on the primary site, ${name}.`,
     markAll: "Select all",
     clearEverything: "Clear all",
     addShift: "Add shift",
@@ -1173,6 +1229,7 @@ export const copy: Record<Lang, Copy> = {
     remoteDbMissing: "The server is missing the database URL. Add SUPABASE_DB_URL to the local environment file.",
     appDisconnected: "Rota is not connected to the cloud. Add a file named .env.local next to the project, then start the server again. Without that connection the app does not open.",
     saveFailed: "Saving to the cloud failed.",
+    constraintHomeOnly: "Constraints are saved on the primary site.",
     accessOwner: "Company admin",
     accessWrite: "Shift manager",
     accessRead: "Employee",

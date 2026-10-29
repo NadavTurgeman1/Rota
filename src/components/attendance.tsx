@@ -25,7 +25,7 @@ export type AttendanceApi = {
     longitude: number;
     accuracyMeters: number;
   }) => Promise<AttendanceSnapshot | string>;
-  employee: (employeeId: string) => Promise<AttendanceSnapshot | string>;
+  employee: (employeeId: string, signal?: AbortSignal) => Promise<AttendanceSnapshot | string>;
 };
 
 function useNow(): Date {
@@ -308,25 +308,31 @@ export function EmployeeAttendance({
   employeeId,
   lang,
   load,
+  shared,
 }: {
   employeeId: string;
   lang: Lang;
   load: AttendanceApi["employee"];
+  /** A roster already loaded for this screen. `null` is still loading. Omit it to load this person. */
+  shared?: AttendanceSnapshot | null;
 }) {
   const t = copy[lang];
   const [snapshot, setSnapshot] = useState<AttendanceSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
+    if (shared !== undefined) return;
+    const controller = new AbortController();
     let live = true;
     setSnapshot(null);
     setError(null);
-    void load(employeeId).then((result) => {
+    void load(employeeId, controller.signal).then((result) => {
       if (!live) return;
       if (typeof result === "string") setError(problemText(result, t));
       else setSnapshot(result);
     });
     return () => {
       live = false;
+      controller.abort();
     };
     // `load` reads the current session token. Reloading follows the selected person.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -340,8 +346,8 @@ export function EmployeeAttendance({
           <p role="alert" className="text-sm text-danger-text">
             {error}
           </p>
-        ) : snapshot ? (
-          <AttendanceTable lang={lang} timeZone={snapshot.timeZone} punches={snapshot.punches} />
+        ) : (shared ?? snapshot) ? (
+          <AttendanceTable lang={lang} timeZone={(shared ?? snapshot)!.timeZone} punches={(shared ?? snapshot)!.punches} />
         ) : (
           <p className="text-sm text-muted">{t.attendanceLoading}</p>
         )}

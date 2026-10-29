@@ -8,7 +8,8 @@ export function keepaliveFits(json: string): boolean {
 }
 
 /**
- * One cloud write at a time. A newer snapshot waits.
+ * One cloud write at a time. A newer snapshot waits until the one already
+ * on the way finishes, and then only the latest copy is sent.
  * An older request is never sent again after a newer one has been queued,
  * including when the newer snapshot is the copy the server already had.
  */

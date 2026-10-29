@@ -110,6 +110,74 @@ export async function loadEmployeeAttendance(sql: SqlClient, employeeId: string)
   };
 }
 
+export type AttendanceRoster = {
+  serverNow: string;
+  timeZone: string;
+  employees: { id: string; timeZone: string; punches: AttendancePunch[] }[];
+};
+
+/** One read for the team screen: the punches a manager of this site is allowed to see. */
+export async function loadRosterAttendance(sql: SqlClient, siteId: string): Promise<AttendanceRoster> {
+  if (!UUID.test(siteId)) throw new SaveError("forbidden");
+  const site = await sql.query<{ timezone: string; ok: boolean }>(
+    `select timezone,
+       ((select private.org_role(org_id)) = 'owner' or (select private.manages_site(id))) as ok
+     from public.sites where id = $1`,
+    [siteId],
+  );
+  if (!site[0]?.ok) throw new SaveError("forbidden");
+  const timeZone = site[0].timezone || "Asia/Jerusalem";
+  const people = await sql.query<{ id: string; timezone: string }>(
+    `select e.id, coalesce(home.timezone, $2) as timezone
+     from public.employees e
+     join public.employee_sites es on es.employee_id = e.id and es.org_id = e.org_id and es.site_id = $1
+     left join public.sites home on home.id = e.home_site_id and home.org_id = e.org_id
+     order by e.name`,
+    [siteId, timeZone],
+  );
+  const punches = new Map<string, AttendancePunch[]>();
+  if (people.length > 0) {
+    const rows = await sql.query<{
+      employee_id: string;
+      id: string;
+      site_id: string;
+      site_name: string;
+      kind: string;
+      punched_at: string;
+      latitude: number;
+      longitude: number;
+      accuracy_meters: number;
+    }>(
+      `select employee_id, id, site_id, site_name, kind, punched_at, latitude, longitude, accuracy_meters
+       from (
+         select p.employee_id, p.id, p.site_id, coalesce(s.name, '') as site_name, p.kind,
+           p.punched_at::text as punched_at, p.latitude, p.longitude, p.accuracy_meters,
+           row_number() over (partition by p.employee_id order by p.punched_at desc, p.id desc) as n
+         from public.attendance_punches p
+         left join public.sites s on s.id = p.site_id and s.org_id = p.org_id
+         where p.employee_id = any($1::uuid[])
+       ) recent
+       where n <= 200
+       order by punched_at`,
+      [people.map((person) => person.id)],
+    );
+    for (const row of rows) {
+      const list = punches.get(row.employee_id) ?? [];
+      list.push(mapPunch(row));
+      punches.set(row.employee_id, list);
+    }
+  }
+  return {
+    serverNow: await serverNow(sql),
+    timeZone,
+    employees: people.map((person) => ({
+      id: person.id,
+      timeZone: person.timezone || timeZone,
+      punches: punches.get(person.id) ?? [],
+    })),
+  };
+}
+
 export async function recordAttendancePunch(
   sql: SqlClient,
   input: {

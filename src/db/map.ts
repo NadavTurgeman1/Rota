@@ -1,5 +1,6 @@
 import { cleanProfile } from "../domain/profile";
 import { HOUR_SPAN_GROUP } from "../domain/schedule";
+import { normalizeCustom } from "../people/blocks";
 import type { RotaState, Schedule, ScheduleVersion, ShiftDefinition } from "../domain/types";
 import type { SiteBundle } from "./types";
 
@@ -51,6 +52,7 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
         .map((row) => row.name)
         .sort((a, b) => a.localeCompare(b));
       const profile = cleanProfile(employee.profile);
+      const customBlocks = normalizeCustom(readCustomBlocks(employee.constraint_limits));
       return {
         id: employee.id,
         name: employee.name,
@@ -63,6 +65,7 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
         maxHours: employee.max_weekly_hours == null ? 0 : Number(employee.max_weekly_hours),
         hourlyWage: employee.hourly_wage == null ? 0 : Number(employee.hourly_wage),
         ...(profile ? { profile } : {}),
+        ...(customBlocks ? { customBlocks } : {}),
         pref,
         active: employee.active,
         grid,
@@ -139,7 +142,13 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
       constraintOpens: bundle.site.constraint_opens || "00:00",
       constraintCloses: bundle.site.constraint_closes || "23:59",
       blockLimit: bundle.site.constraint_block_limit === true,
+      ...(bundle.site.constraint_block_split === "weekday" || bundle.site.constraint_block_split === "shift"
+        ? { blockSplit: bundle.site.constraint_block_split }
+        : {}),
       maxBlocks: Number(bundle.site.constraint_max_blocks) || 0,
+      ...(Number(bundle.site.constraint_weekday_blocks) > 0 ? { weekdayBlocks: Number(bundle.site.constraint_weekday_blocks) } : {}),
+      ...(Number(bundle.site.constraint_weekend_blocks) > 0 ? { weekendBlocks: Number(bundle.site.constraint_weekend_blocks) } : {}),
+      ...shiftBlockFields(bundle.site.constraint_shift_blocks),
       ...(bundle.site.constraint_extension_until ? { constraintExtensionUntil: bundle.site.constraint_extension_until } : {}),
       assume: bundle.site.assume_available,
       shifts,
@@ -153,6 +162,34 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
     ...(Object.keys(versions).length ? { versions } : {}),
     ...(Object.keys(former).length ? { former } : {}),
   };
+}
+
+function readCustomBlocks(value: unknown): { max: number; weekday: number; weekend: number; shifts: Record<string, number> } | undefined {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return undefined;
+  const row = value as Record<string, unknown>;
+  if (row.custom !== true) return undefined;
+  const count = (raw: unknown) => {
+    const number = Number(raw);
+    return Number.isInteger(number) && number >= 0 ? number : 0;
+  };
+  const shifts: Record<string, number> = {};
+  if (row.shifts && typeof row.shifts === "object" && !Array.isArray(row.shifts)) {
+    for (const [id, raw] of Object.entries(row.shifts as Record<string, unknown>)) {
+      const number = Number(raw);
+      if (Number.isInteger(number) && number >= 0) shifts[id] = number;
+    }
+  }
+  return { max: count(row.max), weekday: count(row.weekday), weekend: count(row.weekend), shifts };
+}
+
+function shiftBlockFields(value: unknown): { shiftBlocks?: Record<string, number> } {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+  const shifts: Record<string, number> = {};
+  for (const [id, raw] of Object.entries(value as Record<string, unknown>)) {
+    const number = Number(raw);
+    if (Number.isInteger(number) && number >= 0) shifts[id] = number;
+  }
+  return Object.keys(shifts).length ? { shiftBlocks: shifts } : {};
 }
 
 function isoTime(value: string): string {

@@ -1,11 +1,13 @@
 import { useEffect, useState } from "react";
-import { dayName, type Employee, type Lang, type RotaState } from "../domain";
+import { dayName, type Business, type Employee, type Lang, type RotaState } from "../domain";
 import { employeeProfile } from "../domain/profile";
 import { isRelief } from "../domain/relief";
 import { confirmDeleteEmployee, copy } from "../i18n/copy";
 import { columnIsToday, shiftLabel, siteLabel } from "../schedule/display";
 import { agreementCell, availabilityCell, type EmployeePatch } from "../people/edit";
-import { EmployeeAttendance, type AttendanceApi } from "./attendance";
+import { blockSplitOf, customFromSite } from "../people/blocks";
+import { BlockNumberFields } from "./block-limit";
+import { EmployeeAttendance, type AttendanceApi, type AttendanceSnapshot } from "./attendance";
 import { DayDates } from "./day-dates";
 import { NameRail } from "./name-rail";
 import { button, card, cardHint, cardTitle, field, label as labelClass, labelText, select, surface } from "./ui";
@@ -29,6 +31,7 @@ export function TeamScreen({
   lockedSiteIds,
   onSites,
   loadAttendance,
+  sharedAttendance,
 }: {
   state: RotaState;
   lang: Lang;
@@ -43,24 +46,24 @@ export function TeamScreen({
   onDelete: (employeeId: string) => void;
   /** Why the employee cannot be deleted right now, or `null`. */
   deletionBlock: (employeeId: string) => string | null;
-  sites: { id: string; name: string }[];
+  sites: { id: string; name: string; biz?: Business }[];
   siteId: string;
   assignedSiteIds: string[];
   lockedSiteIds: string[];
   onSites: (employeeId: string, siteIds: string[], homeSiteId: string) => void;
   loadAttendance: AttendanceApi["employee"];
+  /** Punches for the open site, loaded once. `null` while that request is in flight. */
+  sharedAttendance?: (employeeId: string) => AttendanceSnapshot | null;
 }) {
   const t = copy[lang];
-  const employee = state.emps.find((item) => item.id === selectedId) ?? null;
+  const mainRoster = state.emps.filter((item) => !isRelief(item, siteId));
+  const employee = mainRoster.find((item) => item.id === selectedId) ?? null;
   const [newName, setNewName] = useState("");
   const railPerson = (item: (typeof state.emps)[number]) => ({
     id: item.id,
     name: item.name,
     hint: item.active ? item.role : t.inactive,
   });
-  const mainRoster = state.emps.filter((item) => !isRelief(item, siteId));
-  const reliefRoster = state.emps.filter((item) => isRelief(item, siteId));
-
   return (
     <div className="flex flex-col gap-6">
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]">
@@ -71,7 +74,6 @@ export function TeamScreen({
             selectedId={employee?.id ?? null}
             onSelect={onSelect}
             people={mainRoster.map(railPerson)}
-            trailing={{ title: t.reliefRoster, people: reliefRoster.map(railPerson) }}
           />
           {canWrite ? (
           <form
@@ -110,11 +112,13 @@ export function TeamScreen({
           onDelete={onDelete}
           deletionBlock={deletionBlock(employee.id)}
           sites={sites}
+          siteId={siteId}
           assignedSiteIds={assignedSiteIds}
           homeSiteId={employee.homeSiteId ?? null}
           lockedSiteIds={lockedSiteIds}
           onSites={onSites}
           loadAttendance={loadAttendance}
+          sharedAttendance={sharedAttendance}
         />
       ) : (
         <p className={`${card} text-sm text-muted`}>{t.pickEmployee}</p>
@@ -136,11 +140,13 @@ function EmployeeCard({
   onDelete,
   deletionBlock,
   sites,
+  siteId,
   assignedSiteIds,
   homeSiteId,
   lockedSiteIds,
   onSites,
   loadAttendance,
+  sharedAttendance,
 }: {
   state: RotaState;
   lang: Lang;
@@ -152,17 +158,22 @@ function EmployeeCard({
   onWholeAgreement: (employeeId: string, allowed: boolean) => void;
   onDelete: (employeeId: string) => void;
   deletionBlock: string | null;
-  sites: { id: string; name: string }[];
+  sites: { id: string; name: string; biz?: Business }[];
+  siteId: string;
   assignedSiteIds: string[];
   homeSiteId: string | null;
   lockedSiteIds: string[];
   onSites: (employeeId: string, siteIds: string[], homeSiteId: string) => void;
   loadAttendance: AttendanceApi["employee"];
+  sharedAttendance?: (employeeId: string) => AttendanceSnapshot | null;
 }) {
   const t = copy[lang];
   const employee = state.emps.find((item) => item.id === employeeId)!;
   const [agreementLocked, setAgreementLocked] = useState(true);
   const agreementEditable = canEditAgreement && !agreementLocked;
+  const homeId = employee.homeSiteId || siteId;
+  const homeSite = homeId === siteId ? { name: state.biz.name, biz: state.biz } : sites.find((site) => site.id === homeId);
+  const blockHome = homeSite?.biz ? { biz: homeSite.biz, name: homeSite.name, away: homeId !== siteId } : null;
 
   return (
     <div data-testid="employee-card" className="flex flex-col gap-6">
@@ -173,6 +184,7 @@ function EmployeeCard({
           readOnly={!canEditAgreement}
           hourCapHint={`${t.hourCapHint} (${state.biz.maxHours})`}
           hourCapNone={t.hourCapNone}
+          blockHome={blockHome}
           onUpdate={(patch) => onUpdate(employeeId, patch)}
         />
         {sites.length > 0 ? (
@@ -264,7 +276,7 @@ function EmployeeCard({
         ) : null}
       </section>
 
-      <EmployeeAttendance employeeId={employeeId} lang={lang} load={loadAttendance} />
+      <EmployeeAttendance employeeId={employeeId} lang={lang} load={loadAttendance} shared={sharedAttendance?.(employeeId)} />
 
       <section className={card}>
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -474,6 +486,7 @@ function EmployeeDetails({
   readOnly,
   hourCapHint,
   hourCapNone,
+  blockHome,
   onUpdate,
 }: {
   lang: Lang;
@@ -481,6 +494,7 @@ function EmployeeDetails({
   readOnly: boolean;
   hourCapHint: string;
   hourCapNone: string;
+  blockHome: { biz: Business; name: string; away: boolean } | null;
   onUpdate: (patch: EmployeePatch) => void;
 }) {
   const t = copy[lang];
@@ -607,6 +621,52 @@ function EmployeeDetails({
             {employee.active ? t.active : t.inactive}
           </label>
         </div>
+        {blockHome?.biz.blockLimit === true ? (
+          <div className="mt-5 border-t border-line pt-5">
+            <div className="flex flex-wrap items-start justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-ink">{t.customBlocksTitle}</p>
+                <p className="mt-1 text-sm leading-6 text-muted">{t.customBlocksHint}</p>
+                {blockHome.away ? <p className="mt-1 text-sm text-muted">{t.customBlocksHome(blockHome.name)}</p> : null}
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={Boolean(employee.customBlocks)}
+                aria-label={t.customBlocksTitle}
+                data-testid="custom-blocks"
+                disabled={readOnly}
+                className={`relative h-8 w-12 shrink-0 rounded-full disabled:opacity-50 ${employee.customBlocks ? "bg-brand" : "bg-well"}`}
+                onClick={() => onUpdate({ customBlocks: employee.customBlocks ? null : customFromSite(blockHome.biz) })}
+              >
+                <span
+                  className={`absolute top-1 start-1 h-6 w-6 rounded-full bg-card shadow-sm motion-safe:transition-transform motion-safe:duration-200 ${
+                    employee.customBlocks ? "translate-x-4 rtl:-translate-x-4" : ""
+                  }`}
+                />
+              </button>
+            </div>
+            {employee.customBlocks ? (
+              <BlockNumberFields
+                lang={lang}
+                split={blockSplitOf(blockHome.biz)}
+                shifts={blockHome.biz.shifts}
+                max={employee.customBlocks.max}
+                weekday={employee.customBlocks.weekday}
+                weekend={employee.customBlocks.weekend}
+                shiftCaps={employee.customBlocks.shifts}
+                readOnly={readOnly}
+                idPrefix="custom-"
+                onMax={(max) => onUpdate({ customBlocks: { ...employee.customBlocks!, max } })}
+                onWeekday={(weekday) => onUpdate({ customBlocks: { ...employee.customBlocks!, weekday } })}
+                onWeekend={(weekend) => onUpdate({ customBlocks: { ...employee.customBlocks!, weekend } })}
+                onShift={(shiftId, value) =>
+                  onUpdate({ customBlocks: { ...employee.customBlocks!, shifts: { ...employee.customBlocks!.shifts, [shiftId]: value } } })
+                }
+              />
+            ) : null}
+          </div>
+        ) : null}
       </div>
       <div className="border-t border-line pt-6">
         <h3 className="text-sm font-medium text-ink">{t.profileBank}</h3>

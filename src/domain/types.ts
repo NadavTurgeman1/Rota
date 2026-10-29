@@ -49,6 +49,17 @@ export interface Employee {
   /** Primary site. Other linked sites are reinforcement. Omitted until a site is chosen. */
   homeSiteId?: string;
   role: string;
+  /**
+   * Personal block numbers. Present only when this person overrides the primary site.
+   * The split itself stays the primary site's: general uses `max`, weekdays use `weekday`
+   * and `weekend`, and each shift uses `shifts` keyed by that site's shift id.
+   */
+  customBlocks?: {
+    max: number;
+    weekday: number;
+    weekend: number;
+    shifts: Record<string, number>;
+  };
   /** Comma-separated extra qualifications. */
   quals: string;
   /** Agreed shifts per week. `0` means no shift-count cap. */
@@ -96,12 +107,21 @@ export interface Business {
   /** Clock `HH:mm` when the window closes on the end day. Omitted means `23:59`. */
   constraintCloses?: string;
   /**
-   * When true, each person may block at most `maxBlocks` open shifts in a week.
+   * When true, each person may block only so many open shifts in a week.
    * Omitted or false means weekly constraints have no block cap.
+   * `blockSplit` says how that cap is divided. Omitted means one number for the week.
    */
   blockLimit?: boolean;
-  /** How many weekly blocks are allowed while `blockLimit` is on. Omitted means 0. */
+  /** `general` is one weekly number. `weekday` splits Sunday–Thursday from Friday–Saturday. `shift` is one number per shift. */
+  blockSplit?: "general" | "weekday" | "shift";
+  /** How many weekly blocks are allowed while the split is general. Omitted means 0. */
   maxBlocks?: number;
+  /** Sunday–Thursday blocks while the split is weekday. Omitted means 0. */
+  weekdayBlocks?: number;
+  /** Friday–Saturday blocks while the split is weekday. Omitted means 0. */
+  weekendBlocks?: number;
+  /** Blocks of one shift across the week, keyed by that site's shift id. A missing shift means 0. */
+  shiftBlocks?: Record<string, number>;
   /** Extra submission window. An ISO time. A missing or past time means it is closed. */
   constraintExtensionUntil?: string;
   /**

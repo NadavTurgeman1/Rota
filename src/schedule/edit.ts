@@ -132,13 +132,42 @@ export function generateWeek(state: RotaState): RotaState {
 }
 
 /** Same as `generateWeek`, plus the locks that no longer passed the rules. */
-export function generateWithReport(state: RotaState): { state: RotaState; dropped: DroppedLock[] } {
+export function generateWithReport(state: RotaState, random?: () => number): { state: RotaState; dropped: DroppedLock[] } {
   if (isPublished(state)) return { state, dropped: [] };
   let dropped: DroppedLock[] = [];
   const next = mutate(state, (draft) => {
-    dropped = generate(draft, draft.week).dropped;
+    dropped = generate(draft, draft.week, random).dropped;
   });
   return { state: next, dropped };
+}
+
+/** Build the week again. Unlocked shifts are mixed among people the rules allow. Locked shifts stay. */
+export function reshuffleWeek(state: RotaState, random: () => number = Math.random): RotaState {
+  return generateWithReport(state, random).state;
+}
+
+/** Every person currently on this shift is held in place for the next regenerate. */
+export function slotLocked(state: RotaState, slotKey: string): boolean {
+  const ids = state.sched[state.week]?.assign[slotKey] ?? [];
+  const locked = state.sched[state.week]?.locked ?? [];
+  return ids.length > 0 && ids.every((id) => locked.includes(`${slotKey}#${id}`));
+}
+
+export function toggleSlotLock(state: RotaState, slotKey: string): RotaState {
+  if (isPublished(state)) return state;
+  const ids = state.sched[state.week]?.assign[slotKey] ?? [];
+  if (ids.length === 0) return state;
+  const locking = !slotLocked(state, slotKey);
+  return mutate(state, (draft) => {
+    const schedule = ensureSchedule(draft, draft.week);
+    if (locking) {
+      const held = new Set(schedule.locked);
+      for (const id of ids) held.add(`${slotKey}#${id}`);
+      schedule.locked = [...held];
+      return;
+    }
+    schedule.locked = schedule.locked.filter((token) => !token.startsWith(`${slotKey}#`));
+  });
 }
 
 export function isLocked(state: RotaState, slotKey: string, employeeId: string): boolean {
@@ -246,9 +275,11 @@ export function addEmployee(state: RotaState, slotKey: string, employeeId: strin
   const assigned = state.sched[state.week]?.assign[slotKey] ?? [];
   if (assigned.includes(employeeId)) return state;
   if (assignmentBlocked(state, slotKey, employeeId)) return state;
+  const keepLocked = slotLocked(state, slotKey);
   return mutate(state, (draft) => {
     const schedule = ensureSchedule(draft, draft.week);
     schedule.assign[slotKey] = [...(schedule.assign[slotKey] ?? []), employeeId];
+    if (keepLocked) schedule.locked = [...schedule.locked, `${slotKey}#${employeeId}`];
   });
 }
 
@@ -273,10 +304,12 @@ export function moveEmployee(state: RotaState, fromKey: string, employeeId: stri
   const to = state.sched[state.week]?.assign[toKey] ?? [];
   if (to.includes(employeeId)) return state;
   if (assignmentBlocked(state, toKey, employeeId, fromKey)) return state;
+  const keepLocked = slotLocked(state, toKey);
   return mutate(state, (draft) => {
     const schedule = ensureSchedule(draft, draft.week);
     schedule.assign[fromKey] = (schedule.assign[fromKey] ?? []).filter((id) => id !== employeeId);
     schedule.assign[toKey] = [...(schedule.assign[toKey] ?? []), employeeId];
+    if (keepLocked) schedule.locked = [...schedule.locked, `${toKey}#${employeeId}`];
     clearExtensionGroup(schedule, fromKey, employeeId);
     clearAssignmentHours(schedule, fromKey, employeeId);
     clearOverage(schedule, fromKey, employeeId);

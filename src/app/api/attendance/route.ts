@@ -1,6 +1,6 @@
-import { loadEmployeeAttendance, loadOwnAttendance, recordAttendancePunch } from "../../../db/attendance";
+import { loadEmployeeAttendance, loadOwnAttendance, loadRosterAttendance, recordAttendancePunch } from "../../../db/attendance";
 import { SaveError } from "../../../db/save";
-import { supportOrgFrom, withUserDb } from "../../../supabase/database";
+import { RequestClosed, supportOrgFrom, withUserDb } from "../../../supabase/database";
 import { userIdFromAuthorization } from "../../../supabase/user";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +8,7 @@ export const dynamic = "force-dynamic";
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 function failed(error: unknown): Response {
+  if (error instanceof RequestClosed) return new Response(null, { status: 499 });
   if (error instanceof SaveError) {
     const status = error.message === "forbidden" ? 403 : error.message === "db_unconfigured" ? 503 : 409;
     return Response.json({ error: error.message }, { status });
@@ -23,12 +24,19 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const siteId = url.searchParams.get("siteId") ?? "";
   const employeeId = url.searchParams.get("employeeId") ?? "";
+  const roster = url.searchParams.get("roster") === "1";
   if (!UUID.test(siteId) && !UUID.test(employeeId)) return Response.json({ error: "forbidden" }, { status: 400 });
+  if (roster && !UUID.test(siteId)) return Response.json({ error: "forbidden" }, { status: 400 });
   try {
     const body = await withUserDb(
       userId,
-      (sql) => (UUID.test(employeeId) ? loadEmployeeAttendance(sql, employeeId) : loadOwnAttendance(sql, siteId)),
+      async (sql) => {
+        if (roster && UUID.test(siteId)) return loadRosterAttendance(sql, siteId);
+        if (UUID.test(employeeId)) return loadEmployeeAttendance(sql, employeeId);
+        return loadOwnAttendance(sql, siteId);
+      },
       supportOrgFrom(request),
+      request.signal,
     );
     return Response.json(body);
   } catch (error) {
@@ -58,6 +66,7 @@ export async function POST(request: Request) {
         return loadOwnAttendance(sql, siteId);
       },
       supportOrgFrom(request),
+      request.signal,
     );
     return Response.json(snapshot);
   } catch (error) {

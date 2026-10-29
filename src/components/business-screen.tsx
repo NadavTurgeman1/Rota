@@ -3,6 +3,7 @@ import { dayName, type Lang, type RotaState } from "../domain";
 import type { BusinessPatch, ShiftPatch } from "../business/edit";
 import { confirmDeleteManager, confirmDeleteSite, confirmDeleteStaffLogin, copy } from "../i18n/copy";
 import { orgTypeLabel, shiftLabel, siteLabel } from "../schedule/display";
+import { BlockNumberFields, BlockSplitPicker, blockSplitOf } from "./block-limit";
 
 import { accessLabel } from "./users-panel";
 import { button, card, cardHint, cardTitle, field, label, labelText, select } from "./ui";
@@ -485,17 +486,49 @@ export function BusinessScreen({
             </label>
             <p className="mt-2 text-sm leading-6 text-muted">{t.blockLimitHint}</p>
             {biz.blockLimit === true ? (
-              <label className={`${label} mt-4 max-w-xs`}>
-                <span className={labelText}>{t.blockLimitCount}</span>
-                <CommitInput
-                  type="number"
-                  shown={String(biz.maxBlocks ?? 0)}
-                  label={t.blockLimitCount}
-                  testId="max-blocks"
+              <>
+                <BlockSplitPicker
+                  lang={lang}
+                  split={blockSplitOf(biz)}
                   readOnly={readOnly}
-                  onCommit={(value) => onBusiness({ maxBlocks: Number(value) })}
+                  onChoose={(split) => {
+                    if (split === "weekday") {
+                      const empty = (biz.weekdayBlocks ?? 0) === 0 && (biz.weekendBlocks ?? 0) === 0;
+                      const seed = biz.maxBlocks ?? 0;
+                      onBusiness({
+                        blockSplit: split,
+                        weekdayBlocks: empty ? seed : (biz.weekdayBlocks ?? 0),
+                        weekendBlocks: empty ? seed : (biz.weekendBlocks ?? 0),
+                      });
+                      return;
+                    }
+                    if (split === "shift") {
+                      const caps = { ...(biz.shiftBlocks ?? {}) };
+                      const empty = biz.shifts.every((shift) => (caps[shift.id] ?? 0) === 0);
+                      const seed = biz.maxBlocks ?? 0;
+                      if (empty) for (const shift of biz.shifts) caps[shift.id] = seed;
+                      onBusiness({ blockSplit: split, shiftBlocks: caps });
+                      return;
+                    }
+                    onBusiness({ blockSplit: "general" });
+                  }}
                 />
-              </label>
+                <BlockNumberFields
+                  lang={lang}
+                  split={blockSplitOf(biz)}
+                  shifts={biz.shifts}
+                  max={biz.maxBlocks ?? 0}
+                  weekday={biz.weekdayBlocks ?? 0}
+                  weekend={biz.weekendBlocks ?? 0}
+                  shiftCaps={biz.shiftBlocks ?? {}}
+                  readOnly={readOnly}
+                  idPrefix=""
+                  onMax={(maxBlocks) => onBusiness({ maxBlocks })}
+                  onWeekday={(weekdayBlocks) => onBusiness({ weekdayBlocks })}
+                  onWeekend={(weekendBlocks) => onBusiness({ weekendBlocks })}
+                  onShift={(shiftId, value) => onBusiness({ shiftBlocks: { ...(biz.shiftBlocks ?? {}), [shiftId]: value } })}
+                />
+              </>
             ) : null}
           </div>
         </div>

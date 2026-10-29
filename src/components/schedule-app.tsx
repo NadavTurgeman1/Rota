@@ -17,6 +17,8 @@ import {
   approveReplacement,
   freshStamp,
   generateWeek,
+  reshuffleWeek,
+  toggleSlotLock,
   goToWeek,
   hoursSinceWeek,
   moveEmployee,
@@ -40,6 +42,7 @@ import {
   undo,
   type History,
 } from "../schedule/edit";
+import { scopeForSave } from "../db/save-scope";
 import { createSaveQueue, keepaliveFits } from "../schedule/save-queue";
 import {
   addEmployeeRecord,
@@ -51,7 +54,6 @@ import {
   setAgreement,
   setPreference,
   setWholeAgreement,
-  blockLimitOf,
   grantConstraintException,
   hasConstraintGrant,
   replaceAvailability,
@@ -87,6 +89,7 @@ import { browserClient } from "../supabase/browser";
 import { remoteConfigured } from "../supabase/public-env";
 import { RailIcon } from "./rail-icon";
 import { WeekBoard } from "./schedule-board";
+import type { AttendanceRoster } from "../db/attendance";
 import type { AttendanceApi, AttendanceSnapshot } from "./attendance";
 import { StaffHome } from "./staff-home";
 import { TeamScreen } from "./team-screen";
@@ -213,17 +216,26 @@ export function ScheduleApp() {
   const remote = remoteConfigured();
   const tokenRef = useRef<string | null>(null);
   const retrySave = useRef(false);
+  const savedBaseline = useRef("");
   const saves = useRef(
     createSaveQueue(async (json, signal) => {
       const token = tokenRef.current;
       if (!token) return "retry";
+      const scope = scopeForSave(savedBaseline.current, json);
+      if (!scope) {
+        savedBaseline.current = json;
+        retrySave.current = false;
+        setSaveNote(null);
+        return "ok";
+      }
+      const body = JSON.stringify({ ...JSON.parse(json), scope });
       let response: Response;
       try {
         response = await fetch("/api/workspace", {
           method: "PUT",
           headers: authHeaders(true),
-          body: json,
-          keepalive: keepaliveFits(json),
+          body,
+          keepalive: keepaliveFits(body),
           signal,
         });
       } catch (error) {
@@ -233,6 +245,7 @@ export function ScheduleApp() {
         return "retry";
       }
       if (response.ok) {
+        savedBaseline.current = json;
         retrySave.current = false;
         setSaveNote(null);
         return "ok";
@@ -273,6 +286,8 @@ export function ScheduleApp() {
   const owner = Boolean(user && isOwner(user));
   const hebrew = hebrewCalendarOn(live);
   const [trades, setTrades] = useState<{ trades: ShiftTrade[]; takeable: string[] }>({ trades: [], takeable: [] });
+  const [rosterLog, setRosterLog] = useState<(AttendanceRoster & { siteId: string }) | null>(null);
+  const [rosterSite, setRosterSite] = useState<string | null>(null);
   const approvedSeen = useRef<Set<string> | null>(null);
   const tradeLater = useSetAside("later");
   const tradeSites: TradeSite[] = live.sites.map((site) => ({ id: site.id, name: site.state.biz.name, state: site.state }));
@@ -306,6 +321,37 @@ export function ScheduleApp() {
   }, [signedIn, loadTrades]);
 
   useEffect(() => {
+    if (!remote || !writer || screen !== "team" || !live.activeSiteId) return;
+    const siteId = live.activeSiteId;
+    const controller = new AbortController();
+    let current = true;
+    setRosterLog(null);
+    setRosterSite(siteId);
+    const headers: Record<string, string> = { authorization: `Bearer ${tokenRef.current ?? ""}` };
+    if (supportRef.current) headers["x-rota-support-org"] = supportRef.current;
+    void (async () => {
+      const response = await fetch(`/api/attendance?siteId=${encodeURIComponent(siteId)}&roster=1`, {
+        headers,
+        signal: controller.signal,
+      }).catch(() => null);
+      if (!current || !response?.ok) {
+        if (current) setRosterSite(null);
+        return;
+      }
+      const body = (await response.json().catch(() => null)) as AttendanceRoster | null;
+      if (!current || !body?.employees) {
+        if (current) setRosterSite(null);
+        return;
+      }
+      setRosterLog({ ...body, siteId });
+    })();
+    return () => {
+      current = false;
+      controller.abort();
+    };
+  }, [remote, writer, screen, live.activeSiteId]);
+
+  useEffect(() => {
     const approved = new Set(trades.trades.filter((trade) => trade.status === "approved").map((trade) => trade.id));
     const seen = approvedSeen.current;
     approvedSeen.current = approved;
@@ -332,12 +378,13 @@ export function ScheduleApp() {
     return result.ok ? null : result.code;
   }
 
-  async function attendanceRequest(path: string, body?: object): Promise<AttendanceSnapshot | string> {
+  async function attendanceRequest(path: string, body?: object, signal?: AbortSignal): Promise<AttendanceSnapshot | string> {
     if (!tokenRef.current) return "forbidden";
     const response = await fetch(path, {
       method: body ? "POST" : "GET",
       headers: authHeaders(Boolean(body)),
       body: body ? JSON.stringify(body) : undefined,
+      signal,
     }).catch(() => null);
     const data = (await response?.json().catch(() => null)) as (AttendanceSnapshot & { error?: string }) | null;
     if (!response?.ok) return data?.error ?? "attendance";
@@ -346,7 +393,7 @@ export function ScheduleApp() {
 
   const attendanceApi: AttendanceApi = {
     load: (siteId) => attendanceRequest(`/api/attendance?siteId=${encodeURIComponent(siteId)}`),
-    employee: (employeeId) => attendanceRequest(`/api/attendance?employeeId=${encodeURIComponent(employeeId)}`),
+    employee: (employeeId, signal) => attendanceRequest(`/api/attendance?employeeId=${encodeURIComponent(employeeId)}`, undefined, signal),
     punch: (input) => attendanceRequest("/api/attendance", input),
   };
 
@@ -428,7 +475,9 @@ export function ScheduleApp() {
     const opened = activeSite(next);
     if (opened) setHistory({ present: opened.state, past: [], future: [] });
     setUserId(signedInId);
-    saves.current.noteSaved(JSON.stringify(persistable(next)));
+    const saved = JSON.stringify(persistable(next));
+    savedBaseline.current = saved;
+    saves.current.noteSaved(saved);
     setRemoteError(null);
     setHydrated(true);
   }
@@ -475,7 +524,7 @@ export function ScheduleApp() {
     if (!remote || !user || !writer || live.sites.length === 0) return;
     const json = JSON.stringify(persistable(live));
     saves.current.push(json);
-    const handle = window.setTimeout(() => saves.current.kick(), 200);
+    const handle = window.setTimeout(() => saves.current.kick(), 1000);
     return () => window.clearTimeout(handle);
   }, [hydrated, live, lang, remote, user, writer]);
 
@@ -548,6 +597,14 @@ export function ScheduleApp() {
     change(() => next);
     const siteId = live.activeSiteId;
     setWorkspace((current) => mirrorConstraints(withSiteState(current, siteId, next), siteId));
+  }
+
+  /** Writers see the open site, so a reinforcement employee stays read-only away from home. */
+  function writeConstraints(produce: (current: RotaState) => RotaState) {
+    const stamped = state.siteId === live.activeSiteId ? state : { ...state, siteId: live.activeSiteId };
+    const next = produce(stamped);
+    if (next === stamped) return;
+    applyConstraints(next);
   }
 
   /** Workspace edits are not part of undo. Switching or replacing the active site starts a fresh history. */
@@ -645,7 +702,9 @@ export function ScheduleApp() {
     setWorkspace(payload.workspace);
     const opened = payload.workspace.sites[0];
     if (opened) setHistory({ present: opened.state, past: [], future: [] });
-    saves.current.noteSaved(JSON.stringify(persistable(payload.workspace)));
+    const saved = JSON.stringify(persistable(payload.workspace));
+    savedBaseline.current = saved;
+    saves.current.noteSaved(saved);
     setRemoteError(null);
     setScreen("schedule");
     return true;
@@ -704,6 +763,15 @@ export function ScheduleApp() {
     }));
   }
 
+  function constraintTarget(employeeId: string): string {
+    const person =
+      state.emps.find((employee) => employee.id === employeeId) ??
+      live.sites.flatMap((site) => site.state.emps).find((employee) => employee.id === employeeId);
+    const homeId = person?.homeSiteId;
+    if (homeId && live.sites.some((site) => site.id === homeId)) return homeId;
+    return live.activeSiteId;
+  }
+
   function writeSavedConstraints(siteId: string, employeeId: string, week: string, shifts: string[][]) {
     setWorkspace((current) => ({
       ...current,
@@ -720,10 +788,12 @@ export function ScheduleApp() {
           : site,
       ),
     }));
-    patchPresent((current) => ({
-      ...current,
-      avail: { ...current.avail, [week]: { ...current.avail[week], [employeeId]: shifts } },
-    }));
+    if (siteId === live.activeSiteId) {
+      patchPresent((current) => ({
+        ...current,
+        avail: { ...current.avail, [week]: { ...current.avail[week], [employeeId]: shifts } },
+      }));
+    }
   }
 
   function dropRequest(siteId: string, requestId: string) {
@@ -735,23 +805,32 @@ export function ScheduleApp() {
     }));
   }
 
+  function homeBusiness(employeeId: string) {
+    const person = state.emps.find((employee) => employee.id === employeeId);
+    const homeId = person?.homeSiteId;
+    if (!homeId) return state.biz;
+    return live.sites.find((site) => site.id === homeId)?.state.biz ?? state.biz;
+  }
+
   function submitStaffRequest(shifts: string[][]) {
     const selfId = live.selfEmployeeId;
     if (!selfId) return;
-    const siteId = live.activeSiteId;
+    const siteId = constraintTarget(selfId);
     const week = state.week;
     if (!staffCanSubmitConstraints(week)) {
       setSaveNote("week");
       return;
     }
     if (!remote) {
-      const limit = blockLimitOf(state.biz);
-      const over = limit !== null && !hasConstraintGrant(state, selfId) && !withinBlockLimit(state, selfId, shifts);
+      const home = homeBusiness(selfId);
+      const basis = siteId === live.activeSiteId ? state : { ...(live.sites.find((site) => site.id === siteId)?.state ?? state), week };
+      const limited = home.blockLimit === true;
+      const over = limited && !hasConstraintGrant(basis, selfId) && !withinBlockLimit(basis, selfId, shifts, home);
       if (over) {
         setSaveNote("blocks");
         return;
       }
-      if (limit !== null) {
+      if (limited) {
         writeSavedConstraints(siteId, selfId, week, shifts);
         setSaveNote(null);
         return;
@@ -770,7 +849,9 @@ export function ScheduleApp() {
       });
       const body = (await response.json().catch(() => null)) as { request?: StaffRequest & { automatic?: boolean }; error?: string } | null;
       if (!response.ok || !body?.request) {
-        setSaveNote(body?.error === "blocks" || body?.error === "same" || body?.error === "week" ? body.error : "failed");
+        setSaveNote(
+          body?.error === "blocks" || body?.error === "same" || body?.error === "week" || body?.error === "home" ? body.error : "failed",
+        );
         return;
       }
       setSaveNote(null);
@@ -792,6 +873,8 @@ export function ScheduleApp() {
 
   async function saveConstraintGrant(employeeId: string, allowed: boolean) {
     const siteId = live.activeSiteId;
+    const person = state.emps.find((employee) => employee.id === employeeId);
+    if (person && isRelief(person, siteId)) return;
     const week = state.week;
     if (remote) {
       const response = await fetch("/api/constraints", {
@@ -855,6 +938,8 @@ export function ScheduleApp() {
     const siteId = live.activeSiteId;
     const request = live.sites.find((site) => site.id === siteId)?.requests?.find((item) => item.id === requestId);
     if (!request) return;
+    const person = state.emps.find((employee) => employee.id === request.employeeId);
+    if (approve && person && isRelief(person, siteId)) return;
     if (remote) {
       const response = await fetch("/api/availability", {
         method: "POST",
@@ -1227,7 +1312,7 @@ export function ScheduleApp() {
         onSelectSite={switchSite}
         pending={
           live.sites
-            .find((site) => site.id === live.activeSiteId)
+            .find((site) => site.id === (live.selfEmployeeId ? constraintTarget(live.selfEmployeeId) : live.activeSiteId))
             ?.requests?.find((request) => request.employeeId === live.selfEmployeeId && request.week === state.week) ?? null
         }
         onSubmit={submitStaffRequest}
@@ -1297,6 +1382,7 @@ export function ScheduleApp() {
       change((current) => setAssignmentHours(current, slotKey, employeeId, start, end)),
     onRequired: (shiftId: string, day: number, count: number) =>
       change((current) => setShiftRequirement(current, actor, shiftId, day, count)),
+    onToggleLock: (slotKey: string) => change((current) => toggleSlotLock(current, slotKey)),
   };
 
   const tabs: { id: Exclude<Screen, "approvals">; label: string }[] = [
@@ -1432,7 +1518,7 @@ export function ScheduleApp() {
                   data-testid="generate"
                   className={button.primary}
                   disabled={!writer || published}
-                  onClick={() => change(generateWeek)}
+                  onClick={() => change((current) => (hasAssignments(current) ? reshuffleWeek(current) : generateWeek(current)))}
                 >
                   {schedule ? t.regenerate : t.generate}
                 </button>
@@ -1614,6 +1700,19 @@ export function ScheduleApp() {
         ) : null}
         {screen === "team" ? (
           <TeamScreen
+            sharedAttendance={
+              rosterSite === live.activeSiteId
+                ? (employeeId) => {
+                    if (!rosterLog || rosterLog.siteId !== live.activeSiteId) return null;
+                    const person = rosterLog.employees.find((item) => item.id === employeeId);
+                    return {
+                      serverNow: rosterLog.serverNow,
+                      timeZone: person?.timeZone || rosterLog.timeZone,
+                      punches: person?.punches ?? [],
+                    };
+                  }
+                : undefined
+            }
             state={state}
             lang={lang}
             canWrite={writer}
@@ -1646,7 +1745,7 @@ export function ScheduleApp() {
               const weeks = deletionBlockedBy(state, employeeId, currentWeek);
               return weeks.length > 0 ? deleteEmployeeBlocked(lang, weeks.map((week) => formatWeekRange(week, lang)).join(", ")) : null;
             }}
-            sites={live.sites.map((site) => ({ id: site.id, name: site.state.biz.name }))}
+            sites={live.sites.map((site) => ({ id: site.id, name: site.state.biz.name, biz: site.state.biz }))}
             siteId={live.activeSiteId}
             assignedSiteIds={
               selectedId
@@ -1671,18 +1770,21 @@ export function ScheduleApp() {
             state={state}
             lang={lang}
             siteId={live.activeSiteId}
+            sites={live.sites.map((site) => ({ id: site.id, name: site.state.biz.name, biz: site.state.biz, avail: site.state.avail }))}
             canWrite={writer}
             aiEnabled={aiEnabled}
             requests={live.sites.find((site) => site.id === live.activeSiteId)?.requests ?? []}
             onAvailability={(employeeId, dayIndex, shiftId, available) =>
-              applyConstraints(setAvailability(state, actor, employeeId, dayIndex, shiftId, available))
+              writeConstraints((current) => setAvailability(current, actor, employeeId, dayIndex, shiftId, available, homeBusiness(employeeId)))
             }
-            onWholeAvailability={(employeeId, available) => applyConstraints(setWholeAvailability(state, actor, employeeId, available))}
-            onCopy={(employeeId) => applyConstraints(copyAvailability(state, actor, employeeId))}
+            onWholeAvailability={(employeeId, available) =>
+              writeConstraints((current) => setWholeAvailability(current, actor, employeeId, available, homeBusiness(employeeId)))
+            }
+            onCopy={(employeeId) => writeConstraints((current) => copyAvailability(current, actor, employeeId, homeBusiness(employeeId)))}
             onDecide={(requestId, approve) => void decideRequest(requestId, approve)}
             onGrant={(employeeId, allowed) => void saveConstraintGrant(employeeId, allowed)}
             onApply={(raw, overrides) =>
-              applyConstraints(applyConstraintText(state, actor, raw, overrides))
+              writeConstraints((current) => applyConstraintText(current, actor, raw, overrides, homeBusiness))
             }
           />
         ) : null}

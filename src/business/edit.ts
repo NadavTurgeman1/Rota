@@ -14,7 +14,11 @@ export interface BusinessPatch {
   constraintOpens?: string;
   constraintCloses?: string;
   blockLimit?: boolean;
+  blockSplit?: "general" | "weekday" | "shift";
   maxBlocks?: number;
+  weekdayBlocks?: number;
+  weekendBlocks?: number;
+  shiftBlocks?: Record<string, number>;
 }
 
 export interface ShiftPatch {
@@ -62,10 +66,31 @@ export function updateBusiness(state: RotaState, actor: Actor, patch: BusinessPa
     next.constraintCloses = patch.constraintCloses;
   }
   if (patch.blockLimit !== undefined) next.blockLimit = patch.blockLimit;
+  if (patch.blockSplit !== undefined) {
+    if (patch.blockSplit !== "general" && patch.blockSplit !== "weekday" && patch.blockSplit !== "shift") return state;
+    if (patch.blockSplit === "general") delete next.blockSplit;
+    else next.blockSplit = patch.blockSplit;
+  }
   if (patch.maxBlocks !== undefined) {
     const value = nonNegative(patch.maxBlocks);
     if (value === null || !Number.isInteger(value)) return state;
     next.maxBlocks = value;
+  }
+  for (const key of ["weekdayBlocks", "weekendBlocks"] as const) {
+    const raw = patch[key];
+    if (raw === undefined) continue;
+    const value = nonNegative(raw);
+    if (value === null || !Number.isInteger(value)) return state;
+    next[key] = value;
+  }
+  if (patch.shiftBlocks !== undefined) {
+    const shifts: Record<string, number> = {};
+    for (const [id, raw] of Object.entries(patch.shiftBlocks)) {
+      const value = nonNegative(raw);
+      if (!id || value === null || !Number.isInteger(value)) return state;
+      shifts[id] = value;
+    }
+    next.shiftBlocks = shifts;
   }
   return { ...state, biz: next };
 }

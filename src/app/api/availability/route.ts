@@ -17,7 +17,8 @@ function statusFor(error: unknown): Response {
       error.message === "window" ||
       error.message === "blocks" ||
       error.message === "same" ||
-      error.message === "week")
+      error.message === "week" ||
+      error.message === "home")
   ) {
     return Response.json({ error: error.message }, { status: 403 });
   }

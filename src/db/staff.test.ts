@@ -137,7 +137,44 @@ describe("a roster employee login", () => {
     expect(autoSaved?.decisions ?? []).toEqual([]);
     await db.exec("reset role");
     await sql.query(`delete from public.availability_weeks where employee_id = $1 and week_start = $2::date`, [staff.id, constraintWeek]);
+    const home = "22222222-2222-4222-8222-222222222299";
+    await sql.query(
+      `insert into public.sites (id, org_id, name, constraint_block_limit, constraint_max_blocks, constraint_block_split, constraint_weekday_blocks, constraint_weekend_blocks)
+       values ($1, $2, 'Primary', true, 0, 'weekday', 0, 100)`,
+      [home, sentinel],
+    );
+    await sql.query(`insert into public.employee_sites (org_id, employee_id, site_id) values ($1, $2, $3)`, [sentinel, staff.id, home]);
+    await sql.query(`update public.employees set home_site_id = $1 where id = $2`, [home, staff.id]);
     await sql.query(`update public.sites set constraint_block_limit = false where id = $1`, [headquarters]);
+    await asRole(db, "authenticated", worker);
+    await expect(submitAvailabilityRequest(sql, { siteId: headquarters, week: constraintWeek, shifts: grid })).rejects.toThrow("home");
+    await db.exec("reset role");
+    await sql.query(`update public.employees set home_site_id = $1 where id = $2`, [headquarters, staff.id]);
+    await sql.query(`delete from public.employee_sites where employee_id = $1 and site_id = $2`, [staff.id, home]);
+    await sql.query(`delete from public.sites where id = $1`, [home]);
+    await sql.query(
+      `update public.sites
+       set constraint_block_limit = true, constraint_max_blocks = 0, constraint_block_split = 'weekday',
+           constraint_weekday_blocks = 0, constraint_weekend_blocks = 100
+       where id = $1`,
+      [headquarters],
+    );
+    await sql.query(
+      `update public.employees set constraint_limits = '{"custom":true,"max":0,"weekday":100,"weekend":100,"shifts":{}}'::jsonb where id = $1`,
+      [staff.id],
+    );
+    await asRole(db, "authenticated", worker);
+    const custom = await submitAvailabilityRequest(sql, { siteId: headquarters, week: constraintWeek, shifts: grid });
+    expect(custom.automatic).toBe(true);
+    await db.exec("reset role");
+    await sql.query(`delete from public.availability_weeks where employee_id = $1 and week_start = $2::date`, [staff.id, constraintWeek]);
+    await sql.query(`update public.employees set home_site_id = $1, constraint_limits = null where id = $2`, [headquarters, staff.id]);
+    await sql.query(
+      `update public.sites
+       set constraint_block_limit = false, constraint_block_split = 'general', constraint_weekday_blocks = 0, constraint_weekend_blocks = 0
+       where id = $1`,
+      [headquarters],
+    );
 
     await asRole(db, "authenticated", worker);
     const submitted = await submitAvailabilityRequest(sql, { siteId: headquarters, week: constraintWeek, shifts: grid });

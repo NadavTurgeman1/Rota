@@ -15,6 +15,7 @@ export function mirrorPerson(workspace: Workspace, exceptSiteId: string, person:
     maxHours: person.maxHours,
     hourlyWage: person.hourlyWage ?? 0,
     active: person.active,
+    customBlocks: person.customBlocks ?? null,
   };
   let changed = false;
   const sites = workspace.sites.map((site) => {
@@ -189,8 +190,12 @@ function translatePerson(current: Employee, source: Employee, origin: RotaState,
   const grid = [0, 1, 2, 3, 4, 5, 6].map((day) => translateShiftIds(origin, target, dayIds(source, origin, day)));
   const pref = translateShiftIds(origin, target, source.pref ?? []);
   const homeSiteId = source.homeSiteId ?? current.homeSiteId;
-  if (sameIds(current.pref ?? [], pref) && sameGrid(current.grid, grid) && current.homeSiteId === homeSiteId) return current;
-  return { ...current, pref, grid, ...(homeSiteId ? { homeSiteId } : {}) };
+  const sameCustom = JSON.stringify(current.customBlocks ?? null) === JSON.stringify(source.customBlocks ?? null);
+  if (sameIds(current.pref ?? [], pref) && sameGrid(current.grid, grid) && current.homeSiteId === homeSiteId && sameCustom) return current;
+  const next: Employee = { ...current, pref, grid, ...(homeSiteId ? { homeSiteId } : {}) };
+  if (source.customBlocks) next.customBlocks = source.customBlocks;
+  else delete next.customBlocks;
+  return next;
 }
 
 function dayIds(employee: Employee, state: RotaState, day: number): string[] {
@@ -208,6 +213,19 @@ function translateShiftIds(origin: RotaState, target: RotaState, ids: string[]):
 function kindOf(shifts: ShiftDefinition[], id: string): "m" | "a" | "n" | null {
   const shift = shifts.find((item) => item.id === id);
   return shift ? shiftKind(shift.start, shift.end) : null;
+}
+
+/** One week's primary-site constraints, written with the shifts of the site being viewed. */
+export function constraintsAsSeenHere(
+  here: RotaState,
+  home: { shifts: ShiftDefinition[]; avail: RotaState["avail"] },
+  employeeId: string,
+  week: string,
+): string[][] | undefined {
+  const sourceDays = home.avail[week]?.[employeeId];
+  if (!sourceDays) return undefined;
+  const origin = { biz: { shifts: home.shifts } } as RotaState;
+  return sourceDays.map((day) => translateShiftIds(origin, here, day));
 }
 
 function translateAvail(

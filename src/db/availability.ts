@@ -147,14 +147,36 @@ export async function submitAvailabilityRequest(
     );
     const employee = mine[0];
     if (!employee) throw new SaveError("forbidden");
+    const home = await sql.query<{ home_site_id: string | null }>(
+      `select home_site_id::text as home_site_id
+       from public.employees
+       where id = $1
+         and home_site_id is not null
+         and home_site_id <> $2
+         and exists (
+           select 1 from public.employee_sites link
+           where link.employee_id = $1 and link.site_id = home_site_id
+         )`,
+      [employee.id, input.siteId],
+    );
+    if (home[0]) throw new SaveError("home");
     const allowedWeek = await sql.query<{ week: string }>(`select ${STAFF_CONSTRAINT_WEEK_SQL} as week`);
     if (allowedWeek[0]?.week?.slice(0, 10) !== input.week) throw new SaveError("week");
     const open = await sql.query<{ open: boolean }>(`select private.constraint_window_open($1) as open`, [input.siteId]);
     if (open[0]?.open !== true) throw new SaveError("window");
     const { shiftIds, weekdays } = flattenGrid(shifts);
     const cap = await sql.query<{ limited: boolean }>(
-      `select constraint_block_limit as limited from public.sites where id = $1`,
-      [input.siteId],
+      `select case
+         when e.home_site_id is not null and exists (
+           select 1 from public.employee_sites link
+           where link.employee_id = e.id and link.site_id = e.home_site_id
+         )
+         then (select s.constraint_block_limit from public.sites s where s.id = e.home_site_id)
+         else (select s.constraint_block_limit from public.sites s where s.id = $1)
+       end as limited
+       from public.employees e
+       where e.id = $2`,
+      [input.siteId, employee.id],
     );
     const current = await sql.query<{ weekday: number | null; shift_id: string | null }>(
       `select e.weekday, e.shift_id::text as shift_id

@@ -30,6 +30,7 @@ function slotActions(props: {
   onCallOff: (slotKey: string, employeeId: string) => void;
   onHours: (slotKey: string, employeeId: string, start: number, end: number) => void;
   onRequired: (shiftId: string, day: number, count: number) => void;
+  onToggleLock: (slotKey: string) => void;
 }) {
   return props;
 }
@@ -51,6 +52,7 @@ export function WeekBoard({
   onCallOff,
   onHours,
   onRequired,
+  onToggleLock,
 }: {
   state: RotaState;
   slots: Slot[];
@@ -68,6 +70,7 @@ export function WeekBoard({
   onCallOff: (slotKey: string, employeeId: string) => void;
   onHours: (slotKey: string, employeeId: string, start: number, end: number) => void;
   onRequired: (shiftId: string, day: number, count: number) => void;
+  onToggleLock: (slotKey: string) => void;
 }) {
   const t = copy[lang];
   const scroller = useRef<HTMLDivElement>(null);
@@ -90,6 +93,7 @@ export function WeekBoard({
     onCallOff,
     onHours,
     onRequired,
+    onToggleLock,
   });
   return (
     <div data-testid="week-board" className="min-w-0 rounded-xl border border-line bg-card p-1.5 sm:p-2">

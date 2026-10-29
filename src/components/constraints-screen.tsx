@@ -1,9 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { addDays, type Lang, type RotaState } from "../domain";
+import { addDays, type Business, type Lang, type RotaState } from "../domain";
 import { isRelief } from "../domain/relief";
 import { copy } from "../i18n/copy";
 import type { LineOverride } from "../parser";
-import { availabilitySubmitted, blockLimitOf, countBlocks, gridWithCell, hasConstraintGrant, withinBlockLimit } from "../people/edit";
+import { overBucketIds } from "../people/blocks";
+import { availabilitySubmitted, gridWithCell, hasConstraintGrant } from "../people/edit";
+import { constraintsAsSeenHere } from "../people/sites";
+import { BlockLimitNote } from "./block-limit";
 import { extensionStillOpen } from "../schedule/constraint-window";
 import type { StaffRequest } from "../workspace/workspace";
 import { ConstraintPaste } from "./constraint-paste";
@@ -16,6 +19,7 @@ export function ConstraintsScreen({
   state,
   lang,
   siteId,
+  sites = [],
   canWrite,
   aiEnabled,
   requests,
@@ -29,6 +33,7 @@ export function ConstraintsScreen({
   state: RotaState;
   lang: Lang;
   siteId: string;
+  sites?: { id: string; name: string; biz: Business; avail?: RotaState["avail"] }[];
   canWrite: boolean;
   aiEnabled: boolean;
   requests: StaffRequest[];
@@ -45,10 +50,36 @@ export function ConstraintsScreen({
   const relief = ordered.filter((employee) => isRelief(employee, siteId));
   const everyone = [...people, ...relief];
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [refused, setRefused] = useState(false);
+  const [refused, setRefused] = useState<string[]>([]);
   const selected = everyone.find((employee) => employee.id === selectedId) ?? null;
-  const submitted = everyone.filter((employee) => availabilitySubmitted(state, employee.id)).length;
-  const pending = requests.filter((request) => request.week === state.week);
+  const viewOnly = Boolean(selected && isRelief(selected, siteId));
+  const editable = canWrite && !viewOnly;
+  function homeFor(employeeId: string): { biz: Business; name: string; away: boolean } {
+    const person = state.emps.find((employee) => employee.id === employeeId);
+    const homeId = person?.homeSiteId;
+    if (!homeId || homeId === siteId) return { biz: state.biz, name: state.biz.name, away: false };
+    const home = sites.find((site) => site.id === homeId);
+    if (!home) return { biz: state.biz, name: state.biz.name, away: false };
+    return { biz: home.biz, name: home.name, away: true };
+  }
+  const selectedHome = selected ? homeFor(selected.id) : null;
+  const shown = selected && viewOnly ? reliefView(selected.id) : state;
+  function reliefView(employeeId: string): RotaState {
+    const person = state.emps.find((employee) => employee.id === employeeId);
+    const home = person?.homeSiteId ? sites.find((site) => site.id === person.homeSiteId) : undefined;
+    if (!home?.avail) return state;
+    const row = constraintsAsSeenHere(state, { shifts: home.biz.shifts, avail: home.avail }, employeeId, state.week);
+    const weekRows = { ...(state.avail[state.week] ?? {}) };
+    if (row) weekRows[employeeId] = row;
+    else delete weekRows[employeeId];
+    return { ...state, avail: { ...state.avail, [state.week]: weekRows } };
+  }
+  const submitted = people.filter((employee) => availabilitySubmitted(state, employee.id)).length;
+  const pending = requests.filter((request) => {
+    if (request.week !== state.week) return false;
+    const person = state.emps.find((employee) => employee.id === request.employeeId);
+    return Boolean(person && !isRelief(person, siteId));
+  });
 
   return (
     <div data-testid="constraints-screen" className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]">
@@ -58,7 +89,7 @@ export function ConstraintsScreen({
           testId="roster"
           selectedId={selected?.id ?? null}
           onSelect={(id) => {
-            setRefused(false);
+            setRefused([]);
             setSelectedId((current) => (current === id ? null : id));
           }}
           people={people.map((item) => ({
@@ -75,9 +106,6 @@ export function ConstraintsScreen({
               id: item.id,
               name: item.name,
               hint: item.active ? item.role : t.inactive,
-              submitted:
-                availabilitySubmitted(state, item.id) ||
-                requests.some((request) => request.employeeId === item.id && request.week === state.week),
             })),
           }}
         />
@@ -86,7 +114,7 @@ export function ConstraintsScreen({
         {canWrite ? <ConstraintPaste state={state} lang={lang} aiEnabled={aiEnabled} onApply={onApply} /> : null}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted">
           <span data-testid="submitted-count" className="font-semibold tabular-nums text-ink">
-            {submitted}/{everyone.length} {t.submittedCount}
+            {submitted}/{people.length} {t.submittedCount}
           </span>
           <span>{t.availabilityLocked}</span>
           <ul className="flex flex-wrap gap-2">
@@ -134,18 +162,22 @@ export function ConstraintsScreen({
           <section data-testid={`availability-card-${selected.name}`} className={card}>
             <div className="flex flex-wrap items-center gap-2">
               <h2 className={cardTitle}>{selected.name}</h2>
-              <span className={`${pill} ${availabilitySubmitted(state, selected.id) ? "bg-ok-soft text-ok-text" : "bg-well text-muted"}`}>
-                {availabilitySubmitted(state, selected.id) ? t.submittedShort : t.notSubmittedShort}
-              </span>
+              {viewOnly ? (
+                <span className="text-sm text-muted">{t.reliefConstraints}</span>
+              ) : (
+                <span className={`${pill} ${availabilitySubmitted(state, selected.id) ? "bg-ok-soft text-ok-text" : "bg-well text-muted"}`}>
+                  {availabilitySubmitted(state, selected.id) ? t.submittedShort : t.notSubmittedShort}
+                </span>
+              )}
               {selected.active ? null : <span className="text-xs font-medium text-subtle">{t.inactive}</span>}
-              <div className="ms-auto flex flex-wrap gap-2">
+              {editable ? <div className="ms-auto flex flex-wrap gap-2">
                 <button
                   type="button"
                   data-testid={`mark-all-${selected.name}`}
                   className={button.small}
-                  disabled={!canWrite}
                   onClick={() => {
-                    setRefused(false);
+                    if (!editable) return;
+                    setRefused([]);
                     onWholeAvailability(selected.id, true);
                   }}
                 >
@@ -155,14 +187,16 @@ export function ConstraintsScreen({
                   type="button"
                   data-testid={`clear-all-${selected.name}`}
                   className={button.small}
-                  disabled={!canWrite}
+                  disabled={!editable}
                   onClick={() => {
+                    if (!editable) return;
                     const cleared = [[], [], [], [], [], [], []];
-                    if (!withinBlockLimit(state, selected.id, cleared)) {
-                      setRefused(true);
+                    const over = overBucketIds(state, selected.id, cleared, selectedHome?.biz ?? state.biz);
+                    if (over.length) {
+                      setRefused(over);
                       return;
                     }
-                    setRefused(false);
+                    setRefused([]);
                     onWholeAvailability(selected.id, false);
                   }}
                 >
@@ -172,22 +206,24 @@ export function ConstraintsScreen({
                   type="button"
                   data-testid={`copy-availability-${selected.name}`}
                   className={button.quiet}
-                  disabled={!canWrite}
+                  disabled={!editable}
                   onClick={() => {
+                    if (!editable) return;
                     const previous = state.avail[addDays(state.week, -7)]?.[selected.id];
-                    if (previous && !withinBlockLimit(state, selected.id, previous)) {
-                      setRefused(true);
+                    const over = previous ? overBucketIds(state, selected.id, previous, selectedHome?.biz ?? state.biz) : [];
+                    if (over.length) {
+                      setRefused(over);
                       return;
                     }
-                    setRefused(false);
+                    setRefused([]);
                     onCopy(selected.id);
                   }}
                 >
                   {t.copyPrevious}
                 </button>
-              </div>
+              </div> : null}
             </div>
-            {canWrite && blockLimitOf(state.biz) !== null ? (
+            {editable && selectedHome?.biz.blockLimit === true ? (
               <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-ink">{t.exceptionGrant}</p>
@@ -210,25 +246,34 @@ export function ConstraintsScreen({
                 </button>
               </div>
             ) : null}
-            {blockLimitOf(state.biz) !== null ? (
-              <p data-testid="block-limit-note" role={refused ? "alert" : undefined} className={`mt-2 text-sm ${refused ? "font-medium text-danger-text" : "text-muted"}`}>
-                {t.blockLimitStatus(countBlocks(state, selected.id, state.avail[state.week]?.[selected.id]), blockLimitOf(state.biz) ?? 0)}
-                {refused ? ` ${t.blockLimitReached}` : ""}
-              </p>
+            {selectedHome ? (
+              <BlockLimitNote
+                state={shown}
+                employeeId={selected.id}
+                grid={shown.avail[state.week]?.[selected.id]}
+                home={selectedHome.biz}
+                lang={lang}
+                refusedIds={refused}
+                testId="block-limit-note"
+                homeName={selectedHome.name}
+                away={selectedHome.away}
+              />
             ) : null}
             <WeekGrid
-              state={state}
+              state={shown}
               lang={lang}
               employeeId={selected.id}
               mode="availability"
-              editable={canWrite}
+              editable={editable}
               onToggle={(day, shiftId, checked) => {
+                if (!editable) return;
                 const next = gridWithCell(state, selected.id, state.avail[state.week]?.[selected.id], day, shiftId, checked);
-                if (!withinBlockLimit(state, selected.id, next)) {
-                  setRefused(true);
+                const over = overBucketIds(state, selected.id, next, selectedHome?.biz ?? state.biz);
+                if (over.length) {
+                  setRefused(over);
                   return;
                 }
-                setRefused(false);
+                setRefused([]);
                 onAvailability(selected.id, day, shiftId, checked);
               }}
             />

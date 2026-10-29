@@ -34,8 +34,25 @@ describe("saving a site", () => {
     const version = "55555555-5555-4555-8555-555555555599";
     const changed: RotaState = {
       ...original,
-      biz: { ...original.biz, name: "ברן", maxHours: 0, maxShift: 0, maxDayHours: 0 },
-      emps: original.emps.filter((employee) => employee.id !== yossi.id),
+      biz: {
+        ...original.biz,
+        name: "ברן",
+        maxHours: 0,
+        maxShift: 0,
+        maxDayHours: 0,
+        blockLimit: true,
+        blockSplit: "weekday",
+        maxBlocks: 4,
+        weekdayBlocks: 2,
+        weekendBlocks: 1,
+      },
+      emps: original.emps
+        .filter((employee) => employee.id !== yossi.id)
+        .map((employee) =>
+          employee.name === "Dana"
+            ? { ...employee, customBlocks: { max: 1, weekday: 2, weekend: 0, shifts: { [morning.id]: 3 } } }
+            : employee,
+        ),
       former: { [yossi.id]: "Yossi" },
       sched: {
         [week]: {
@@ -63,6 +80,15 @@ describe("saving a site", () => {
     await db.exec("commit");
     const loaded = await loadSiteWeek(sql, headquarters, week);
     expect(loaded.biz.name).toBe("ברן");
+    expect(loaded.biz.blockSplit).toBe("weekday");
+    expect(loaded.biz.weekdayBlocks).toBe(2);
+    expect(loaded.biz.weekendBlocks).toBe(1);
+    expect(loaded.emps.find((employee) => employee.name === "Dana")?.customBlocks).toEqual({
+      max: 1,
+      weekday: 2,
+      weekend: 0,
+      shifts: { [morning.id]: 3 },
+    });
     expect(loaded.biz.maxHours).toBe(0);
     expect(loaded.biz.maxShift).toBe(0);
     expect(loaded.biz.maxDayHours).toBeUndefined();
@@ -291,5 +317,29 @@ describe("saving a site", () => {
     expect(loaded?.org.id).toBe(sentinel);
     expect(loaded?.users.some((user) => user.id === admin && user.access === "owner")).toBe(true);
     expect(loaded?.sites.map((site) => site.id)).toContain(headquarters);
+  });
+
+  it("writes a quota without rewriting the week", async () => {
+    const db = await openTestDatabase();
+    const sql = client(db);
+    const original = await loadSiteWeek(sql, headquarters, week);
+    const person = original.emps[0];
+    if (!person) throw new Error("seed");
+    const changed: RotaState = {
+      ...original,
+      emps: original.emps.map((employee) => (employee.id === person.id ? { ...employee, perWeek: person.perWeek + 1 } : employee)),
+    };
+    await db.exec("begin");
+    await saveSite(sql, {
+      orgId: sentinel,
+      siteId: headquarters,
+      state: changed,
+      scope: { biz: false, people: true, availability: false, notes: false, weeks: [], removedWeeks: [] },
+    });
+    await db.exec("commit");
+    const loaded = await loadSiteWeek(sql, headquarters, week);
+    expect(loaded.emps.find((employee) => employee.id === person.id)?.perWeek).toBe(person.perWeek + 1);
+    expect(loaded.sched).toEqual(original.sched);
+    expect(loaded.biz).toEqual(original.biz);
   });
 });

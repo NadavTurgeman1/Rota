@@ -2,7 +2,7 @@ import { useRef, useState, type DragEvent } from "react";
 import { coveredSeats, coverageGaps, fullShiftCoveredByHours, shiftKind, slotPresence, type Lang, type RotaState, type Slot } from "../domain";
 import { copy, removeLabel } from "../i18n/copy";
 import { employeeName } from "../people/edit";
-import { assignmentToken, clockLabel, parseAssignmentToken } from "../schedule/edit";
+import { assignmentToken, clockLabel, parseAssignmentToken, slotLocked } from "../schedule/edit";
 import { AddEmployeeMenu } from "./add-employee-menu";
 import { SlotEditor } from "./slot-editor";
 
@@ -29,6 +29,7 @@ export function SlotCard({
   onCallOff,
   onHours,
   onRequired,
+  onToggleLock,
 }: {
   state: RotaState;
   slot: Slot;
@@ -46,6 +47,7 @@ export function SlotCard({
   onCallOff: (slotKey: string, employeeId: string) => void;
   onHours: (slotKey: string, employeeId: string, start: number, end: number) => void;
   onRequired: (shiftId: string, day: number, count: number) => void;
+  onToggleLock: (slotKey: string) => void;
 }) {
   const dragged = useRef(false);
   const [dropTarget, setDropTarget] = useState<string | null>(null);
@@ -66,6 +68,7 @@ export function SlotCard({
   const over = !short && (gaps.some((gap) => gap.delta > 0) || (presence === null && ids.length > slot.required));
   const testId = `slot-${slot.day}-${shift?.name ?? slot.shiftId}`;
   const canEdit = !published || canCallOff;
+  const locked = !published && slotLocked(state, slot.key);
 
   function acceptDrop(event: DragEvent<HTMLDivElement>) {
     if (published) return;
@@ -122,15 +125,22 @@ export function SlotCard({
             {filled}/{slot.required}
           </span>
         )}
-        {published ? null : (
-          <AddEmployeeMenu
-            state={state}
-            slot={slot}
-            lang={lang}
-            testId={`add-${slot.day}-${shift?.name ?? "shift"}`}
-            onAdd={onAdd}
-          />
-        )}
+        <span className="ms-auto flex items-center gap-1">
+          {locked ? (
+            <span data-testid={`${testId}-locked`} className="text-ink" title={t.slotLock}>
+              <LockIcon />
+            </span>
+          ) : null}
+          {published ? null : (
+            <AddEmployeeMenu
+              state={state}
+              slot={slot}
+              lang={lang}
+              testId={`add-${slot.day}-${shift?.name ?? "shift"}`}
+              onAdd={onAdd}
+            />
+          )}
+        </span>
       </div>
       <div className="flex flex-1 flex-col gap-1">
         {ids.map((employeeId) => {
@@ -254,8 +264,18 @@ export function SlotCard({
           onRequired={onRequired}
           onHours={onHours}
           onCallOff={onCallOff}
+          onToggleLock={() => onToggleLock(slot.key)}
         />
       ) : null}
     </div>
+  );
+}
+
+function LockIcon() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 20 20" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round">
+      <rect x="4.5" y="9" width="11" height="7.5" rx="1.5" />
+      <path d="M7 9V6.75a3 3 0 0 1 6 0V9" />
+    </svg>
   );
 }

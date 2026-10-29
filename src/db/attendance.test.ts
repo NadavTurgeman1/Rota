@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadEmployeeAttendance, loadOwnAttendance, recordAttendancePunch } from "./attendance";
+import { loadEmployeeAttendance, loadOwnAttendance, loadRosterAttendance, recordAttendancePunch } from "./attendance";
 import { SaveError } from "./save";
 import { asRole, client, openTestDatabase } from "./test-db";
 
@@ -135,6 +135,21 @@ describe("attendance punches", () => {
     await as(dana.user);
     await expect(sql.query(`update public.attendance_punches set accuracy_meters = 1`)).rejects.toThrow(/permission denied/i);
     await expect(sql.query(`delete from public.attendance_punches`)).rejects.toThrow(/permission denied/i);
+    await db.exec("reset role");
+  });
+
+  it("loads the whole site log in one read for a manager", async () => {
+    const { db, sql, as, clock } = await setup();
+    const stamp = await clock();
+    await as(dana.user);
+    await recordAttendancePunch(sql, { siteId: site, kind: "in", ...stamp, ...here });
+    await as(dana.user);
+    await expect(loadRosterAttendance(sql, site)).rejects.toThrow(/forbidden/);
+    await as(manager);
+    const roster = await loadRosterAttendance(sql, site);
+    expect(roster.employees.map((person) => person.id).sort()).toEqual([dana.employee, noa.employee].sort());
+    expect(roster.employees.find((person) => person.id === dana.employee)?.punches).toHaveLength(1);
+    expect(roster.employees.find((person) => person.id === noa.employee)?.punches).toEqual([]);
     await db.exec("reset role");
   });
 });

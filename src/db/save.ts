@@ -1,6 +1,7 @@
 import { cleanProfile } from "../domain/profile";
 import { HOUR_SPAN_GROUP } from "../domain/schedule";
 import type { CallOff, RotaState, Schedule, ScheduleVersion } from "../domain/types";
+import type { SiteScope } from "./save-scope";
 import type { SqlClient } from "./types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -13,22 +14,34 @@ export class SaveError extends Error {
   }
 }
 
-/** Replace one site's rows from the in-memory schedule. The caller owns the transaction. */
-export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: string; state: RotaState }): Promise<void> {
+/**
+ * Writes one site from the in-memory schedule. The caller owns the transaction.
+ * Without a scope every stored slice is replaced. A scope writes only the slices that changed.
+ */
+export async function saveSite(
+  sql: SqlClient,
+  input: { orgId: string; siteId: string; state: RotaState; scope?: SiteScope },
+): Promise<void> {
   const { orgId, siteId, state } = input;
   if (!UUID.test(orgId) || !UUID.test(siteId)) throw new SaveError("site");
   const name = state.biz.name.trim();
   if (!name) throw new SaveError("site name");
   const existing = await sql.query<{ org_id: string }>(`select org_id from public.sites where id = $1`, [siteId]);
   if (existing[0] && existing[0].org_id !== orgId) throw new SaveError("site");
+  const scope = input.scope;
+  const writeBiz = !scope || scope.biz;
+  const writePeople = !scope || scope.people;
+  const writeAvailability = !scope || scope.availability;
+  const writeNotes = !scope || scope.notes;
 
-  try {
+  if (writeBiz) try {
     await sql.query(
     `insert into public.sites (
        id, org_id, name, min_rest_hours, max_weekly_hours, max_shift_hours, max_day_hours, assume_available,
        staff_access, constraint_opens_day, constraint_closes_day, constraint_opens, constraint_closes,
-       constraint_block_limit, constraint_max_blocks
-     ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::time, $13::time, $14, $15)
+       constraint_block_limit, constraint_max_blocks, constraint_block_split,
+       constraint_weekday_blocks, constraint_weekend_blocks, constraint_shift_blocks
+     ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::time, $13::time, $14, $15, $16, $17, $18, $19::text::jsonb)
      on conflict (id) do update set
        name = excluded.name,
        min_rest_hours = excluded.min_rest_hours,
@@ -42,7 +55,11 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
        constraint_opens = excluded.constraint_opens,
        constraint_closes = excluded.constraint_closes,
        constraint_block_limit = excluded.constraint_block_limit,
-       constraint_max_blocks = excluded.constraint_max_blocks
+       constraint_max_blocks = excluded.constraint_max_blocks,
+       constraint_block_split = excluded.constraint_block_split,
+       constraint_weekday_blocks = excluded.constraint_weekday_blocks,
+       constraint_weekend_blocks = excluded.constraint_weekend_blocks,
+       constraint_shift_blocks = excluded.constraint_shift_blocks
      where public.sites.org_id = excluded.org_id`,
       [
         siteId,
@@ -60,6 +77,12 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
         state.biz.constraintCloses ?? "23:59",
         state.biz.blockLimit === true,
         Math.max(0, Math.floor(state.biz.maxBlocks ?? 0)),
+        state.biz.blockSplit === "weekday" || state.biz.blockSplit === "shift" ? state.biz.blockSplit : "general",
+        Math.max(0, Math.floor(state.biz.weekdayBlocks ?? 0)),
+        Math.max(0, Math.floor(state.biz.weekendBlocks ?? 0)),
+        // A ::jsonb parameter is stringified again by the driver, so the check
+        // sees a string instead of an object. Parsing text avoids that.
+        JSON.stringify(cleanShiftBlocks(state.biz.shiftBlocks)),
       ],
     );
   } catch (error) {
@@ -79,6 +102,15 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
   });
 
   const people = peopleToKeep(state);
+  const keptIds = people.map((person) => person.id);
+  const knownPeople = new Set(keptIds);
+  let replaceAllSchedules = !scope;
+  if (scope && writeBiz) {
+    const storedShifts = await sql.query<{ id: string }>(`select id from public.shifts where site_id = $1`, [siteId]);
+    const nextIds = new Set(shiftIds);
+    replaceAllSchedules = storedShifts.length !== nextIds.size || storedShifts.some((row) => !nextIds.has(row.id));
+  }
+  if (writeBiz) {
   await sql.query(`update public.shifts set name = 'tmp-' || replace(id::text, '-', '') where site_id = $1`, [siteId]);
   for (const [index, shift] of state.biz.shifts.entries()) {
     await sql.query(
@@ -119,15 +151,18 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
     [orgId],
     [requirementShifts, requirementDays, requirementCounts],
   );
+  }
 
+  const shiftSet = new Set(shiftIds);
+  if (writePeople) {
   await writeRows(
     sql,
     `insert into public.employees (
-       id, org_id, name, email, phone, job_title, weekly_shift_quota, max_weekly_hours, active, hourly_wage, home_site_id
+       id, org_id, name, email, phone, job_title, weekly_shift_quota, max_weekly_hours, active, hourly_wage, home_site_id, constraint_limits
      )
-     select id, $1, name, email, phone, job_title, quota, max_hours, active <> 0, wage, home_site
-     from unnest($2::uuid[], $3::text[], $4::text[], $5::text[], $6::text[], $7::int[], $8::numeric[], $9::int[], $10::numeric[], $11::uuid[])
-       as t(id, name, email, phone, job_title, quota, max_hours, active, wage, home_site)
+     select id, $1, name, email, phone, job_title, quota, max_hours, active <> 0, wage, home_site, limits::jsonb
+     from unnest($2::uuid[], $3::text[], $4::text[], $5::text[], $6::text[], $7::int[], $8::numeric[], $9::int[], $10::numeric[], $11::uuid[], $12::text[])
+       as t(id, name, email, phone, job_title, quota, max_hours, active, wage, home_site, limits)
      on conflict (id) do update set
        name = excluded.name,
        email = excluded.email,
@@ -137,7 +172,8 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
        max_weekly_hours = excluded.max_weekly_hours,
        active = excluded.active,
        hourly_wage = excluded.hourly_wage,
-       home_site_id = excluded.home_site_id
+       home_site_id = excluded.home_site_id,
+       constraint_limits = excluded.constraint_limits
      where public.employees.org_id = excluded.org_id`,
     [orgId],
     [
@@ -152,6 +188,7 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
       people.map((person) => (person.active ? 1 : 0)),
       people.map((person) => person.hourlyWage),
       people.map((person) => person.homeSiteId),
+      people.map((person) => person.limits),
     ],
   );
   await writeRows(
@@ -176,7 +213,6 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
     [rosterIds],
   );
 
-  const keptIds = people.map((person) => person.id);
   await sql.query(
     `delete from public.employee_sites
      where site_id = $1 and not (employee_id = any($2::uuid[]))`,
@@ -202,7 +238,6 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
     [siteId],
   );
 
-  const shiftSet = new Set(shiftIds);
   const rosterPeople = people.filter((item) => item.roster);
   const qualificationEmployees: string[] = [];
   const qualificationNamesForPeople: string[] = [];
@@ -267,9 +302,10 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
     [orgId],
     [agreedEmployees, agreedShifts, agreedDays],
   );
+  }
 
+  if (writeAvailability) {
   await sql.query(`delete from public.availability_weeks where site_id = $1`, [siteId]);
-  const knownPeople = new Set(keptIds);
   const availableEmployees: string[] = [];
   const availableWeeks: string[] = [];
   const availableDays = new Map<string, string[][]>();
@@ -315,19 +351,30 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
     [orgId],
     [entryWeeks, entryShifts, entryDays],
   );
+  }
 
-  const weeks = Object.keys(state.sched).filter(isSunday);
-  await sql.query(
-    `delete from public.schedules
-     where site_id = $1 and not (week_start = any($2::date[]))`,
-    [siteId, weeks],
-  );
+  const weeksInState = Object.keys(state.sched).filter(isSunday);
+  const weeks = replaceAllSchedules ? weeksInState : (scope?.weeks ?? []).filter(isSunday);
+  if (replaceAllSchedules) {
+    await sql.query(
+      `delete from public.schedules
+       where site_id = $1 and not (week_start = any($2::date[]))`,
+      [siteId, weeksInState],
+    );
+  } else if ((scope?.removedWeeks.length ?? 0) > 0) {
+    await sql.query(
+      `delete from public.schedules
+       where site_id = $1 and week_start = any($2::date[])`,
+      [siteId, scope?.removedWeeks.filter(isSunday) ?? []],
+    );
+  }
   for (const week of weeks) {
     const schedule = state.sched[week];
     if (!schedule) continue;
     await writeSchedule(sql, { orgId, siteId, week, schedule, versions: state.versions?.[week] ?? [], shiftIds: shiftSet, people: knownPeople });
   }
 
+  if (writeNotes) {
   await sql.query(`delete from public.constraint_notes where site_id = $1`, [siteId]);
   for (const [week, notes] of Object.entries(state.notes ?? {})) {
     if (!isSunday(week)) continue;
@@ -345,13 +392,16 @@ export async function saveSite(sql: SqlClient, input: { orgId: string; siteId: s
       );
     }
   }
+  }
 
-  await sql.query(
-    `delete from public.shifts
-     where site_id = $1 and not (id = any($2::uuid[]))`,
-    [siteId, shiftIds],
-  );
-  await deleteOrphanEmployees(sql, orgId);
+  if (writeBiz) {
+    await sql.query(
+      `delete from public.shifts
+       where site_id = $1 and not (id = any($2::uuid[]))`,
+      [siteId, shiftIds],
+    );
+  }
+  if (writePeople) await deleteOrphanEmployees(sql, orgId);
 }
 
 export async function deleteOrphanEmployees(sql: SqlClient, orgId: string): Promise<void> {
@@ -382,6 +432,30 @@ interface KeptPerson {
   pref: string[];
   grid: string[][];
   profile: string;
+  limits: string | null;
+}
+
+function cleanShiftBlocks(value: Record<string, number> | undefined): Record<string, number> {
+  const shifts: Record<string, number> = {};
+  for (const [id, raw] of Object.entries(value ?? {})) {
+    if (!UUID.test(id)) continue;
+    const number = Math.floor(Number(raw));
+    if (!Number.isInteger(number) || number < 0) continue;
+    shifts[id] = number;
+  }
+  return shifts;
+}
+
+function constraintLimitsJson(employee: RotaState["emps"][number]): string | null {
+  if (!employee.customBlocks) return null;
+  const count = (value: number) => Math.max(0, Math.floor(Number(value) || 0));
+  return JSON.stringify({
+    custom: true,
+    max: count(employee.customBlocks.max),
+    weekday: count(employee.customBlocks.weekday),
+    weekend: count(employee.customBlocks.weekend),
+    shifts: cleanShiftBlocks(employee.customBlocks.shifts),
+  });
 }
 
 function peopleToKeep(state: RotaState): KeptPerson[] {
@@ -407,6 +481,7 @@ function peopleToKeep(state: RotaState): KeptPerson[] {
       pref: (employee.pref ?? []).filter((id) => UUID.test(id)),
       grid: employee.grid ?? [[], [], [], [], [], [], []],
       profile: JSON.stringify(cleanProfile(employee.profile) ?? {}),
+      limits: constraintLimitsJson(employee),
     });
   }
   const historical = new Map<string, string>();
@@ -438,6 +513,7 @@ function peopleToKeep(state: RotaState): KeptPerson[] {
       pref: [],
       grid: [[], [], [], [], [], [], []],
       profile: "{}",
+      limits: null,
     })),
   ];
 }

@@ -84,7 +84,7 @@ export async function listTrades(sql: SqlClient): Promise<ShiftTrade[]> {
   return rows.map(fromRow);
 }
 
-async function tradeById(sql: SqlClient, tradeId: string): Promise<ShiftTrade> {
+export async function tradeById(sql: SqlClient, tradeId: string): Promise<ShiftTrade> {
   const rows = await sql.query<TradeRow>(`${SELECT} where id = $1`, [tradeId]);
   if (!rows[0]) throw new SaveError("stale");
   return fromRow(rows[0]);

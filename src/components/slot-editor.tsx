@@ -4,7 +4,7 @@ import { clockNear, coverageGaps, type Lang, type RotaState, type Slot } from ".
 import { callOffLabel, coverageGapText, copy } from "../i18n/copy";
 import { employeeName } from "../people/edit";
 import { hourFixLine, slotTitle } from "../schedule/display";
-import { assignmentToken, clockLabel, hourFixBucket, hourFixes } from "../schedule/edit";
+import { assignmentToken, clockLabel, hourFixBucket, hourFixes, slotLocked } from "../schedule/edit";
 import { SolutionGroups } from "./solution-groups";
 import { button, card, cardTitle, field } from "./ui";
 
@@ -19,6 +19,7 @@ export function SlotEditor({
   onRequired,
   onHours,
   onCallOff,
+  onToggleLock,
 }: {
   state: RotaState;
   slot: Slot;
@@ -29,6 +30,7 @@ export function SlotEditor({
   onRequired: (shiftId: string, day: number, count: number) => void;
   onHours: (slotKey: string, employeeId: string, start: number, end: number) => void;
   onCallOff: (slotKey: string, employeeId: string) => void;
+  onToggleLock: () => void;
 }) {
   const t = copy[lang];
   const dialog = useRef<HTMLDivElement>(null);
@@ -80,6 +82,28 @@ export function SlotEditor({
           <p className="mt-4 text-sm leading-6 text-ink">{t.callOffHint}</p>
         ) : (
           <>
+            <div className="mt-4 flex items-start justify-between gap-3 border-b border-line pb-4">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-ink">{t.slotLock}</p>
+                <p className="mt-1 text-sm leading-6 text-muted">{ids.length > 0 ? t.slotLockHint : t.slotLockEmpty}</p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={slotLocked(state, slot.key)}
+                aria-label={t.slotLock}
+                data-testid="slot-lock"
+                disabled={ids.length === 0}
+                className={`relative mt-0.5 h-8 w-12 shrink-0 rounded-full disabled:opacity-50 ${slotLocked(state, slot.key) ? "bg-brand" : "bg-well"}`}
+                onClick={onToggleLock}
+              >
+                <span
+                  className={`absolute top-1 start-1 h-6 w-6 rounded-full bg-card shadow-sm motion-safe:transition-transform motion-safe:duration-200 ${
+                    slotLocked(state, slot.key) ? "translate-x-4 rtl:-translate-x-4" : ""
+                  }`}
+                />
+              </button>
+            </div>
             <div className="mt-4 flex items-center justify-between gap-3">
               <p className="text-sm font-medium text-ink">{t.requiredOnShift}</p>
               <div className="flex items-center gap-2">

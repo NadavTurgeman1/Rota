@@ -16,6 +16,10 @@ export interface SiteRow {
   constraint_closes: string;
   constraint_block_limit: boolean;
   constraint_max_blocks: number;
+  constraint_block_split: string;
+  constraint_weekday_blocks: number;
+  constraint_weekend_blocks: number;
+  constraint_shift_blocks: unknown;
   constraint_extension_until: string | null;
   org_name: string;
   org_kind: string;
@@ -42,6 +46,7 @@ export interface EmployeeRow {
   email: string;
   phone: string;
   home_site_id: string | null;
+  constraint_limits: unknown;
   job_title: string;
   weekly_shift_quota: number;
   max_weekly_hours: number | null;

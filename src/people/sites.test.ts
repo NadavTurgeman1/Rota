@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { HARBOR, SENTINEL, sentinelWorkspace } from "../demo/sentinel";
 import { withSiteState } from "../workspace/workspace";
 import { MANAGER, setAgreement } from "./edit";
-import { mirrorConstraints, setEmployeeSites } from "./sites";
+import { constraintsAsSeenHere, mirrorConstraints, setEmployeeSites } from "./sites";
 
 const week = "2026-10-18";
 
@@ -32,6 +32,18 @@ describe("assigning one employee id to several sites", () => {
     const copy = mirrored.sites.find((site) => site.id === HARBOR.siteId)?.state.emps.find((employee) => employee.id === SENTINEL.dana);
     expect(copy?.grid?.[0]).not.toContain(HARBOR.day);
     expect(copy?.grid?.[1]).toContain(HARBOR.day);
+  });
+
+  it("reads the primary site's constraints through the secondary site's shifts", () => {
+    const workspace = sentinelWorkspace(week);
+    const home = workspace.sites[0]?.state;
+    const harbor = workspace.sites.find((site) => site.id === HARBOR.siteId)?.state;
+    if (!home || !harbor) throw new Error("missing site");
+    home.avail[week] = { [SENTINEL.dana]: [[SENTINEL.morning], [], [], [], [], [], []] };
+    const seen = constraintsAsSeenHere(harbor, { shifts: home.biz.shifts, avail: home.avail }, SENTINEL.dana, week);
+    expect(seen?.[0]).toContain(HARBOR.day);
+    expect(seen?.[1]).toEqual([]);
+    expect(constraintsAsSeenHere(harbor, { shifts: home.biz.shifts, avail: {} }, SENTINEL.dana, week)).toBeUndefined();
   });
 
   it("does not remove the last site", () => {

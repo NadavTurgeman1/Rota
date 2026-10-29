@@ -14,6 +14,7 @@ import {
   type RotaState,
   type ShiftDefinition,
 } from "./index";
+import { reshuffleWeek, slotLocked, toggleSlotLock } from "../schedule/edit";
 
 const week = "2026-10-04";
 
@@ -215,6 +216,25 @@ describe("prototype scheduling parity", () => {
     );
     generate(preferred, week);
     expect(preferred.sched[week].assign["0|m"]).toEqual(["keen"]);
+  });
+
+  it("reshuffles unlocked shifts and leaves a locked shift in place", () => {
+    const morning = { ...standardShifts[0], req: [1, 1, 0, 0, 0, 0, 0] };
+    const state = stateFor([employee("a", 2, ["m"]), employee("b", 2, ["m"])], {}, [morning]);
+    generate(state, week);
+    const locked = toggleSlotLock(state, "0|m");
+    expect(slotLocked(locked, "0|m")).toBe(true);
+    const held = locked.sched[week].assign["0|m"];
+    const toFirst = reshuffleWeek(locked, () => 0);
+    const toSecond = reshuffleWeek(locked, () => 0.99);
+    expect(toFirst.sched[week].assign["0|m"]).toEqual(held);
+    expect(toSecond.sched[week].assign["0|m"]).toEqual(held);
+    expect(toFirst.sched[week].assign["1|m"]).not.toEqual(toSecond.sched[week].assign["1|m"]);
+
+    const blocked = stateFor([employee("a", 1, ["m"]), employee("b", 1, ["m"])], { b: [["m"], [], [], [], [], [], []] }, [morning]);
+    generate(blocked, week);
+    const mixed = reshuffleWeek(blocked, () => 0.99);
+    expect(mixed.sched[week].assign["1|m"] ?? []).not.toContain("b");
   });
 
   it("keeps a lock on regenerate, which the prototype used to clear", () => {
