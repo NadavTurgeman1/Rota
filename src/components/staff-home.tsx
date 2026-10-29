@@ -646,6 +646,7 @@ export function StaffHome({
                       onSwap={() => undefined}
                       onToggleSelect={() => undefined}
                       onCallOff={() => undefined}
+                      onUndoCallOff={() => undefined}
                       onHours={() => undefined}
                       onRequired={() => undefined}
                       onToggleLock={() => undefined}

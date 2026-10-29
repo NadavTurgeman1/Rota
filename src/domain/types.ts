@@ -163,6 +163,11 @@ export interface Schedule {
   calloffs?: CallOff[];
   /** Set when a draft was restored from a version, until the next publish. */
   restoredFrom?: number;
+  /**
+   * Headcount for this week only. Key is `weekday|shiftId`.
+   * A missing key uses the standing requirement on the shift.
+   */
+  staffing?: Record<string, number>;
 }
 
 export type VersionReason = "publish" | "calloff" | "trade";
@@ -281,7 +286,7 @@ export type Reason =
 export interface LaborNote {
   key: string;
   employeeId: string;
-  code: "weekly_rest" | "daily_gap" | "day_cap" | "overtime" | "night_weeks" | "consecutive_shabbat";
+  code: "consecutive_days" | "weekly_rest" | "daily_gap" | "day_cap" | "overtime" | "night_weeks" | "consecutive_shabbat";
   hours?: number;
   message: string;
 }

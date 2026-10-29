@@ -103,39 +103,7 @@ function AbsenceForm({
   return (
     <section className={card}>
       <h2 className={cardTitle}>{people ? t.absencesRecord : t.absencesSend}</h2>
-      <div className="mt-5 grid gap-4 sm:grid-cols-2">
-        {people ? (
-          <label className={label}>
-            <span className={labelText}>{t.absencesPerson}</span>
-            <select className={select} data-testid="absence-employee" value={employeeId} disabled={!canWrite || busy} onChange={(event) => setEmployeeId(event.target.value)}>
-              {people.map((person) => (
-                <option key={person.id} value={person.id}>
-                  {person.name}
-                </option>
-              ))}
-            </select>
-          </label>
-        ) : null}
-        <label className={label}>
-          <span className={labelText}>{t.absencesKind}</span>
-          <select
-            className={select}
-            data-testid="absence-kind"
-            value={kind}
-            disabled={!canWrite || busy}
-            onChange={(event) => {
-              const next = event.target.value as AbsenceKind;
-              setKind(next);
-              if (next !== "sick") {
-                setFiles([]);
-                if (input.current) input.current.value = "";
-              }
-            }}
-          >
-            <option value="sick">{t.absenceSick}</option>
-            <option value="vacation">{t.absenceVacation}</option>
-          </select>
-        </label>
+      <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(18rem,26rem)_minmax(0,1fr)]">
         <AbsenceCalendar
           lang={lang}
           start={start}
@@ -146,43 +114,87 @@ function AbsenceForm({
             setEnd(range.end);
           }}
         />
-        <label className={`${label} sm:col-span-2`}>
-          <span className={labelText}>{t.absencesNote}</span>
-          <textarea
-            data-testid="absence-note"
-            className="min-h-20 w-full rounded-lg border border-field-line bg-card px-3 py-2 text-sm text-ink"
-            value={note}
-            disabled={!canWrite || busy}
-            maxLength={2000}
-            onChange={(event) => setNote(event.target.value)}
-          />
-        </label>
-        {kind === "sick" ? (
-          <div className="sm:col-span-2 flex flex-col gap-2">
-            <span className={labelText}>{t.absencesFiles}</span>
-            <p className="text-xs leading-5 text-muted">{t.absencesFilesHint}</p>
-            <input
-              ref={input}
-              type="file"
-              accept={ACCEPT}
-              multiple
-              data-testid="absence-files"
+        <div className="grid gap-4 sm:grid-cols-2">
+          {people ? (
+            <label className={label}>
+              <span className={labelText}>{t.absencesPerson}</span>
+              <select className={select} data-testid="absence-employee" value={employeeId} disabled={!canWrite || busy} onChange={(event) => setEmployeeId(event.target.value)}>
+                {people.map((person) => (
+                  <option key={person.id} value={person.id}>
+                    {person.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : null}
+          <label className={label}>
+            <span className={labelText}>{t.absencesKind}</span>
+            <select
+              className={select}
+              data-testid="absence-kind"
+              value={kind}
               disabled={!canWrite || busy}
-              className="text-sm text-ink"
-              onChange={(event) => setFiles(Array.from(event.target.files ?? []).slice(0, 8))}
+              onChange={(event) => {
+                const next = event.target.value as AbsenceKind;
+                setKind(next);
+                if (next !== "sick") {
+                  setFiles([]);
+                  if (input.current) input.current.value = "";
+                }
+              }}
+            >
+              <option value="sick">{t.absenceSick}</option>
+              <option value="vacation">{t.absenceVacation}</option>
+            </select>
+          </label>
+          <label className={`${label} sm:col-span-2`}>
+            <span className={labelText}>{t.absencesNote}</span>
+            <textarea
+              data-testid="absence-note"
+              className="min-h-20 w-full rounded-lg border border-field-line bg-card px-3 py-2 text-sm text-ink"
+              value={note}
+              disabled={!canWrite || busy}
+              maxLength={2000}
+              onChange={(event) => setNote(event.target.value)}
             />
-            {files.length > 0 ? <p className="text-xs text-muted">{files.map((file) => file.name).join(" · ")}</p> : null}
-          </div>
-        ) : null}
+          </label>
+          {kind === "sick" ? (
+            <div className="sm:col-span-2 flex flex-col gap-2">
+              <span className={labelText}>{t.absencesFiles}</span>
+              <p className="text-xs leading-5 text-muted">{t.absencesFilesHint}</p>
+              <input
+                ref={input}
+                type="file"
+                accept={ACCEPT}
+                multiple
+                tabIndex={-1}
+                data-testid="absence-files"
+                disabled={!canWrite || busy}
+                className="sr-only"
+                onChange={(event) => setFiles(Array.from(event.target.files ?? []).slice(0, 8))}
+              />
+              <button
+                type="button"
+                data-testid="absence-upload"
+                className={`${button.quiet} self-start`}
+                disabled={!canWrite || busy}
+                onClick={() => input.current?.click()}
+              >
+                {t.absencesUpload}
+              </button>
+              {files.length > 0 ? <p className="text-xs text-muted">{files.map((file) => file.name).join(" · ")}</p> : null}
+            </div>
+          ) : null}
+          {error ? (
+            <p role="alert" className="sm:col-span-2 text-sm text-danger-text">
+              {errorText(lang, error)}
+            </p>
+          ) : null}
+          <button type="button" data-testid="absence-send" className={`${button.primary} self-start sm:col-span-2`} disabled={!canWrite || busy} onClick={() => void send()}>
+            {busy ? t.absencesSending : people ? t.absencesRecord : t.absencesSend}
+          </button>
+        </div>
       </div>
-      {error ? (
-        <p role="alert" className="mt-3 text-sm text-danger-text">
-          {errorText(lang, error)}
-        </p>
-      ) : null}
-      <button type="button" data-testid="absence-send" className={`${button.primary} mt-4`} disabled={!canWrite || busy} onClick={() => void send()}>
-        {busy ? t.absencesSending : people ? t.absencesRecord : t.absencesSend}
-      </button>
     </section>
   );
 }

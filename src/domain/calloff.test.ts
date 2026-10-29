@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { dynamicReason, ensureSchedule, slots, type Employee, type RotaState, type ShiftDefinition } from "./index";
-import { assignEmergency, assignReplacement, planCallOff, recordCallOff } from "./calloff";
+import { assignEmergency, assignReplacement, planCallOff, recordCallOff, undoCallOff } from "./calloff";
 import { reportCallOff } from "../schedule/edit";
 
 const week = "2026-10-11";
@@ -103,6 +103,12 @@ describe("call-offs", () => {
     expect(covered.sched[week].assign["3|n"]).toEqual(["yossi"]);
     expect(covered.sched[week].calloffs).toHaveLength(1);
     expect(assignReplacement(next, "3|n", "omer")).toBe(next);
+
+    const returned = undoCallOff(next, "c1");
+    expect(returned.sched[week].assign["3|n"]).toEqual(["dana"]);
+    expect(returned.sched[week].calloffs).toBeUndefined();
+    expect(returned.sched[week].status).toBe("published");
+    expect(undoCallOff(returned, "c1")).toBe(returned);
   });
 
   it("prefers fewer consecutive nights when rest still allows both", () => {

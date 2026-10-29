@@ -27,6 +27,7 @@ import {
   proposalsFor,
   publishCheck,
   publishWeek,
+  setWeekStaffing,
   redo,
   removeEmployee,
   reportCallOff,
@@ -598,6 +599,19 @@ describe("deleteWeekVersion", () => {
       "2026-10-11": removed.versions?.["2026-10-11"],
     });
     expect(deleteWeekVersion(gone, MANAGER, "missing")).toBe(gone);
+  });
+});
+
+describe("week staffing", () => {
+  it("changes the open week and leaves the standing requirement", () => {
+    const state = sentinelState("2026-10-11");
+    const standing = state.biz.shifts.find((shift) => shift.id === SENTINEL.morning)!.req[0];
+    const next = setWeekStaffing(state, MANAGER, SENTINEL.morning, 0, standing + 1);
+    expect(next.biz.shifts.find((shift) => shift.id === SENTINEL.morning)!.req[0]).toBe(standing);
+    expect(slots(next, next.week).find((slot) => slot.key === `0|${SENTINEL.morning}`)?.required).toBe(standing + 1);
+    const later = goToWeek(next, addDays(next.week, 7));
+    expect(slots(later, later.week).find((slot) => slot.key === `0|${SENTINEL.morning}`)?.required).toBe(standing);
+    expect(setWeekStaffing(next, MANAGER, SENTINEL.morning, 0, standing).sched[next.week]?.staffing).toBeUndefined();
   });
 });
 

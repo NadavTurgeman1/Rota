@@ -705,6 +705,27 @@ export async function writeSchedule(
   );
   for (const calloff of input.schedule.calloffs ?? []) await writeCalloff(sql, input.orgId, scheduleId, calloff, input.shiftIds, input.people);
 
+  await sql.query(`delete from public.schedule_staffing where schedule_id = $1`, [scheduleId]);
+  const staffShifts: string[] = [];
+  const staffDays: number[] = [];
+  const staffCounts: number[] = [];
+  for (const [key, count] of Object.entries(input.schedule.staffing ?? {})) {
+    const slot = parseSlot(key);
+    const value = Math.trunc(Number(count));
+    if (!slot || !input.shiftIds.has(slot.shiftId) || !Number.isFinite(value) || value < 0) continue;
+    staffShifts.push(slot.shiftId);
+    staffDays.push(slot.weekday);
+    staffCounts.push(value);
+  }
+  await writeRows(
+    sql,
+    `insert into public.schedule_staffing (org_id, schedule_id, shift_id, weekday, required_count)
+     select $1, $2, shift_id, weekday, required_count
+     from unnest($3::uuid[], $4::int[], $5::int[]) as t(shift_id, weekday, required_count)`,
+    [input.orgId, scheduleId],
+    [staffShifts, staffDays, staffCounts],
+  );
+
   const keptVersions: string[] = [];
   for (const version of input.versions) {
     if (!UUID.test(version.id) || version.number <= 0) throw new SaveError("version");

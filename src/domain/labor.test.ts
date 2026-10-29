@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { addDays, analyze, dynamicReason, generate, slots, type Employee, type RotaState, type ShiftDefinition } from "./index";
 import type { PeerShift } from "./types";
-import { addEmployee, publishCheck } from "../schedule/edit";
+import { addEmployee, publishCheck, publishWeek } from "../schedule/edit";
 
 const week = "2026-10-11";
 
@@ -56,7 +56,7 @@ function codes(state: RotaState) {
 }
 
 function streak(state: RotaState) {
-  return analyze(state, state.week, "he").violations.filter((item) => item.reason?.code === "consecutive_days");
+  return analyze(state, state.week, "he").labor.filter((note) => note.code === "consecutive_days");
 }
 
 function peer(day: number, weekOffset = 0): PeerShift {
@@ -75,24 +75,28 @@ function peer(day: number, weekOffset = 0): PeerShift {
 }
 
 describe("seven consecutive days", () => {
-  it("blocks Sunday through Saturday", () => {
+  it("notes Sunday through Saturday and still publishes", () => {
     const state = stateFor(assignDays([0, 1, 2, 3, 4, 5, 6]), {}, { shifts: [shifts[0]] });
     const found = streak(state);
     expect(found).toHaveLength(1);
-    expect(found[0]?.reason).toMatchObject({ code: "consecutive_days", from: week, to: addDays(week, 6), days: 7 });
-    expect(publishCheck(state).ready).toBe(false);
+    expect(found[0]?.message).toContain("7 ימים ברצף (11.10–17.10)");
+    expect(analyze(state, week, "he").violations).toHaveLength(0);
+    expect(publishCheck(state).ready).toBe(true);
+    expect(publishWeek(state, { id: "v", at: "2026-10-18T00:00:00.000Z", by: "manager" }).sched[week]?.status).toBe("published");
   });
 
-  it("allows six days when every window has a day off", () => {
-    const state = stateFor(assignDays([0, 1, 2, 3, 4, 5]));
+  it("allows six days and a manual seventh", () => {
+    const state = stateFor(assignDays([0, 1, 2, 3, 4, 5]), {}, { shifts: [shifts[0]] });
     expect(streak(state)).toHaveLength(0);
     const saturday = slots(state, week).find((slot) => slot.key === "6|d");
     const mine = slots(state, week).filter((slot) => slot.day < 6);
-    expect(dynamicReason(state, person(), saturday!, mine)?.code).toBe("consecutive_days");
-    expect(addEmployee(state, "6|d", "a").sched[week]?.assign["6|d"]).toBeUndefined();
+    expect(dynamicReason(state, person(), saturday!, mine)).toBeNull();
+    const added = addEmployee(state, "6|d", "a");
+    expect(added.sched[week]?.assign["6|d"]).toEqual(["a"]);
+    expect(streak(added)[0]?.message).toContain("7 ימים ברצף (11.10–17.10)");
   });
 
-  it("blocks the previous Saturday through this Friday", () => {
+  it("notes the previous Saturday through this Friday", () => {
     const previous = addDays(week, -7);
     const state = stateFor(assignDays([0, 1, 2, 3, 4, 5]), {
       sched: {
@@ -100,14 +104,10 @@ describe("seven consecutive days", () => {
         [week]: { assign: assignDays([0, 1, 2, 3, 4, 5]), locked: [], status: "draft" },
       },
     });
-    expect(streak(state)[0]?.reason).toMatchObject({
-      from: addDays(previous, 6),
-      to: addDays(week, 5),
-      days: 7,
-    });
+    expect(streak(state)[0]?.message).toContain("7 ימים ברצף (10.10–16.10)");
   });
 
-  it("blocks Monday through the next Sunday", () => {
+  it("notes Monday through the next Sunday", () => {
     const next = addDays(week, 7);
     const state = stateFor(assignDays([1, 2, 3, 4, 5, 6]), {
       sched: {
@@ -115,10 +115,10 @@ describe("seven consecutive days", () => {
         [next]: { assign: assignDays([0]), locked: [], status: "draft" },
       },
     });
-    expect(streak(state)[0]?.reason).toMatchObject({ from: addDays(week, 1), to: next, days: 7 });
+    expect(streak(state)[0]?.message).toContain("7 ימים ברצף (12.10–18.10)");
   });
 
-  it("blocks Tuesday through the next Monday", () => {
+  it("notes Tuesday through the next Monday", () => {
     const next = addDays(week, 7);
     const state = stateFor(assignDays([2, 3, 4, 5, 6]), {
       sched: {
@@ -126,12 +126,12 @@ describe("seven consecutive days", () => {
         [next]: { assign: assignDays([0, 1]), locked: [], status: "draft" },
       },
     });
-    expect(streak(state)[0]?.reason).toMatchObject({ from: addDays(week, 2), to: addDays(next, 1), days: 7 });
+    expect(streak(state)[0]?.message).toContain("7 ימים ברצף (13.10–19.10)");
   });
 
   it("counts a shift at another site", () => {
     const state = stateFor(assignDays([1, 2, 3, 4, 5, 6]), { peers: { a: [peer(0)] } });
-    expect(streak(state)[0]?.reason).toMatchObject({ from: week, to: addDays(week, 6), days: 7 });
+    expect(streak(state)[0]?.message).toContain("7 ימים ברצף (11.10–17.10)");
   });
 
   it("fills only six days when the agreement allows seven", () => {
@@ -144,6 +144,16 @@ describe("seven consecutive days", () => {
     );
     expect(days.size).toBe(6);
     expect(streak(state)).toHaveLength(0);
+  });
+
+  it("lists seven days first and keeps each law together", () => {
+    const second = person({ id: "b", name: "Noa" });
+    const state = stateFor(
+      { ...assignDays([0, 1, 2, 3, 4, 5, 6]), "0|over": ["b"] },
+      { emps: [person(), second] },
+      { shifts: [shifts[0], shifts[3]] },
+    );
+    expect(codes(state)).toEqual(["consecutive_days", "weekly_rest", "day_cap"]);
   });
 });
 

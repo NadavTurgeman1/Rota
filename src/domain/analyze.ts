@@ -1,5 +1,5 @@
 import { touchedSlotKeys, weekCoverage } from "./coverage";
-import { consecutiveStreaks, laborNotes } from "./labor";
+import { laborNotes } from "./labor";
 import { isRelief, peerLoad } from "./relief";
 import { coveredSeats, effectiveSlot } from "./schedule";
 import { approvedExtraShifts, dynamicReason, formatReason, slotLabel, slots, staticReason, type Lang } from "./rules";
@@ -56,16 +56,6 @@ export function analyze(state: RotaState, week: string, lang: Lang = "he"): Anal
     const covered = coveredSeats(schedule, slot.key);
     if (ids.length + covered < slot.required) {
       unfilled.push(explainGap(state, week, slot, employees, ids.length + covered, lang));
-    }
-  }
-  for (const employee of state.emps) {
-    for (const streak of consecutiveStreaks(state, employee.id, week)) {
-      const reason = { code: "consecutive_days" as const, from: streak.from, to: streak.to, days: streak.days };
-      violations.push({
-        key: `consecutive#${employee.id}#${streak.from}`,
-        message: `${employee.name} — ${formatReason(reason, lang)}`,
-        reason,
-      });
     }
   }
   const labor = laborNotes(state, week, lang);

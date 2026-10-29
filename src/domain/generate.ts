@@ -1,5 +1,6 @@
-import { gapBetween, shiftKind } from "./time";
+import { addDays, gapBetween, shiftKind } from "./time";
 import { ensureSchedule, shiftById } from "./schedule";
+import { consecutiveRun, workedDates } from "./labor";
 import { dynamicReason, slots, staticReason } from "./rules";
 import { isRelief, reliefAllowed } from "./relief";
 import type { Employee, Reason, RotaState, Slot } from "./types";
@@ -84,12 +85,16 @@ export function generate(state: RotaState, week: string, random?: () => number):
     for (let seat = assign[slot.key].length; seat < slot.required; seat += 1) queue.push(slot);
   }
 
+  const sevenDays = (employeeId: string, slot: Slot, held: Slot[]) =>
+    consecutiveRun(workedDates(state, employeeId, week, held, slot.day), addDays(week, slot.day)) !== null;
+
   for (const slot of queue) {
     const candidates = automatic.filter(
       (employee) =>
         !assign[slot.key].includes(employee.id) &&
         !staticReason(state, employee, slot, week) &&
-        !dynamicReason(state, employee, slot, mine[employee.id]),
+        !dynamicReason(state, employee, slot, mine[employee.id]) &&
+        !sevenDays(employee.id, slot, mine[employee.id]),
     );
     if (!candidates.length) continue;
     const chosen = random
@@ -106,13 +111,14 @@ export function generate(state: RotaState, week: string, random?: () => number):
       for (const held of mine[employee.id].slice()) {
         if (schedule.locked.includes(`${held.key}#${employee.id}`)) continue;
         mine[employee.id] = mine[employee.id].filter((item) => item !== held);
-        if (!dynamicReason(state, employee, slot, mine[employee.id])) {
+        if (!dynamicReason(state, employee, slot, mine[employee.id]) && !sevenDays(employee.id, slot, mine[employee.id])) {
           const replacement = automatic.find(
             (other) =>
               other.id !== employee.id &&
               !assign[held.key].includes(other.id) &&
               !staticReason(state, other, held, week) &&
-              !dynamicReason(state, other, held, mine[other.id]),
+              !dynamicReason(state, other, held, mine[other.id]) &&
+              !sevenDays(other.id, held, mine[other.id]),
           );
           if (replacement) {
             assign[held.key] = assign[held.key].filter((id) => id !== employee.id).concat(replacement.id);
@@ -151,7 +157,14 @@ export function generate(state: RotaState, week: string, random?: () => number):
           continue;
         }
         const otherKept = mine[other.id].filter((item) => item !== taken);
-        if (dynamicReason(state, other, given, otherKept) || dynamicReason(state, employee, taken, kept)) continue;
+        if (
+          dynamicReason(state, other, given, otherKept) ||
+          dynamicReason(state, employee, taken, kept) ||
+          sevenDays(other.id, given, otherKept) ||
+          sevenDays(employee.id, taken, kept)
+        ) {
+          continue;
+        }
         if (sameDayTight(heldWithPeers(other.id, otherKept), given, state.biz.minRest)) continue;
         if (sameDayTight(heldWithPeers(employee.id, kept), taken, state.biz.minRest)) continue;
         assign[given.key] = assign[given.key].filter((id) => id !== employee.id).concat(other.id);

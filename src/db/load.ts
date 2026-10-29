@@ -13,6 +13,7 @@ import type {
   PreferenceRow,
   QualificationRow,
   RequirementRow,
+  StaffingRow,
   ScheduleRow,
   ShiftRow,
   SiteBundle,
@@ -58,6 +59,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
 
   const [
     shifts,
+    staffing,
     requirements,
     employees,
     historical,
@@ -82,6 +84,13 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
          from public.shifts
          where site_id = $1
          order by position, name`,
+        [siteId],
+      ),
+      sql.query<StaffingRow>(
+        `select f.schedule_id, f.shift_id, f.weekday::int as weekday, f.required_count
+         from public.schedule_staffing f
+         join public.schedules sc on sc.id = f.schedule_id
+         where sc.site_id = $1`,
         [siteId],
       ),
       sql.query<RequirementRow>(
@@ -255,6 +264,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
     site,
     shifts,
     requirements,
+    staffing,
     employees: [...employees, ...historical],
     qualifications,
     preferences,

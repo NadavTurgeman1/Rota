@@ -177,6 +177,10 @@ export function removeShift(state: RotaState, actor: Actor, shiftId: string): Ro
     for (const key of Object.keys(schedule.hours ?? {})) if (ofShift(key)) delete schedule.hours![key];
     if (schedule.hours && Object.keys(schedule.hours).length === 0) delete schedule.hours;
     for (const key of Object.keys(schedule.over ?? {})) if (ofShift(key)) delete schedule.over![key];
+    if (schedule.staffing) {
+      for (const key of Object.keys(schedule.staffing)) if (ofShift(key)) delete schedule.staffing[key];
+      if (Object.keys(schedule.staffing).length === 0) delete schedule.staffing;
+    }
   }
   return draft;
 }

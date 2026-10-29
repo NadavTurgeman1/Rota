@@ -251,6 +251,12 @@ function scheduleFromBundle(
       at: isoTime(row.reported_at),
       by: row.reported_by_name || row.reported_by || "manager",
     }));
+  const staffing: Record<string, number> = {};
+  for (const row of bundle.staffing) {
+    if (row.schedule_id !== scheduleId) continue;
+    const count = Math.trunc(Number(row.required_count));
+    if (Number.isFinite(count) && count >= 0) staffing[`${Number(row.weekday)}|${row.shift_id}`] = count;
+  }
   return {
     assign,
     locked,
@@ -260,5 +266,6 @@ function scheduleFromBundle(
     ...(Object.keys(hours).length ? { hours } : {}),
     ...(Object.keys(over).length ? { over } : {}),
     ...(calloffs.length ? { calloffs } : {}),
+    ...(Object.keys(staffing).length ? { staffing } : {}),
   };
 }

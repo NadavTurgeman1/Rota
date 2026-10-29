@@ -46,7 +46,7 @@ export { deleteVersion, diffIsEmpty, diffSchedules, recordVersion, restoreVersio
 export type { ExtensionChange, ScheduleDiff, SeatChange, VersionStamp } from "./versions";
 export { analyze } from "./analyze";
 export { applyCoverage, applyExtra, suggest, suggestExtra } from "./suggest";
-export { assignEmergency, assignReplacement, planCallOff, recordCallOff } from "./calloff";
+export { assignEmergency, assignReplacement, planCallOff, recordCallOff, undoCallOff } from "./calloff";
 export type { CallOffPlan, EmergencyChoice, RejectedCandidate, ReplacementCandidate } from "./calloff";
 export { applyTrade, movedState, seatProblem, swapTargets, tradeProblem } from "./trade";
 export type { TradeKind, TradeMove, TradeProblem, TradeSeat } from "./trade";

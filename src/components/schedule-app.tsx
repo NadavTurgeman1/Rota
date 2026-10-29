@@ -25,6 +25,8 @@ import {
   swapInSlot,
   parseAssignmentToken,
   publishCheck,
+  returnCallOff,
+  setWeekStaffing,
   publishWeek,
   redo,
   removeEmployee,
@@ -1355,7 +1357,8 @@ export function ScheduleApp() {
   }
 
   function commitPublish(anyway: boolean) {
-    if (!user || publishCheck(peered).constraint > 0) return;
+    const gate = publishCheck(peered);
+    if (!user || gate.constraint > 0) return;
     setPublishAsk(false);
     setLaborAsk(false);
     const next = publishWeek(state, freshStamp(user.name), { anyway });
@@ -1592,10 +1595,11 @@ export function ScheduleApp() {
           nowHours: nowHours ?? Number.POSITIVE_INFINITY,
         }),
       ),
+    onUndoCallOff: (callOffId: string) => change((current) => returnCallOff(current, actor, callOffId)),
     onHours: (slotKey: string, employeeId: string, start: number, end: number) =>
       change((current) => setAssignmentHours(current, slotKey, employeeId, start, end)),
     onRequired: (shiftId: string, day: number, count: number) =>
-      change((current) => setShiftRequirement(current, actor, shiftId, day, count)),
+      change((current) => setWeekStaffing(current, actor, shiftId, day, count)),
     onToggleLock: (slotKey: string) => change((current) => toggleSlotLock(current, slotKey)),
   };
 

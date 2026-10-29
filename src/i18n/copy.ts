@@ -174,6 +174,7 @@ export interface Copy {
   scheduleReadOnly: string;
   callOff: string;
   calledOff: string;
+  callOffReturn: string;
   replacements: string;
   noReplacement: string;
   rejectedTitle: string;
@@ -721,6 +722,7 @@ export const copy: Record<Lang, Copy> = {
     scheduleReadOnly: "הסידור לקריאה בלבד.",
     callOff: "חיסור",
     calledOff: "חיסור",
+    callOffReturn: "החזרה לסידור",
     replacements: "מחליפים מתאימים",
     noReplacement: "אין מחליף שעבר את כל הכללים. המושב נשאר פתוח.",
     rejectedTitle: "נפסלו",
@@ -1280,6 +1282,7 @@ export const copy: Record<Lang, Copy> = {
     scheduleReadOnly: "The schedule is read-only.",
     callOff: "Call off",
     calledOff: "Called off",
+    callOffReturn: "Return to the schedule",
     replacements: "Eligible replacements",
     noReplacement: "Nobody passed every rule. The seat stays open.",
     rejectedTitle: "Ruled out",

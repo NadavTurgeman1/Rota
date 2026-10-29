@@ -111,7 +111,7 @@ export function AbsenceCalendar({
   const navButton = "grid h-8 w-8 shrink-0 place-items-center rounded-lg text-ink-soft hover:bg-card hover:text-ink disabled:opacity-50";
 
   return (
-    <div className="sm:col-span-2">
+    <div>
       <span className="text-sm font-medium text-ink-soft">{t.absencesDays}</span>
       <p className="mt-1 text-xs leading-5 text-muted">{t.absencesDaysHint}</p>
       <div data-testid="absence-calendar" className="mt-3 overflow-hidden rounded-lg border border-line">
@@ -161,7 +161,7 @@ export function AbsenceCalendar({
                   disabled={disabled}
                   aria-pressed={picked}
                   title={hebrew ? (names ? `${hebrewDay(day, lang)} · ${names}` : hebrewDay(day, lang)) : undefined}
-                  className={`flex ${hebrew ? "h-[3.75rem]" : "h-10"} min-w-0 flex-col items-center justify-start gap-0.5 rounded-xl px-0.5 pt-1 disabled:opacity-50 ${
+                  className={`flex ${hebrew ? "h-14" : "h-9"} min-w-0 flex-col items-center justify-start gap-0.5 rounded-xl px-0.5 pt-0.5 disabled:opacity-50 ${
                     picked ? "bg-brand-soft" : "hover:bg-well"
                   } ${inMonth ? "" : "opacity-35"}`}
                   onClick={() => onChange(clickAbsenceDay(start, end, day))}

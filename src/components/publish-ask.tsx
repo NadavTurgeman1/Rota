@@ -68,7 +68,7 @@ export function PublishAsk({
   );
 }
 
-/** Warns before publishing a week that breaks the Hours of Work and Rest Law. Seven days in a row is a blocking problem, not this warning. */
+/** Warns before publishing a week that breaks the Hours of Work and Rest Law. */
 export function LaborAsk({
   lang,
   notes,

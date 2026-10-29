@@ -27,6 +27,7 @@ export function SlotCard({
   onSwap,
   onToggleSelect,
   onCallOff,
+  onUndoCallOff,
   onHours,
   onRequired,
   onToggleLock,
@@ -45,6 +46,7 @@ export function SlotCard({
   onSwap: (slotKey: string, employeeId: string, otherId: string) => void;
   onToggleSelect: (token: string) => void;
   onCallOff: (slotKey: string, employeeId: string) => void;
+  onUndoCallOff: (callOffId: string) => void;
   onHours: (slotKey: string, employeeId: string, start: number, end: number) => void;
   onRequired: (shiftId: string, day: number, count: number) => void;
   onToggleLock: (slotKey: string) => void;
@@ -264,6 +266,7 @@ export function SlotCard({
           onRequired={onRequired}
           onHours={onHours}
           onCallOff={onCallOff}
+          onUndoCallOff={onUndoCallOff}
           onToggleLock={() => onToggleLock(slot.key)}
         />
       ) : null}

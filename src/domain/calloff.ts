@@ -332,6 +332,23 @@ export function recordCallOff(state: RotaState, input: CallOffInput): RotaState 
   return draft;
 }
 
+/** Remove a call-off and put that person back on the same published shift. */
+export function undoCallOff(state: RotaState, callOffId: string): RotaState {
+  const schedule = state.sched[state.week];
+  if (!schedule || schedule.status !== "published" || !callOffId) return state;
+  const item = (schedule.calloffs ?? []).find((calloff) => calloff.id === callOffId);
+  if (!item || !state.emps.some((employee) => employee.id === item.employeeId)) return state;
+  const draft = cloneState(state);
+  const next = draft.sched[draft.week];
+  const remaining = (next.calloffs ?? []).filter((calloff) => calloff.id !== callOffId);
+  if (remaining.length === 0) delete next.calloffs;
+  else next.calloffs = remaining;
+  const assigned = next.assign[item.slotKey] ?? [];
+  if (!assigned.includes(item.employeeId)) next.assign[item.slotKey] = [...assigned, item.employeeId];
+  next.status = "published";
+  return draft;
+}
+
 /** Put a ranked replacement on the open seat. Stays published. Refuses anyone the plan rejected. */
 export function assignReplacement(state: RotaState, slotKey: string, employeeId: string): RotaState {
   const schedule = state.sched[state.week];

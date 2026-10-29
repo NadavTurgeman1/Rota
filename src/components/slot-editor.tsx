@@ -20,6 +20,7 @@ export function SlotEditor({
   onRequired,
   onHours,
   onCallOff,
+  onUndoCallOff,
   onToggleLock,
 }: {
   state: RotaState;
@@ -31,6 +32,7 @@ export function SlotEditor({
   onRequired: (shiftId: string, day: number, count: number) => void;
   onHours: (slotKey: string, employeeId: string, start: number, end: number) => void;
   onCallOff: (slotKey: string, employeeId: string) => void;
+  onUndoCallOff: (callOffId: string) => void;
   onToggleLock: () => void;
 }) {
   const t = copy[lang];
@@ -284,9 +286,19 @@ export function SlotEditor({
           ? (schedule?.calloffs ?? [])
               .filter((item) => item.slotKey === slot.key)
               .map((item) => (
-                <p key={item.id} className="mt-2 truncate text-sm font-medium text-danger-text">
-                  {item.name} · {t.calledOff}
-                </p>
+                <div key={item.id} className="mt-2 flex items-center justify-between gap-3">
+                  <p className="min-w-0 truncate text-sm font-medium text-danger-text">
+                    {item.name} · {t.calledOff}
+                  </p>
+                  <button
+                    type="button"
+                    data-testid={`calloff-return-${item.id}`}
+                    className={`${button.small} shrink-0`}
+                    onClick={() => onUndoCallOff(item.id)}
+                  >
+                    {t.callOffReturn}
+                  </button>
+                </div>
               ))
           : null}
 

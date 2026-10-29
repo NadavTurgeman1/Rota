@@ -20,6 +20,7 @@ import {
   assignEmergency,
   assignReplacement,
   recordCallOff,
+  undoCallOff,
   recordVersion,
   restoreVersion,
   weekCoverage,
@@ -36,6 +37,7 @@ import {
   type Slot,
 } from "../domain";
 import { isRelief, reliefAllowed } from "../domain/relief";
+import { staffedCount } from "../domain/rest";
 import type { Actor } from "../people/edit";
 
 export type Proposal =
@@ -595,6 +597,31 @@ export function hoursSinceWeek(week: string, now: Date): number {
   const [year, month, day] = week.split("-").map(Number);
   const start = new Date(year, month - 1, day);
   return (now.getTime() - start.getTime()) / 3_600_000;
+}
+
+/** Headcount for one shift on the open week. Other weeks keep the standing number. */
+export function setWeekStaffing(state: RotaState, actor: Actor, shiftId: string, day: number, count: number): RotaState {
+  if (actor.kind !== "manager" || isPublished(state) || day < 0 || day > 6) return state;
+  const shift = state.biz.shifts.find((item) => item.id === shiftId);
+  if (!shift) return state;
+  const value = Math.floor(Number(count));
+  if (!Number.isFinite(value) || value < 0) return state;
+  const template = staffedCount(shift, day, state.week);
+  return mutate(state, (draft) => {
+    const schedule = ensureSchedule(draft, draft.week);
+    const staffing = { ...(schedule.staffing ?? {}) };
+    const key = `${day}|${shiftId}`;
+    if (value === template) delete staffing[key];
+    else staffing[key] = value;
+    if (Object.keys(staffing).length === 0) delete schedule.staffing;
+    else schedule.staffing = staffing;
+  });
+}
+
+/** Drop the call-off record and seat the same person again. */
+export function returnCallOff(state: RotaState, actor: Actor, callOffId: string): RotaState {
+  if (actor.kind !== "manager") return state;
+  return undoCallOff(state, callOffId);
 }
 
 export function reportCallOff(

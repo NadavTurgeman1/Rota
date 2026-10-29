@@ -4,8 +4,8 @@ import type { Employee, LaborNote, RotaState, Slot } from "./types";
 
 /**
  * Hours of Work and Rest Law, 1951, as applied to a shift roster.
- * Seven consecutive worked days block placement.
- * The other duties are notes: they do not block placement.
+ * Seven consecutive worked days are a note. Automatic assignment will not create them.
+ * The other duties are notes too. None of these notes block publishing.
  *
  * Weekly rest is 36 consecutive hours (section 7).
  * Eight hours between one work day and the next.
@@ -200,7 +200,17 @@ function dayName(iso: string, lang: "he" | "en"): string {
   return names[weekday(iso)] ?? "";
 }
 
-/** Notes for one week. Empty when the person has no work in the week. */
+const NOTE_ORDER: LaborNote["code"][] = [
+  "consecutive_days",
+  "weekly_rest",
+  "daily_gap",
+  "day_cap",
+  "overtime",
+  "night_weeks",
+  "consecutive_shabbat",
+];
+
+/** Notes for one week. Empty when the person has no work in the week. Seven days in a row come first, then each law together. */
 export function laborNotes(state: RotaState, week: string, lang: "he" | "en" = "he"): LaborNote[] {
   const notes: LaborNote[] = [];
   const weekEnd = addDays(week, 6);
@@ -208,6 +218,7 @@ export function laborNotes(state: RotaState, week: string, lang: "he" | "en" = "
     const work = assignedWork(state, employee.id, week);
     const inWeek = work.filter((item) => item.iso >= week && item.iso <= weekEnd);
     if (inWeek.length === 0) continue;
+    notes.push(...streakNotes(state, employee, week, lang));
     notes.push(...restNotes(employee, work, lang));
     notes.push(...gapNotes(employee, work, lang));
     notes.push(...dayNotes(employee, inWeek, lang));
@@ -215,7 +226,19 @@ export function laborNotes(state: RotaState, week: string, lang: "he" | "en" = "
     notes.push(...nightNote(employee, work, week, lang));
     notes.push(...shabbatRunNote(state, employee, week, lang));
   }
-  return notes;
+  return notes.sort((left, right) => NOTE_ORDER.indexOf(left.code) - NOTE_ORDER.indexOf(right.code));
+}
+
+function streakNotes(state: RotaState, employee: Employee, week: string, lang: "he" | "en"): LaborNote[] {
+  return consecutiveStreaks(state, employee.id, week).map((streak) => ({
+    key: `consecutive#${employee.id}#${streak.from}`,
+    employeeId: employee.id,
+    code: "consecutive_days" as const,
+    message:
+      lang === "he"
+        ? `${employee.name}: ${streak.days} ימים ברצף (${dot(streak.from)}–${dot(streak.to)}). אסור לעבוד שבעה ימים ברצף.`
+        : `${employee.name}: ${streak.days} days in a row (${dot(streak.from)}–${dot(streak.to)}). Seven days in a row is not allowed.`,
+  }));
 }
 
 function coversFullDay(gapStart: number, gapEnd: number): boolean {

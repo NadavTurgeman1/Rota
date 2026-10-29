@@ -3,6 +3,7 @@ import { dayName, type Lang, type RotaState } from "../domain";
 import type { ManagerMessage, MessageAudience, MessageDeliver } from "../db/messages";
 import { copy } from "../i18n/copy";
 import { filterNames } from "../people/names";
+import { shiftLabel } from "../schedule/display";
 import { button, card, cardHint, cardTitle, field, label, labelText, pill } from "./ui";
 
 export interface MessagesApi {
@@ -60,7 +61,10 @@ export function MessagesScreen({
   const now = Date.now();
   const slotKey = `${weekday}|${shiftId}`;
   const onShift = state.sched[state.week]?.assign[slotKey] ?? [];
-  const shiftNames = useMemo(() => Object.fromEntries(state.biz.shifts.map((shift) => [shift.id, shift.name])), [state.biz.shifts]);
+  const shiftNames = useMemo(
+    () => Object.fromEntries(state.biz.shifts.map((shift) => [shift.id, shiftLabel(shift.name, lang)])),
+    [state.biz.shifts, lang],
+  );
   const shownPeople = useMemo(() => filterNames(people, nameQuery), [people, nameQuery]);
   const needSlot = audience === "shift" || deliver === "shift_start";
 
@@ -110,12 +114,12 @@ export function MessagesScreen({
       <section className={card}>
         <h2 className={cardTitle}>{t.messagesCompose}</h2>
         {canWrite ? <p className={cardHint}>{t.messagesEmpty}</p> : <p className={cardHint}>{t.messagesReadOnly}</p>}
-        <div className="mt-5 flex flex-col gap-5">
+        <div className="mt-5 grid items-start gap-5 lg:grid-cols-[minmax(0,1.15fr)_minmax(16rem,0.85fr)]">
           <label className={label}>
             <span className={labelText}>{t.messagesBody}</span>
             <textarea
               data-testid="message-body"
-              className="min-h-32 w-full rounded-lg border border-field-line bg-card px-3 py-2 text-sm text-ink placeholder:text-subtle hover:border-muted"
+              className="min-h-24 w-full rounded-lg border border-field-line bg-card px-3 py-2 text-sm text-ink placeholder:text-subtle hover:border-muted"
               value={body}
               disabled={!canWrite || busy}
               maxLength={4000}
@@ -123,28 +127,35 @@ export function MessagesScreen({
             />
           </label>
 
-          <fieldset className="flex flex-col gap-2">
-            <legend className={labelText}>{t.messagesAudience}</legend>
-            {(
-              [
+          <div className="flex flex-col gap-4">
+            <ChoiceRow
+              legend={t.messagesAudience}
+              name="message-audience"
+              value={audience}
+              disabled={!canWrite || busy}
+              options={[
                 ["all", t.messagesAudienceAll],
                 ["people", t.messagesAudiencePeople],
                 ["shift", t.messagesAudienceShift],
-              ] as const
-            ).map(([id, labelTextValue]) => (
-              <label key={id} className="flex min-h-9 items-center gap-2 text-sm text-ink">
-                <input
-                  type="radio"
-                  name="message-audience"
-                  data-testid={`message-audience-${id}`}
-                  checked={audience === id}
-                  disabled={!canWrite || busy}
-                  onChange={() => setAudience(id)}
-                />
-                {labelTextValue}
-              </label>
-            ))}
-          </fieldset>
+              ]}
+              onChange={setAudience}
+            />
+            <ChoiceRow
+              legend={t.messagesDeliver}
+              name="message-deliver"
+              value={deliver}
+              disabled={!canWrite || busy}
+              options={[
+                ["now", t.messagesDeliverNow],
+                ["at", t.messagesDeliverAt],
+                ["shift_start", t.messagesDeliverShift],
+              ]}
+              onChange={setDeliver}
+            />
+          </div>
+        </div>
+
+        <div className="mt-5 flex flex-col gap-5">
 
           {audience === "people" ? (
             <div className="flex flex-col gap-2">
@@ -161,7 +172,7 @@ export function MessagesScreen({
               {people.length > 0 && shownPeople.length === 0 ? (
                 <p className="text-sm text-muted">{t.noNameMatches}</p>
               ) : null}
-              <div className="grid max-h-56 gap-1 overflow-y-auto sm:grid-cols-2">
+              <div className="grid max-h-40 gap-1 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
                 {shownPeople.map((employee) => (
                   <label key={employee.id} className="flex min-h-9 items-center gap-2 text-sm text-ink">
                     <input
@@ -211,7 +222,7 @@ export function MessagesScreen({
                 >
                   {state.biz.shifts.map((shift) => (
                     <option key={shift.id} value={shift.id}>
-                      {`${shift.name} · ${shift.start}–${shift.end}`}
+                      {`${shiftLabel(shift.name, lang)} · ${shift.start}–${shift.end}`}
                     </option>
                   ))}
                 </select>
@@ -225,29 +236,6 @@ export function MessagesScreen({
               ) : null}
             </div>
           ) : null}
-
-          <fieldset className="flex flex-col gap-2">
-            <legend className={labelText}>{t.messagesDeliver}</legend>
-            {(
-              [
-                ["now", t.messagesDeliverNow],
-                ["at", t.messagesDeliverAt],
-                ["shift_start", t.messagesDeliverShift],
-              ] as const
-            ).map(([id, labelTextValue]) => (
-              <label key={id} className="flex min-h-9 items-center gap-2 text-sm text-ink">
-                <input
-                  type="radio"
-                  name="message-deliver"
-                  data-testid={`message-deliver-${id}`}
-                  checked={deliver === id}
-                  disabled={!canWrite || busy}
-                  onChange={() => setDeliver(id)}
-                />
-                {labelTextValue}
-              </label>
-            ))}
-          </fieldset>
 
           {deliver === "at" ? (
             <label className={label}>
@@ -298,7 +286,7 @@ export function MessagesScreen({
                     <p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink">{message.body}</p>
                     <p className="mt-2 text-xs text-muted">
                       {t.messagesFrom(message.authorName)}
-                      {message.audience === "shift" && message.weekday != null && message.shiftId
+                      {message.weekday != null && message.shiftId
                         ? ` · ${dayName(message.weekday, lang)} ${shiftNames[message.shiftId] ?? ""}`
                         : ""}
                       {` · ${t.messagesReadCount(message.readCount, message.recipientCount)}`}
@@ -323,6 +311,50 @@ export function MessagesScreen({
           })}
         </ul>
       </section>
+    </div>
+  );
+}
+
+function ChoiceRow<T extends string>({
+  legend,
+  name,
+  value,
+  disabled,
+  options,
+  onChange,
+}: {
+  legend: string;
+  name: string;
+  value: T;
+  disabled: boolean;
+  options: readonly (readonly [T, string])[];
+  onChange: (value: T) => void;
+}) {
+  return (
+    <div className="flex flex-col gap-2">
+      <span className={labelText}>{legend}</span>
+      <div role="radiogroup" aria-label={legend} className="flex flex-wrap gap-1.5">
+        {options.map(([id, text]) => {
+          const selected = value === id;
+          return (
+            <button
+              key={id}
+              type="button"
+              role="radio"
+              name={name}
+              aria-checked={selected}
+              data-testid={`${name}-${id}`}
+              disabled={disabled}
+              className={`h-8 rounded-lg border px-3 text-xs font-medium disabled:opacity-50 ${
+                selected ? "border-brand bg-brand-soft text-ink" : "border-line bg-card text-ink-soft hover:bg-well"
+              }`}
+              onClick={() => onChange(id)}
+            >
+              {text}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }

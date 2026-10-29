@@ -1,7 +1,6 @@
 import { absenceOnWeekDay } from "./absence";
 import { addDays, durationHours, gapBetween, parseClock } from "./time";
 import { effectiveSlot, shiftById } from "./schedule";
-import { consecutiveRun, workedDates } from "./labor";
 import { shabbatBlocks, shiftRest, staffedCount } from "./rest";
 import type { Employee, Reason, RotaState, Slot } from "./types";
 
@@ -20,7 +19,9 @@ export function slots(state: RotaState, week: string): Slot[] {
   const open: Slot[] = [];
   for (const shift of state.biz.shifts) {
     for (let day = 0; day < 7; day += 1) {
-      const required = staffedCount(shift, day, week);
+      const override = state.sched[week]?.staffing?.[`${day}|${shift.id}`];
+      const required =
+        override !== undefined && Number.isFinite(override) ? Math.trunc(override) : staffedCount(shift, day, week);
       if (required <= 0) continue;
       const start = day * 24 + parseClock(shift.start);
       open.push({
@@ -208,8 +209,6 @@ export function dynamicReason(
     if (dayHours > dailyCap + 1e-9) return { code: "daily_hours", cap: dailyCap };
   }
   if (hours > cap) return { code: "weekly_hours", cap };
-  const run = consecutiveRun(workedDates(state, employee.id, state.week, mine, slot.day), addDays(state.week, slot.day));
-  if (run) return { code: "consecutive_days", from: run.from, to: run.to, days: run.days };
   const agreed = employee.perWeek;
   if (agreed && count > agreed + approvedExtraShifts(state, employee.id)) {
     return { code: "weekly_shifts", agreed };

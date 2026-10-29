@@ -85,6 +85,7 @@ describe("saving a site", () => {
           locked: [],
           status: "published",
           restoredFrom: 2,
+          staffing: { [`0|${morning.id}`]: 4 },
         },
       },
       versions: {
@@ -121,6 +122,7 @@ describe("saving a site", () => {
     expect(loaded.former).toEqual({ [yossi.id]: "Yossi" });
     expect(loaded.sched[week]?.assign[`0|${morning.id}`]).toEqual([yossi.id]);
     expect(loaded.sched[week]?.restoredFrom).toBe(2);
+    expect(loaded.sched[week]?.staffing).toEqual({ [`0|${morning.id}`]: 4 });
     expect(loaded.versions?.[week]?.[0]?.by).toBe("Ari");
 
     const dropped: RotaState = { ...changed, versions: undefined };

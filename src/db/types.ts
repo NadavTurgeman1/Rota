@@ -40,6 +40,13 @@ export interface RequirementRow {
   required_count: number;
 }
 
+export interface StaffingRow {
+  schedule_id: string;
+  shift_id: string;
+  weekday: number;
+  required_count: number;
+}
+
 export interface EmployeeRow {
   id: string;
   name: string;
@@ -161,6 +168,7 @@ export interface SiteBundle {
   site: SiteRow;
   shifts: ShiftRow[];
   requirements: RequirementRow[];
+  staffing: StaffingRow[];
   employees: EmployeeRow[];
   qualifications: QualificationRow[];
   preferences: PreferenceRow[];
