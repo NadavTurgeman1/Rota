@@ -417,12 +417,19 @@ export function WeekGrid({
               {[0, 1, 2, 3, 4, 5, 6].map((day) => {
                 const agreement = agreementCell(state, employeeId, day, shift.id);
                 const availability = availabilityCell(state, employeeId, day, shift.id);
-                const closed = agreement === "closed";
+                const locked =
+                  (mode === "agreement" && agreement === "shabbat") || (mode === "availability" && availability === "shabbat")
+                    ? "shabbat"
+                    : mode === "availability" && availability === "holiday"
+                      ? "holiday"
+                      : null;
+                const closed = mode === "agreement" ? agreement === "closed" : availability === "closed";
                 const forbidden = mode === "availability" && availability === "forbidden";
                 const checked = mode === "agreement" ? agreement === "allowed" : availability === "available";
-                const disabled = !editable || closed || forbidden;
+                const disabled = !editable || closed || forbidden || locked !== null;
                 const label = `${dayName(day, lang)} ${shiftLabel(shift.name, lang)}`;
-                const tone = closed
+                const lockedLabel = locked === "shabbat" ? t.observanceShabbat : t.observanceHoliday;
+                const tone = closed || locked
                   ? "bg-well-strong"
                   : forbidden
                     ? "bg-well"
@@ -433,13 +440,14 @@ export function WeekGrid({
                         : "bg-card";
                 return (
                   <td key={day} className={`h-10 rounded-lg border border-line p-0 text-center ${tone}`}>
-                    {closed || forbidden ? (
+                    {closed || forbidden || locked ? (
                       <span
                         className="block px-1 text-xs font-medium text-subtle"
-                        title={closed ? t.siteClosed : t.agreementForbids}
-                        aria-label={`${label}: ${closed ? t.siteClosed : t.agreementForbids}`}
+                        data-testid={locked ? `${mode}-lock-${day}-${shift.name}` : undefined}
+                        title={locked ? (locked === "shabbat" ? t.observesShabbat : t.observesHolidays) : closed ? t.siteClosed : t.agreementForbids}
+                        aria-label={`${label}: ${locked ? lockedLabel : closed ? t.siteClosed : t.agreementForbids}`}
                       >
-                        {closed ? t.closed : "—"}
+                        {locked ? lockedLabel : closed ? t.closed : "—"}
                       </span>
                     ) : (
                       <label
@@ -485,6 +493,47 @@ function LockIcon({ open }: { open: boolean }) {
         />
       )}
     </svg>
+  );
+}
+
+function ObservanceSwitch({
+  checked,
+  label,
+  hint,
+  testId,
+  disabled,
+  onClick,
+}: {
+  checked: boolean;
+  label: string;
+  hint: string;
+  testId: string;
+  disabled: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <div className="flex items-start justify-between gap-4">
+      <div className="min-w-0">
+        <p className="text-sm font-medium text-ink">{label}</p>
+        <p className="mt-1 text-sm leading-6 text-muted">{hint}</p>
+      </div>
+      <button
+        type="button"
+        role="switch"
+        aria-checked={checked}
+        aria-label={label}
+        data-testid={testId}
+        disabled={disabled}
+        className={`relative mt-0.5 h-8 w-12 shrink-0 rounded-full disabled:opacity-50 ${checked ? "bg-brand" : "bg-well"}`}
+        onClick={onClick}
+      >
+        <span
+          className={`absolute top-1 start-1 h-6 w-6 rounded-full bg-card shadow-sm motion-safe:transition-transform motion-safe:duration-200 ${
+            checked ? "translate-x-4 rtl:-translate-x-4" : ""
+          }`}
+        />
+      </button>
+    </div>
   );
 }
 
@@ -628,6 +677,32 @@ function EmployeeDetails({
             />
             {employee.active ? t.active : t.inactive}
           </label>
+        </div>
+        <div className="mt-5 flex flex-col gap-4 border-t border-line pt-5">
+          <ObservanceSwitch
+            label={t.observesShabbat}
+            hint={t.observesShabbatHint}
+            checked={employee.observesShabbat === true}
+            testId="observes-shabbat"
+            disabled={readOnly}
+            onClick={() =>
+              onUpdate(
+                employee.observesShabbat === true
+                  ? { observesShabbat: false, observesHolidays: false }
+                  : { observesShabbat: true, observesHolidays: true },
+              )
+            }
+          />
+          {employee.observesShabbat === true ? (
+            <ObservanceSwitch
+              label={t.observesHolidays}
+              hint={t.observesHolidaysHint}
+              checked={employee.observesHolidays === true}
+              testId="observes-holidays"
+              disabled={readOnly}
+              onClick={() => onUpdate({ observesHolidays: employee.observesHolidays !== true })}
+            />
+          ) : null}
         </div>
         {blockHome?.biz.blockLimit === true ? (
           <div className="mt-5 border-t border-line pt-5">

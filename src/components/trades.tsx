@@ -1,5 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { dayName, seatProblem, type Lang, type RotaState, type TradeKind, type TradeSeat } from "../domain";
+import { staffedCount } from "../domain/rest";
 import type { ShiftTrade } from "../db/trades";
 import { copy } from "../i18n/copy";
 import { formatDayDate, shiftLabel, siteLabel } from "../schedule/display";
@@ -235,7 +236,7 @@ function SeatGrid({
       const slotKey = `${day}|${shift.id}`;
       const people = schedule?.assign[slotKey] ?? [];
       if (visible) return people.some((employeeId) => shown(slotKey, employeeId));
-      return Number(shift.req[day] || 0) > 0 || people.length > 0;
+      return staffedCount(shift, day, week) > 0 || people.length > 0;
     }),
   );
   return (

@@ -28,6 +28,31 @@ describe("saving a site", () => {
     await db.exec("commit");
     expect(await loadSiteWeek(sql, headquarters, week)).toEqual(original);
 
+    const dana = original.emps.find((employee) => employee.name === "Dana");
+    if (!dana) throw new Error("seed");
+    const observing: RotaState = {
+      ...original,
+      emps: original.emps.map((employee) =>
+        employee.id === dana.id ? { ...employee, observesShabbat: true, observesHolidays: true } : employee,
+      ),
+    };
+    await db.exec("begin");
+    await saveSite(sql, { orgId: sentinel, siteId: headquarters, state: observing });
+    await db.exec("commit");
+    expect(await loadSiteWeek(sql, headquarters, week)).toEqual(observing);
+    const shabbatOnly: RotaState = {
+      ...observing,
+      emps: observing.emps.map((employee) => {
+        if (employee.id !== dana.id) return employee;
+        const { observesHolidays: _holidays, ...rest } = employee;
+        return rest;
+      }),
+    };
+    await db.exec("begin");
+    await saveSite(sql, { orgId: sentinel, siteId: headquarters, state: shabbatOnly });
+    await db.exec("commit");
+    expect(await loadSiteWeek(sql, headquarters, week)).toEqual(shabbatOnly);
+
     const yossi = original.emps.find((employee) => employee.name === "Yossi");
     const morning = original.biz.shifts.find((shift) => shift.name === "Morning");
     if (!yossi || !morning) throw new Error("seed");

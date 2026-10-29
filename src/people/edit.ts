@@ -1,5 +1,6 @@
 import { addDays, agreementAllows, type Business, type Employee, type EmployeeProfile, type RotaState } from "../domain";
 import { isRelief } from "../domain/relief";
+import { shabbatBlocks, shiftRest, staffedCount } from "../domain/rest";
 import { cleanProfile, employeeProfile } from "../domain/profile";
 import { constraintDraftWritable, parseConstraints, type LineOverride } from "../parser/parse";
 import { blockedCells, blockBuckets, normalizeCustom } from "./blocks";
@@ -20,6 +21,8 @@ export interface EmployeePatch {
   maxHours?: number;
   hourlyWage?: number;
   active?: boolean;
+  observesShabbat?: boolean;
+  observesHolidays?: boolean;
   profile?: Partial<EmployeeProfile>;
   /** `null` clears a personal override and returns the person to the primary site's numbers. */
   customBlocks?: Employee["customBlocks"] | null;
@@ -49,15 +52,23 @@ export function blockLimitOf(biz: RotaState["biz"]): number | null {
   return Math.floor(max);
 }
 
-/** Shifts the agreement allows on days the site is open. */
+/** Shifts the agreement allows on days the site is open this week, apart from Shabbat and festival blocks. */
 export function openAvailabilityGrid(state: RotaState, employeeId: string): string[][] {
+  return [0, 1, 2, 3, 4, 5, 6].map((day) => openConstraintShiftIds(state, employeeId, day));
+}
+
+/** Agreement shifts that are staffed this week and not closed by Shabbat or a festival. */
+export function openConstraintShiftIds(state: RotaState, employeeId: string, day: number): string[] {
   const employee = findEmployee(state, employeeId);
-  if (!employee) return [[], [], [], [], [], [], []];
-  return [0, 1, 2, 3, 4, 5, 6].map((day) =>
-    state.biz.shifts
-      .filter((shift) => agreementAllows(employee, day, shift.id) && !siteClosed(state, day, shift.id))
-      .map((shift) => shift.id),
-  );
+  if (!employee) return [];
+  return state.biz.shifts
+    .filter(
+      (shift) =>
+        agreementAllows(employee, day, shift.id, shift) &&
+        staffedCount(shift, day, state.week) > 0 &&
+        shiftRest(employee, shift, day, state.week) === null,
+    )
+    .map((shift) => shift.id);
 }
 
 /** Open shifts missing from `grid`. A missing week is not a submission, so it has no blocks. */
@@ -174,6 +185,7 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
   if (patch.maxHours !== undefined) next.maxHours = nonNegative(patch.maxHours);
   if (patch.hourlyWage !== undefined) next.hourlyWage = nonNegative(patch.hourlyWage);
   if (patch.active !== undefined) next.active = patch.active;
+  applyObservance(next, employee, patch);
   if (patch.customBlocks !== undefined) {
     if (patch.customBlocks === null) delete next.customBlocks;
     else {
@@ -197,6 +209,8 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
     next.maxHours === employee.maxHours &&
     (next.hourlyWage ?? 0) === (employee.hourlyWage ?? 0) &&
     next.active === employee.active &&
+    (next.observesShabbat === true) === (employee.observesShabbat === true) &&
+    (next.observesHolidays === true) === (employee.observesHolidays === true) &&
     JSON.stringify(next.customBlocks ?? null) === JSON.stringify(employee.customBlocks ?? null) &&
     JSON.stringify(cleanProfile(next.profile) ?? null) === JSON.stringify(cleanProfile(employee.profile) ?? null)
   ) {
@@ -207,6 +221,8 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
   const saved = { ...draft.emps[index], ...next, grid: draft.emps[index].grid };
   if (!next.profile) delete saved.profile;
   if (!next.customBlocks) delete saved.customBlocks;
+  if (next.observesShabbat !== true) delete saved.observesShabbat;
+  if (next.observesHolidays !== true) delete saved.observesHolidays;
   draft.emps[index] = saved;
   return draft;
 }
@@ -279,6 +295,20 @@ export function removeEmployeeRecord(state: RotaState, actor: Actor, employeeId:
   return draft;
 }
 
+/** Shabbat turns festival observance on. Festival observance cannot stay on alone. */
+function applyObservance(next: Employee, employee: Employee, patch: EmployeePatch): void {
+  if (patch.observesShabbat === undefined && patch.observesHolidays === undefined) return;
+  const wasShabbat = employee.observesShabbat === true;
+  let shabbat = patch.observesShabbat !== undefined ? patch.observesShabbat === true : wasShabbat;
+  let holidays = patch.observesHolidays !== undefined ? patch.observesHolidays === true : employee.observesHolidays === true;
+  if (shabbat && !wasShabbat && patch.observesHolidays === undefined) holidays = true;
+  if (!shabbat) holidays = false;
+  if (shabbat) next.observesShabbat = true;
+  else delete next.observesShabbat;
+  if (shabbat && holidays) next.observesHolidays = true;
+  else delete next.observesHolidays;
+}
+
 /** Current name, or the name a deleted employee had. */
 export function employeeName(state: RotaState, employeeId: string): string {
   return findEmployee(state, employeeId)?.name ?? state.former?.[employeeId] ?? employeeId;
@@ -298,9 +328,9 @@ export function setAgreement(
 ): RotaState {
   if (!canEditRoster(actor) || day < 0 || day > 6) return state;
   const employee = findEmployee(state, employeeId);
-  if (!employee || !state.biz.shifts.some((shift) => shift.id === shiftId)) return state;
-  if (siteClosed(state, day, shiftId)) return state;
-  const currently = agreementAllows(employee, day, shiftId);
+  const shift = state.biz.shifts.find((item) => item.id === shiftId);
+  if (!employee || !shift || siteClosed(state, day, shiftId) || shabbatBlocks(employee, shift, day)) return state;
+  const currently = agreementAllows(employee, day, shiftId, shift);
   if (currently === allowed) return state;
 
   const draft = cloneState(state);
@@ -334,8 +364,18 @@ export function setWholeAgreement(state: RotaState, actor: Actor, employeeId: st
   if (!canEditRoster(actor)) return state;
   const employee = findEmployee(state, employeeId);
   if (!employee) return state;
-  const grid = allowed ? openGrid(state) : [[], [], [], [], [], [], []];
-  const current = gridFrom(employee, state.biz.shifts.map((shift) => shift.id));
+  const shiftIds = state.biz.shifts.map((shift) => shift.id);
+  const current = gridFrom(employee, shiftIds);
+  const base = allowed ? openGrid(state) : [[], [], [], [], [], [], []];
+  const grid = base.map((dayShifts, day) => {
+    const kept = new Set(dayShifts);
+    for (const shift of state.biz.shifts) {
+      if (!shabbatBlocks(employee, shift, day)) continue;
+      if ((current[day] ?? []).includes(shift.id)) kept.add(shift.id);
+      else kept.delete(shift.id);
+    }
+    return state.biz.shifts.map((shift) => shift.id).filter((id) => kept.has(id));
+  });
   if (JSON.stringify(current) === JSON.stringify(grid)) return state;
 
   const draft = cloneState(state);
@@ -363,7 +403,10 @@ export function setAvailability(
 ): RotaState {
   if (!canEditAvailability(actor, employeeId) || day < 0 || day > 6 || reliefLocked(state, employeeId)) return state;
   const employee = findEmployee(state, employeeId);
-  if (!employee || siteClosed(state, day, shiftId) || !agreementAllows(employee, day, shiftId)) return state;
+  const shift = state.biz.shifts.find((item) => item.id === shiftId);
+  if (!employee || !shift || staffedCount(shift, day, state.week) <= 0 || shiftRest(employee, shift, day, state.week) || !agreementAllows(employee, day, shiftId, shift)) {
+    return state;
+  }
 
   const current = state.avail[state.week]?.[employeeId];
   const hasShift = !current || (current[day] ?? []).includes(shiftId);
@@ -393,7 +436,6 @@ export function replaceAvailability(
 
 export function copyAvailability(state: RotaState, actor: Actor, employeeId: string, home: Business = state.biz): RotaState {
   if (!canEditAvailability(actor, employeeId) || reliefLocked(state, employeeId) || !findEmployee(state, employeeId)) return state;
-  const employee = findEmployee(state, employeeId)!;
   const previous = state.avail[addDays(state.week, -7)]?.[employeeId];
   const current = state.avail[state.week]?.[employeeId];
   if (!previous) {
@@ -403,9 +445,10 @@ export function copyAvailability(state: RotaState, actor: Actor, employeeId: str
     if (Object.keys(draft.avail[draft.week]).length === 0) delete draft.avail[draft.week];
     return draft;
   }
-  const copied = [0, 1, 2, 3, 4, 5, 6].map((day) =>
-    (previous[day] ?? []).filter((shiftId) => agreementAllows(employee, day, shiftId) && !siteClosed(state, day, shiftId)),
-  );
+  const copied = [0, 1, 2, 3, 4, 5, 6].map((day) => {
+    const open = new Set(openConstraintShiftIds(state, employeeId, day));
+    return (previous[day] ?? []).filter((shiftId) => open.has(shiftId));
+  });
   if (!withinBlockLimit(state, employeeId, copied, home)) return state;
   if (sameCells(current, copied)) return state;
   const draft = cloneState(state);
@@ -425,20 +468,25 @@ export function setWholeAvailability(state: RotaState, actor: Actor, employeeId:
   return draft;
 }
 
-export type AgreementCell = "closed" | "allowed" | "excluded";
-export type AvailabilityCell = "closed" | "forbidden" | "available" | "unavailable";
+export type AgreementCell = "closed" | "allowed" | "excluded" | "shabbat";
+export type AvailabilityCell = "closed" | "forbidden" | "available" | "unavailable" | "shabbat" | "holiday";
 
 export function agreementCell(state: RotaState, employeeId: string, day: number, shiftId: string): AgreementCell {
   if (siteClosed(state, day, shiftId)) return "closed";
   const employee = findEmployee(state, employeeId);
-  if (!employee) return "excluded";
-  return agreementAllows(employee, day, shiftId) ? "allowed" : "excluded";
+  const shift = state.biz.shifts.find((item) => item.id === shiftId);
+  if (!employee || !shift) return "excluded";
+  if (shabbatBlocks(employee, shift, day)) return "shabbat";
+  return agreementAllows(employee, day, shiftId, shift) ? "allowed" : "excluded";
 }
 
 export function availabilityCell(state: RotaState, employeeId: string, day: number, shiftId: string): AvailabilityCell {
-  if (siteClosed(state, day, shiftId)) return "closed";
+  const shift = state.biz.shifts.find((item) => item.id === shiftId);
   const employee = findEmployee(state, employeeId);
-  if (!employee || !agreementAllows(employee, day, shiftId)) return "forbidden";
+  if (!shift || staffedCount(shift, day, state.week) <= 0) return "closed";
+  if (employee && shabbatBlocks(employee, shift, day)) return "shabbat";
+  if (employee && shiftRest(employee, shift, day, state.week) === "holiday") return "holiday";
+  if (!employee || !agreementAllows(employee, day, shiftId, shift)) return "forbidden";
   const submitted = state.avail[state.week]?.[employeeId];
   if (!submitted || (submitted[day] ?? []).includes(shiftId)) return "available";
   return "unavailable";
@@ -474,15 +522,15 @@ export function applyConstraintText(
     if (!employee || isRelief(employee, next.siteId)) continue;
     const proposal = draft.proposals[employeeId].map((dayShifts, day) =>
       next.biz.shifts
-        .map((shift) => shift.id)
         .filter(
-          (shiftId) => dayShifts.includes(shiftId) && agreementAllows(employee, day, shiftId) && !siteClosed(next, day, shiftId),
-        ),
+          (shift) => dayShifts.includes(shift.id) && agreementAllows(employee, day, shift.id, shift) && !siteClosed(next, day, shift.id),
+        )
+        .map((shift) => shift.id),
     );
     const implicit = [0, 1, 2, 3, 4, 5, 6].map((day) =>
       next.biz.shifts
-        .map((shift) => shift.id)
-        .filter((shiftId) => agreementAllows(employee, day, shiftId) && !siteClosed(next, day, shiftId)),
+        .filter((shift) => agreementAllows(employee, day, shift.id, shift) && !siteClosed(next, day, shift.id))
+        .map((shift) => shift.id),
     );
     if (!withinBlockLimit(next, employeeId, proposal, homeOf(employeeId))) continue;
     if (sameCells(week[employeeId] ?? implicit, proposal)) continue;

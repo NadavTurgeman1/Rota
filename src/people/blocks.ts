@@ -1,4 +1,5 @@
 import { agreementAllows, parseClock, shiftKind, type Business, type Employee, type RotaState, type ShiftDefinition } from "../domain";
+import { shiftRest, staffedCount } from "../domain/rest";
 
 export type BlockSplit = "general" | "weekday" | "shift";
 
@@ -89,7 +90,8 @@ export function blockedCells(state: RotaState, employeeId: string, grid: string[
   for (let day = 0; day < 7; day += 1) {
     const marked = new Set(grid[day] ?? []);
     for (const shift of state.biz.shifts) {
-      if (!agreementAllows(employee, day, shift.id) || Number(shift.req[day] || 0) <= 0) continue;
+      if (!agreementAllows(employee, day, shift.id, shift) || staffedCount(shift, day, state.week) <= 0) continue;
+      if (shiftRest(employee, shift, day, state.week)) continue;
       if (!marked.has(shift.id)) cells.push({ day, shiftId: shift.id });
     }
   }

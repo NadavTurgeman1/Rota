@@ -143,6 +143,13 @@ export interface Copy {
   hourCapNone: string;
   active: string;
   inactive: string;
+  observesShabbat: string;
+  observesShabbatHint: string;
+  observesHolidays: string;
+  observesHolidaysHint: string;
+  observanceShabbat: string;
+  observanceHoliday: string;
+  holidayStaffing: string;
   agreement: string;
   preferenceTitle: string;
   preferenceHint: string;
@@ -612,6 +619,13 @@ export const copy: Record<Lang, Copy> = {
     hourCapNone: "ללא",
     active: "פעיל",
     inactive: "לא פעיל",
+    observesShabbat: "עובד שומר שבת",
+    observesShabbatHint: "אין שיבוץ במשמרת שנוגעת בחלון מיום שישי ב-15:00 עד מוצאי שבת ב-21:00. החסימה נשמרת בהסכם לפי שעות המשמרת, ואי אפשר להחזיר אותה בלחיצה.",
+    observesHolidays: "עובד שומר חגי ישראל",
+    observesHolidaysHint: "נדלק יחד עם שבת, ואפשר לכבות רק אותו. בשבוע שיש בו חג החסימה מופיעה באילוצים, מ-15:00 בערב החג עד 21:00 במוצאי החג, ואי אפשר להוריד אותה בלחיצה. זה חל על שני ימי ראש השנה, יום כיפור, סוכות, שמיני עצרת, פסח ושבועות.",
+    observanceShabbat: "שבת",
+    observanceHoliday: "חג",
+    holidayStaffing: "ביום חג התקן הוא תקן השבת.",
     agreement: "הסכם",
     preferenceTitle: "העדפות משמרת",
     preferenceHint: "השיבוץ מעדיף את המשמרות המסומנות כשאפשר. משמרת לא מסומנת עדיין מותרת לפי ההסכם.",
@@ -715,7 +729,7 @@ export const copy: Record<Lang, Copy> = {
     shiftEnd: "סיום",
     requiredRole: "תפקיד נדרש",
     anyRole: "כל תפקיד",
-    staffingHint: "המספרים הם עובדים נדרשים בכל יום (0 = סגור). משמרת שמסתיימת לפני שעת ההתחלה שלה חוצה חצות.",
+    staffingHint: "המספרים הם עובדים נדרשים בכל יום (0 = סגור). משמרת שמסתיימת לפני שעת ההתחלה שלה חוצה חצות. ביום חג התקן של שבת חל על יום החג.",
     blockLimitTitle: "הגבלת כמות חסימות באילוצים השבועיים",
     blockLimitHint: "כבוי: בלי הגבלה. דלוק: בוחרים איך לחלק את החסימות, ומספר לכל חלק.",
     blockLimitCount: "כמה חסימות מותר",
@@ -1093,6 +1107,13 @@ export const copy: Record<Lang, Copy> = {
     hourCapNone: "None",
     active: "Active",
     inactive: "Inactive",
+    observesShabbat: "Observes Shabbat",
+    observesShabbatHint: "No shift that touches Friday 15:00 through Saturday 21:00. The block stays in the agreement, following the shift hours, and a click cannot turn it back on.",
+    observesHolidays: "Observes Jewish festivals",
+    observesHolidaysHint: "Turns on with Shabbat, and can be turned off on its own. In a week with a festival, the weekly constraints lock that shift from 15:00 the day before until 21:00 that night, and a click cannot clear it. Both days of Rosh Hashanah, Yom Kippur, Sukkot, Shemini Atzeret, Pesach and Shavuot.",
+    observanceShabbat: "Shabbat",
+    observanceHoliday: "Festival",
+    holidayStaffing: "A festival day uses the Saturday staffing.",
     agreement: "Agreement",
     preferenceTitle: "Shift preferences",
     preferenceHint: "Scheduling favors the checked shifts when it can. An unchecked shift stays allowed by the agreement.",
@@ -1196,7 +1217,7 @@ export const copy: Record<Lang, Copy> = {
     shiftEnd: "End",
     requiredRole: "Required role",
     anyRole: "Any role",
-    staffingHint: "Numbers are employees required per day (0 = closed). A shift ending at or before its start crosses midnight.",
+    staffingHint: "Numbers are employees required per day (0 = closed). A shift ending at or before its start crosses midnight. A festival day uses the Saturday staffing.",
     blockLimitTitle: "Limit weekly constraint blocks",
     blockLimitHint: "Off: no cap. On: choose how the blocks are split, and a number for each part.",
     blockLimitCount: "Allowed blocks",

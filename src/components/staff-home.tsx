@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { addDays, agreementAllows, slots, type Business, type Lang, type RotaState } from "../domain";
+import { addDays, slots, type Business, type Lang, type RotaState } from "../domain";
 import { copy } from "../i18n/copy";
 import { exportFileName, formatWeekRange, pngFileName, siteLabel } from "../schedule/display";
 import { calendarTitle, ownPublishedShifts, shiftsIcs } from "../schedule/calendar";
@@ -18,7 +18,7 @@ import { useHebrewCalendar } from "./day-dates";
 import { StaffTrades, type ShiftTrade, type TradeApi } from "./trades";
 import { WeekPicker } from "./week-picker";
 import { overBucketIds } from "../people/blocks";
-import { availabilitySubmitted, gridWithCell, hasConstraintGrant, openAvailabilityGrid } from "../people/edit";
+import { availabilitySubmitted, gridWithCell, hasConstraintGrant, openAvailabilityGrid, openConstraintShiftIds } from "../people/edit";
 import { BlockLimitNote } from "./block-limit";
 import { button, card, cardTitle, pill } from "./ui";
 
@@ -27,7 +27,7 @@ function officialGrid(state: RotaState, employeeId: string): string[][] {
   if (submitted) return submitted.map((day) => [...day]);
   const employee = state.emps.find((item) => item.id === employeeId);
   return [0, 1, 2, 3, 4, 5, 6].map((day) =>
-    state.biz.shifts.filter((shift) => employee && agreementAllows(employee, day, shift.id) && Number(shift.req[day] || 0) > 0).map((shift) => shift.id),
+    employee ? openConstraintShiftIds(state, employeeId, day) : [],
   );
 }
 
@@ -130,9 +130,10 @@ function StaffConstraints({
             onClick={() => {
               const previous = state.avail[addDays(state.week, -7)]?.[employeeId];
               const next = previous
-                ? [0, 1, 2, 3, 4, 5, 6].map((day) =>
-                    (previous[day] ?? []).filter((shiftId) => agreementAllows(employee, day, shiftId) && Number(state.biz.shifts.find((shift) => shift.id === shiftId)?.req[day] || 0) > 0),
-                  )
+                ? [0, 1, 2, 3, 4, 5, 6].map((day) => {
+                    const open = new Set(openConstraintShiftIds(state, employeeId, day));
+                    return (previous[day] ?? []).filter((shiftId) => open.has(shiftId));
+                  })
                 : officialGrid({ ...state, avail: {} }, employeeId);
               const blocked = capped ? overBucketIds(state, employeeId, next, home) : [];
               if (blocked.length) {

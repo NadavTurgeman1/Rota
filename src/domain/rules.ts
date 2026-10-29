@@ -1,5 +1,6 @@
 import { addDays, durationHours, gapBetween, parseClock } from "./time";
 import { effectiveSlot, shiftById } from "./schedule";
+import { shabbatBlocks, shiftRest, staffedCount } from "./rest";
 import type { Employee, Reason, RotaState, Slot } from "./types";
 
 const DAY_NAMES = {
@@ -13,11 +14,11 @@ export function dayName(day: number, lang: Lang = "he"): string {
   return DAY_NAMES[lang][day] ?? "";
 }
 
-export function slots(state: RotaState, _week: string): Slot[] {
+export function slots(state: RotaState, week: string): Slot[] {
   const open: Slot[] = [];
   for (const shift of state.biz.shifts) {
     for (let day = 0; day < 7; day += 1) {
-      const required = Number(shift.req[day] || 0);
+      const required = staffedCount(shift, day, week);
       if (required <= 0) continue;
       const start = day * 24 + parseClock(shift.start);
       open.push({
@@ -41,7 +42,13 @@ export function slotLabel(
   return `${dayName(slot.day, lang)} ${shiftById(state, slot.shiftId).name}`;
 }
 
-export function agreementAllows(employee: Employee, day: number, shiftId: string): boolean {
+export function agreementAllows(
+  employee: Employee,
+  day: number,
+  shiftId: string,
+  shift?: { start: string; end: string },
+): boolean {
+  if (shift && shabbatBlocks(employee, shift, day)) return false;
   if (employee.grid) return (employee.grid[day] ?? []).includes(shiftId);
   return (employee.allowed ?? []).includes(shiftId) && !(employee.blocked ?? []).includes(day);
 }
@@ -64,7 +71,9 @@ export function staticReason(
 ): Reason | null {
   const shift = shiftById(state, slot.shiftId);
   if (!employee.active) return { code: "inactive" };
-  if (!agreementAllows(employee, slot.day, slot.shiftId)) {
+  const observance = shiftRest(employee, shift, slot.day, week);
+  if (observance) return { code: observance };
+  if (!agreementAllows(employee, slot.day, slot.shiftId, shift)) {
     return { code: "agreement", day: slot.day, shiftName: shift.name };
   }
   if (shift.role && !hasRequiredRole(employee, shift.role)) {
@@ -239,5 +248,13 @@ export function formatReason(reason: Reason, lang: "en" | "he" = "he"): string {
       return lang === "he" ? `המשמרת ארוכה מ־${reason.cap} שעות` : `Longer than the ${reason.cap}h limit`;
     case "home_schedule":
       return lang === "he" ? "הסידור באתר הראשי עוד לא מוכן" : "The home site's week is not ready to publish";
+    case "shabbat":
+      return lang === "he"
+        ? "שומר שבת: אין שיבוץ מיום שישי ב-15:00 עד מוצאי שבת ב-21:00"
+        : "Observes Shabbat: no shift from Friday 15:00 until Saturday 21:00";
+    case "holiday":
+      return lang === "he"
+        ? "שומר חג: אין שיבוץ מ-15:00 בערב החג עד 21:00 במוצאי החג"
+        : "Observes the festival: no shift from 15:00 the day before until 21:00 on the festival day";
   }
 }

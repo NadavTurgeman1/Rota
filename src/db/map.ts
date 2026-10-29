@@ -64,6 +64,8 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
         perWeek: Number(employee.weekly_shift_quota),
         maxHours: employee.max_weekly_hours == null ? 0 : Number(employee.max_weekly_hours),
         hourlyWage: employee.hourly_wage == null ? 0 : Number(employee.hourly_wage),
+        ...(employee.observes_shabbat === true ? { observesShabbat: true } : {}),
+        ...(employee.observes_shabbat === true && employee.observes_holidays === true ? { observesHolidays: true } : {}),
         ...(profile ? { profile } : {}),
         ...(customBlocks ? { customBlocks } : {}),
         pref,

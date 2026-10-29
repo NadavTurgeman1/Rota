@@ -58,6 +58,8 @@ export interface EmployeeRow {
   profile: unknown;
   /** False when the person is only kept so an old week can still show their name. */
   on_roster: boolean;
+  observes_shabbat: boolean;
+  observes_holidays: boolean;
 }
 
 export interface QualificationRow {

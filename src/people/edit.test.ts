@@ -26,6 +26,47 @@ function danaGrid(state: ReturnType<typeof sentinelState>) {
 }
 
 describe("people edits", () => {
+  it("turns festival observance on with Shabbat and clears it when Shabbat is off", () => {
+    const open = sentinelState("2026-10-11");
+    const on = updateEmployee(open, MANAGER, SENTINEL.dana, { observesShabbat: true });
+    expect(on.emps.find((employee) => employee.id === SENTINEL.dana)).toMatchObject({ observesShabbat: true, observesHolidays: true });
+    expect(updateEmployee(open, MANAGER, SENTINEL.dana, { observesHolidays: true })).toBe(open);
+    const festivalsOff = updateEmployee(on, MANAGER, SENTINEL.dana, { observesHolidays: false });
+    const kept = festivalsOff.emps.find((employee) => employee.id === SENTINEL.dana);
+    expect(kept?.observesShabbat).toBe(true);
+    expect(kept?.observesHolidays).toBeUndefined();
+    expect(agreementCell(festivalsOff, SENTINEL.dana, 5, SENTINEL.afternoon)).toBe("shabbat");
+    expect(agreementCell(festivalsOff, SENTINEL.dana, 5, SENTINEL.morning)).toBe("allowed");
+    expect(agreementCell(festivalsOff, SENTINEL.dana, 6, SENTINEL.morning)).toBe("shabbat");
+    expect(setAgreement(festivalsOff, MANAGER, SENTINEL.dana, 5, SENTINEL.afternoon, false)).toBe(festivalsOff);
+    expect(availabilityCell(festivalsOff, SENTINEL.dana, 5, SENTINEL.afternoon)).toBe("shabbat");
+    expect(availabilityCell(festivalsOff, SENTINEL.dana, 5, SENTINEL.morning)).toBe("available");
+    const cleared = setWholeAgreement(festivalsOff, MANAGER, SENTINEL.dana, false);
+    expect(agreementCell(cleared, SENTINEL.dana, 5, SENTINEL.afternoon)).toBe("shabbat");
+    expect(danaGrid(cleared)?.[5]).toEqual([SENTINEL.afternoon]);
+    expect(danaGrid(cleared)?.[0]).toEqual([]);
+    const off = updateEmployee(cleared, MANAGER, SENTINEL.dana, { observesShabbat: false });
+    const person = off.emps.find((employee) => employee.id === SENTINEL.dana);
+    expect(person?.observesShabbat).toBeUndefined();
+    expect(person?.observesHolidays).toBeUndefined();
+    expect(agreementCell(off, SENTINEL.dana, 5, SENTINEL.afternoon)).toBe("allowed");
+    expect(agreementCell(off, SENTINEL.dana, 0, SENTINEL.morning)).toBe("excluded");
+    expect(availabilityCell(off, SENTINEL.dana, 5, SENTINEL.afternoon)).toBe("available");
+  });
+
+  it("locks a festival shift in that week's constraints and leaves the agreement open", () => {
+    const week = sentinelState("2026-09-21");
+    const on = updateEmployee(week, MANAGER, SENTINEL.dana, { observesShabbat: true, observesHolidays: true });
+    expect(agreementCell(on, SENTINEL.dana, 0, SENTINEL.afternoon)).toBe("allowed");
+    expect(availabilityCell(on, SENTINEL.dana, 0, SENTINEL.afternoon)).toBe("holiday");
+    expect(availabilityCell(on, SENTINEL.dana, 5, SENTINEL.afternoon)).toBe("shabbat");
+    expect(availabilityCell(on, SENTINEL.dana, 0, SENTINEL.morning)).toBe("available");
+    expect(setAvailability(on, MANAGER, SENTINEL.dana, 0, SENTINEL.afternoon, false)).toBe(on);
+    const marked = setAvailability(on, MANAGER, SENTINEL.dana, 0, SENTINEL.morning, false);
+    expect(availabilityCell(marked, SENTINEL.dana, 0, SENTINEL.morning)).toBe("unavailable");
+    expect(availabilityCell(marked, SENTINEL.dana, 0, SENTINEL.afternoon)).toBe("holiday");
+  });
+
   it("stores a shift preference without closing the agreement", () => {
     const open = sentinelState("2026-10-11");
     const dana = open.emps.find((employee) => employee.id === SENTINEL.dana);

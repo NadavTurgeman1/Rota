@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import { clockNear, coverageGaps, type Lang, type RotaState, type Slot } from "../domain";
 import { callOffLabel, coverageGapText, copy } from "../i18n/copy";
+import { usesShabbatStaffing } from "../domain/rest";
 import { employeeName } from "../people/edit";
 import { hourFixLine, slotTitle } from "../schedule/display";
 import { assignmentToken, clockLabel, hourFixBucket, hourFixes, slotLocked } from "../schedule/edit";
@@ -52,6 +53,7 @@ export function SlotEditor({
     return () => document.removeEventListener("keydown", onKey);
   }, [onClose]);
 
+  const holidayStaffing = usesShabbatStaffing(state.week, slot.day);
   return createPortal(
     <div
       className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4"
@@ -104,32 +106,36 @@ export function SlotEditor({
                 />
               </button>
             </div>
-            <div className="mt-4 flex items-center justify-between gap-3">
-              <p className="text-sm font-medium text-ink">{t.requiredOnShift}</p>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  data-testid="slot-required-less"
-                  aria-label={t.fewerRequired}
-                  className={button.icon}
-                  disabled={slot.required <= 1}
-                  onClick={() => onRequired(slot.shiftId, slot.day, slot.required - 1)}
-                >
-                  −
-                </button>
-                <span data-testid="slot-required" className="w-8 text-center text-sm font-semibold tabular-nums text-ink">
-                  {slot.required}
-                </span>
-                <button
-                  type="button"
-                  data-testid="slot-required-more"
-                  aria-label={t.moreRequired}
-                  className={button.icon}
-                  onClick={() => onRequired(slot.shiftId, slot.day, slot.required + 1)}
-                >
-                  +
-                </button>
+            <div className="mt-4">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-ink">{t.requiredOnShift}</p>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    data-testid="slot-required-less"
+                    aria-label={t.fewerRequired}
+                    className={button.icon}
+                    disabled={holidayStaffing || slot.required <= 1}
+                    onClick={() => onRequired(slot.shiftId, slot.day, slot.required - 1)}
+                  >
+                    −
+                  </button>
+                  <span data-testid="slot-required" className="w-8 text-center text-sm font-semibold tabular-nums text-ink">
+                    {slot.required}
+                  </span>
+                  <button
+                    type="button"
+                    data-testid="slot-required-more"
+                    aria-label={t.moreRequired}
+                    className={button.icon}
+                    disabled={holidayStaffing}
+                    onClick={() => onRequired(slot.shiftId, slot.day, slot.required + 1)}
+                  >
+                    +
+                  </button>
+                </div>
               </div>
+              {holidayStaffing ? <p className="mt-2 text-sm leading-6 text-muted">{t.holidayStaffing}</p> : null}
             </div>
             <p className="mt-3 text-sm leading-6 text-muted">{t.shiftHoursHint}</p>
           </>

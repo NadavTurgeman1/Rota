@@ -121,6 +121,8 @@ export function ConstraintsScreen({
             <li className={`${pill} bg-brand-soft text-ink`}>{t.availableWeek}</li>
             <li className={`${pill} bg-danger-soft text-danger-text`}>{t.unavailableWeek}</li>
             <li className={`${pill} border border-line bg-well text-ink`}>{t.agreementForbids}</li>
+            <li className={`${pill} bg-well-strong text-ink`}>{t.observanceShabbat}</li>
+            <li className={`${pill} bg-well-strong text-ink`}>{t.observanceHoliday}</li>
             <li className={`${pill} bg-well-strong text-ink`}>{t.siteClosed}</li>
           </ul>
         </div>

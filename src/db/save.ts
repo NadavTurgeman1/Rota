@@ -158,11 +158,12 @@ export async function saveSite(
   await writeRows(
     sql,
     `insert into public.employees (
-       id, org_id, name, email, phone, job_title, weekly_shift_quota, max_weekly_hours, active, hourly_wage, home_site_id, constraint_limits
+       id, org_id, name, email, phone, job_title, weekly_shift_quota, max_weekly_hours, active, hourly_wage, home_site_id, constraint_limits,
+       observes_shabbat, observes_holidays
      )
-     select id, $1, name, email, phone, job_title, quota, max_hours, active <> 0, wage, home_site, limits::jsonb
-     from unnest($2::uuid[], $3::text[], $4::text[], $5::text[], $6::text[], $7::int[], $8::numeric[], $9::int[], $10::numeric[], $11::uuid[], $12::text[])
-       as t(id, name, email, phone, job_title, quota, max_hours, active, wage, home_site, limits)
+     select id, $1, name, email, phone, job_title, quota, max_hours, active <> 0, wage, home_site, limits::jsonb, shabbat <> 0, holidays <> 0
+     from unnest($2::uuid[], $3::text[], $4::text[], $5::text[], $6::text[], $7::int[], $8::numeric[], $9::int[], $10::numeric[], $11::uuid[], $12::text[], $13::int[], $14::int[])
+       as t(id, name, email, phone, job_title, quota, max_hours, active, wage, home_site, limits, shabbat, holidays)
      on conflict (id) do update set
        name = excluded.name,
        email = excluded.email,
@@ -173,7 +174,9 @@ export async function saveSite(
        active = excluded.active,
        hourly_wage = excluded.hourly_wage,
        home_site_id = excluded.home_site_id,
-       constraint_limits = excluded.constraint_limits
+       constraint_limits = excluded.constraint_limits,
+       observes_shabbat = excluded.observes_shabbat,
+       observes_holidays = excluded.observes_holidays
      where public.employees.org_id = excluded.org_id`,
     [orgId],
     [
@@ -184,11 +187,13 @@ export async function saveSite(
       people.map((person) => person.role),
       people.map((person) => person.perWeek),
       people.map((person) => person.maxHours),
-      // A boolean array is sent as one boolean, so the active flag travels as 0 or 1.
+      // A boolean array is sent as one boolean, so flags travel as 0 or 1.
       people.map((person) => (person.active ? 1 : 0)),
       people.map((person) => person.hourlyWage),
       people.map((person) => person.homeSiteId),
       people.map((person) => person.limits),
+      people.map((person) => person.shabbat),
+      people.map((person) => person.holidays),
     ],
   );
   await writeRows(
@@ -426,6 +431,8 @@ interface KeptPerson {
   maxHours: number | null;
   hourlyWage: number;
   active: boolean;
+  shabbat: number;
+  holidays: number;
   /** People on the team stay linked to the site. Deleted people are names on old weeks only. */
   roster: boolean;
   quals: string[];
@@ -476,6 +483,8 @@ function peopleToKeep(state: RotaState): KeptPerson[] {
       maxHours: employee.maxHours > 0 ? hours(employee.maxHours) : null,
       hourlyWage: Math.max(0, Number(employee.hourlyWage) || 0),
       active: employee.active !== false,
+      shabbat: employee.observesShabbat === true ? 1 : 0,
+      holidays: employee.observesShabbat === true && employee.observesHolidays === true ? 1 : 0,
       roster: true,
       quals: qualificationNames(employee.quals),
       pref: (employee.pref ?? []).filter((id) => UUID.test(id)),
@@ -508,6 +517,8 @@ function peopleToKeep(state: RotaState): KeptPerson[] {
       maxHours: null,
       hourlyWage: 0,
       active: false,
+      shabbat: 0,
+      holidays: 0,
       roster: false,
       quals: [],
       pref: [],

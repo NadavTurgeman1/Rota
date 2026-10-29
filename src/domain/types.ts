@@ -70,6 +70,10 @@ export interface Employee {
   active: boolean;
   /** Hourly wage in shekels. `0` or omitted means it has not been set. */
   hourlyWage?: number;
+  /** No shift from Friday 15:00 through Saturday 21:00. Turning this on also keeps festivals, until that is turned off. */
+  observesShabbat?: boolean;
+  /** No shift on Israeli festival days, from 15:00 the day before through 21:00 that day. Only with `observesShabbat`. */
+  observesHolidays?: boolean;
   /** Login email already stored for this person, confirmed or still an open invitation. */
   loginEmail?: string;
   /** True only after the person has confirmed the login. */
@@ -265,7 +269,9 @@ export type Reason =
   | { code: "daily_hours"; cap: number }
   | { code: "weekly_shifts"; agreed: number }
   | { code: "shift_length"; cap: number }
-  | { code: "home_schedule" };
+  | { code: "home_schedule" }
+  | { code: "shabbat" }
+  | { code: "holiday" };
 
 export interface Violation {
   key?: string;

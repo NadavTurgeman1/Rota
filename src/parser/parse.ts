@@ -1,4 +1,5 @@
 import { agreementAllows, shiftKind, type Employee, type RotaState, type ShiftDefinition } from "../domain";
+import { shiftRest, staffedCount } from "../domain/rest";
 
 export type LineStatus = "recognized" | "ambiguous" | "unparsed";
 export type Polarity = "off" | "on" | "only";
@@ -263,13 +264,13 @@ function scan(text: string, shifts: Map<string, string[]>): Mark[] {
 
 function siteClosed(state: RotaState, day: number, shiftId: string): boolean {
   const shift = state.biz.shifts.find((item) => item.id === shiftId);
-  return !shift || Number(shift.req[day] || 0) <= 0;
+  return !shift || staffedCount(shift, day, state.week) <= 0;
 }
 
 function openShiftIds(state: RotaState, employee: Employee, day: number): string[] {
   return state.biz.shifts
-    .map((shift) => shift.id)
-    .filter((shiftId) => agreementAllows(employee, day, shiftId) && !siteClosed(state, day, shiftId));
+    .filter((shift) => agreementAllows(employee, day, shift.id, shift) && !siteClosed(state, day, shift.id) && !shiftRest(employee, shift, day, state.week))
+    .map((shift) => shift.id);
 }
 
 function baseline(state: RotaState, employee: Employee): string[][] {
