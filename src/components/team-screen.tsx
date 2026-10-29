@@ -8,6 +8,7 @@ import { agreementCell, availabilityCell, type EmployeePatch } from "../people/e
 import { blockSplitOf, customFromSite } from "../people/blocks";
 import { BlockNumberFields } from "./block-limit";
 import { EmployeeAttendance, type AttendanceApi, type AttendanceSnapshot } from "./attendance";
+import { EmployeeForms, type EmployeeFormsApi } from "./employee-forms";
 import { DayDates } from "./day-dates";
 import { NameRail } from "./name-rail";
 import { button, card, cardHint, cardTitle, field, label as labelClass, labelText, select, surface } from "./ui";
@@ -32,6 +33,7 @@ export function TeamScreen({
   onSites,
   loadAttendance,
   sharedAttendance,
+  forms,
 }: {
   state: RotaState;
   lang: Lang;
@@ -54,6 +56,7 @@ export function TeamScreen({
   loadAttendance: AttendanceApi["employee"];
   /** Punches for the open site, loaded once. `null` while that request is in flight. */
   sharedAttendance?: (employeeId: string) => AttendanceSnapshot | null;
+  forms: EmployeeFormsApi;
 }) {
   const t = copy[lang];
   const mainRoster = state.emps.filter((item) => !isRelief(item, siteId));
@@ -119,6 +122,7 @@ export function TeamScreen({
           onSites={onSites}
           loadAttendance={loadAttendance}
           sharedAttendance={sharedAttendance}
+          forms={forms}
         />
       ) : (
         <p className={`${card} text-sm text-muted`}>{t.pickEmployee}</p>
@@ -147,6 +151,7 @@ function EmployeeCard({
   onSites,
   loadAttendance,
   sharedAttendance,
+  forms,
 }: {
   state: RotaState;
   lang: Lang;
@@ -166,6 +171,7 @@ function EmployeeCard({
   onSites: (employeeId: string, siteIds: string[], homeSiteId: string) => void;
   loadAttendance: AttendanceApi["employee"];
   sharedAttendance?: (employeeId: string) => AttendanceSnapshot | null;
+  forms: EmployeeFormsApi;
 }) {
   const t = copy[lang];
   const employee = state.emps.find((item) => item.id === employeeId)!;
@@ -275,6 +281,8 @@ function EmployeeCard({
           </div>
         ) : null}
       </section>
+
+      <EmployeeForms employeeId={employeeId} lang={lang} canWrite={canEditAgreement} api={forms} />
 
       <EmployeeAttendance employeeId={employeeId} lang={lang} load={loadAttendance} shared={sharedAttendance?.(employeeId)} />
 

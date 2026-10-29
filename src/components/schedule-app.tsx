@@ -93,6 +93,7 @@ import type { AttendanceRoster } from "../db/attendance";
 import type { AttendanceApi, AttendanceSnapshot } from "./attendance";
 import { StaffHome } from "./staff-home";
 import { TeamScreen } from "./team-screen";
+import { memoryEmployeeForms, remoteEmployeeForms } from "./employee-forms";
 import { HebrewCalendarContext } from "./day-dates";
 import { ManagerTradePrompt, tradeStillHeld, useSetAside, type ShiftTrade, type TradeApi, type TradeSite } from "./trades";
 import { useAiEnabled } from "./use-ai";
@@ -448,6 +449,12 @@ export function ScheduleApp() {
     if (json) headers["content-type"] = "application/json";
     return headers;
   }
+
+  const localForms = useRef(new Map());
+  const employeeForms = useMemo(
+    () => (remote ? remoteEmployeeForms(() => authHeaders()) : memoryEmployeeForms(localForms)),
+    [remote],
+  );
 
   async function adopt(token: string, signedInId: string, email: string) {
     tokenRef.current = token;
@@ -1763,6 +1770,7 @@ export function ScheduleApp() {
               changeWorkspace((current) => setEmployeeSites(current, employeeId, siteIds, currentWeek, homeSiteId))
             }
             loadAttendance={attendanceApi.employee}
+            forms={employeeForms}
           />
         ) : null}
         {screen === "constraints" ? (

@@ -108,6 +108,21 @@ export interface Copy {
   bankName: string;
   bankBranch: string;
   bankAccount: string;
+  employeeForms: string;
+  employeeFormsHint: string;
+  employeeFormsEmpty: string;
+  employeeFormsUpload: string;
+  employeeFormsUploading: string;
+  employeeFormsView: string;
+  employeeFormsDelete: string;
+  employeeFormsClose: string;
+  employeeFormsDownload: string;
+  employeeFormsOpenHint: string;
+  employeeFormsLoading: string;
+  employeeFormsTooBig: string;
+  employeeFormsType: string;
+  employeeFormsFull: string;
+  employeeFormsFailed: string;
   employeeSites: string;
   employeeSitesHint: string;
   primarySite: string;
@@ -562,6 +577,21 @@ export const copy: Record<Lang, Copy> = {
     bankName: "בנק",
     bankBranch: "סניף",
     bankAccount: "מספר חשבון",
+    employeeForms: "טפסי עובד",
+    employeeFormsHint: "חוזים, אישורים ומסמכים של העובד.",
+    employeeFormsEmpty: "אין טפסים.",
+    employeeFormsUpload: "העלאת טופס",
+    employeeFormsUploading: "מעלה…",
+    employeeFormsView: "צפייה",
+    employeeFormsDelete: "מחיקה",
+    employeeFormsClose: "סגירה",
+    employeeFormsDownload: "הורדה",
+    employeeFormsOpenHint: "הקובץ זמין להורדה.",
+    employeeFormsLoading: "טוען את הטפסים…",
+    employeeFormsTooBig: "הקובץ גדול מ-8 מגה.",
+    employeeFormsType: "אפשר להעלות PDF, תמונה, וורד, אקסל או טקסט.",
+    employeeFormsFull: "אפשר לשמור עד 30 טפסים לעובד.",
+    employeeFormsFailed: "הפעולה נכשלה. נסו שוב.",
     employeeSites: "אתרים",
     employeeSitesHint: "האילוצים וההסכם זהים בכל האתרים, והעובד מזוהה לפי המזהה והטלפון שלו גם בלי חשבון משתמש.",
     primarySite: "ראשי",
@@ -1028,6 +1058,21 @@ export const copy: Record<Lang, Copy> = {
     bankName: "Bank",
     bankBranch: "Branch",
     bankAccount: "Account number",
+    employeeForms: "Employee forms",
+    employeeFormsHint: "Contracts, certificates and documents for this person.",
+    employeeFormsEmpty: "No forms yet.",
+    employeeFormsUpload: "Upload a form",
+    employeeFormsUploading: "Uploading…",
+    employeeFormsView: "View",
+    employeeFormsDelete: "Delete",
+    employeeFormsClose: "Close",
+    employeeFormsDownload: "Download",
+    employeeFormsOpenHint: "This file is ready to download.",
+    employeeFormsLoading: "Loading forms…",
+    employeeFormsTooBig: "The file is larger than 8 MB.",
+    employeeFormsType: "Upload a PDF, image, Word, Excel or text file.",
+    employeeFormsFull: "An employee can keep up to 30 forms.",
+    employeeFormsFailed: "That didn't work. Try again.",
     employeeSites: "Sites",
     employeeSitesHint: "Constraints and the agreement are the same on every site, and the employee is recognized by id and phone even without a login.",
     primarySite: "Primary",
@@ -1462,6 +1507,10 @@ export function selectionHint(lang: Lang, name: string): string {
 
 export function removeLabel(lang: Lang, name: string): string {
   return lang === "he" ? `הסרת ${name}` : `Remove ${name}`;
+}
+
+export function confirmDeleteForm(lang: Lang, name: string): string {
+  return lang === "he" ? `למחוק את ${name}?` : `Delete ${name}?`;
 }
 
 export function confirmDeleteEmployee(lang: Lang, name: string): string {
