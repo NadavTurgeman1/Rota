@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { addDays, analyze, coveredSeats, diffIsEmpty, diffSchedules, ensureSchedule, planCallOff, slots, weekVersions } from "../domain";
+import { addDays, analyze, diffIsEmpty, diffSchedules, ensureSchedule, formatReason, fullShiftCoveredByHours, planCallOff, slotPresence, slots, weekVersions } from "../domain";
 import { SENTINEL, sentinelState } from "../demo/sentinel";
 import { MANAGER } from "../people/edit";
 import {
@@ -11,8 +11,10 @@ import {
   commit,
   copySchedule,
   deleteWeekVersion,
-  doubleShiftPlan,
-  extendToDouble,
+  canPlace,
+  hourFixes,
+  placementIssue,
+  setAssignmentHours,
   generateWeek,
   hasDraftAssignments,
   pasteSchedule,
@@ -34,7 +36,7 @@ import {
   toggleLock,
   undo,
 } from "./edit";
-import { pngFileName } from "./display";
+import { hourFixLine, pngFileName } from "./display";
 import { backupJson, weekExport } from "./export";
 import { readDemoSave, writeDemoSave } from "./storage";
 
@@ -339,73 +341,198 @@ describe("pasteSchedule", () => {
   });
 });
 
-describe("extendToDouble", () => {
+describe("setAssignmentHours", () => {
   const morning = `0|${SENTINEL.morning}`;
-  const afternoon = `0|${SENTINEL.afternoon}`;
-  const night = `0|${SENTINEL.night}`;
 
-  function withShift(slotKey: string, employeeId: string) {
-    const state = sentinelState("2026-10-18");
-    state.sched[state.week] = { assign: { [slotKey]: [employeeId] }, locked: [], status: "draft" };
+  function sundayOnly() {
+    const state = sentinelState("2026-10-11");
+    state.biz = {
+      ...state.biz,
+      shifts: state.biz.shifts.map((shift) => ({
+        ...shift,
+        req: shift.id === SENTINEL.morning ? [2, 0, 0, 0, 0, 0, 0] : [0, 0, 0, 0, 0, 0, 0],
+      })),
+    };
+    state.sched[state.week] = {
+      assign: { [morning]: [SENTINEL.dana, SENTINEL.noa] },
+      locked: [],
+      status: "draft",
+    };
     return state;
   }
 
-  it("stretches a morning shift four hours into the afternoon, then clears it", () => {
-    const state = withShift(morning, SENTINEL.dana);
-    expect(doubleShiftPlan(state, morning, SENTINEL.dana)).toMatchObject({
-      start: 6,
-      end: 18,
-      cover: afternoon,
-      full: false,
-    });
-    const extended = extendToDouble(state, morning, SENTINEL.dana);
-    expect(extended.sched[state.week].ext?.[`${morning}#${SENTINEL.dana}`]).toMatchObject({
-      start: 6,
-      end: 18,
-      cover: afternoon,
-      groupSize: 2,
-    });
-    expect(coveredSeats(extended.sched[state.week], afternoon)).toBe(0);
-    const cleared = extendToDouble(extended, morning, SENTINEL.dana);
-    expect(cleared.sched[state.week].ext?.[`${morning}#${SENTINEL.dana}`]).toBeUndefined();
+  it("notes a shortage for the hour one person leaves early, and publishes only after confirmation", () => {
+    const state = sundayOnly();
+    const next = setAssignmentHours(state, morning, SENTINEL.dana, 6, 13);
+    expect(next.sched[state.week].hours?.[`${morning}#${SENTINEL.dana}`]).toEqual({ start: 6, end: 13 });
+    const report = analyze(next, next.week);
+    expect(report.coverage).toEqual([expect.objectContaining({ start: 13, end: 14, delta: -1 })]);
+    expect(report.unfilled).toHaveLength(0);
+    expect(report.hours[SENTINEL.dana]).toBe(7);
+    expect(report.hours[SENTINEL.noa]).toBe(8);
+    expect(publishCheck(next)).toMatchObject({ ready: false, coverage: 1, constraint: 0 });
+    expect(publishWeek(next)).toBe(next);
+    const published = publishWeek(next, { id: "gap", at: "2026-10-11T08:00:00.000Z", by: "manager" }, { anyway: true });
+    expect(published.sched[next.week]?.status).toBe("published");
   });
 
-  it("covers the whole next shift when the length cap allows it", () => {
-    const state = withShift(morning, SENTINEL.dana);
-    state.biz.maxShift = 16;
-    state.sched[state.week].assign[afternoon] = [SENTINEL.dana, SENTINEL.maya];
-    const extended = extendToDouble(state, morning, SENTINEL.dana);
-    expect(extended.sched[state.week].assign[afternoon]).toEqual([SENTINEL.maya]);
-    expect(extended.sched[state.week].ext?.[`${morning}#${SENTINEL.dana}`]).toMatchObject({
-      start: 6,
-      end: 22,
-      groupSize: 1,
-    });
-    expect(coveredSeats(extended.sched[state.week], afternoon)).toBe(1);
+  it("refuses to publish a seat on a submitted constraint", () => {
+    const state = sundayOnly();
+    state.avail = { [state.week]: { [SENTINEL.dana]: [[], [], [], [], [], [], []] } };
+    expect(publishCheck(state).constraint).toBeGreaterThan(0);
+    expect(publishWeek(state, { id: "blocked", at: "2026-10-11T08:00:00.000Z", by: "manager" }, { anyway: true })).toBe(state);
   });
 
-  it("refuses a double that breaks rest, the agreement, or a published week", () => {
-    const resting = withShift(morning, SENTINEL.dana);
-    resting.sched[resting.week].assign[night] = [SENTINEL.dana];
-    expect(doubleShiftPlan(resting, morning, SENTINEL.dana)).toBeNull();
-    expect(extendToDouble(resting, morning, SENTINEL.dana)).toBe(resting);
+  it("records the shortened hours as a change", () => {
+    const state = sundayOnly();
+    const next = setAssignmentHours(state, morning, SENTINEL.dana, 6, 13);
+    expect(diffSchedules(state.sched[state.week], next.sched[next.week]).extensions).toEqual([
+      { slotKey: morning, employeeId: SENTINEL.dana, after: { start: 6, end: 13 } },
+    ]);
+  });
 
-    const backward = withShift(afternoon, SENTINEL.dana);
-    expect(doubleShiftPlan(backward, afternoon, SENTINEL.dana)).toMatchObject({
-      start: 10,
-      end: 22,
-      cover: morning,
-      full: false,
-    });
+  it("notes a surplus for an hour past the shift", () => {
+    const state = sundayOnly();
+    const next = setAssignmentHours(state, morning, SENTINEL.dana, 6, 15);
+    expect(analyze(next, next.week).coverage).toEqual([expect.objectContaining({ start: 14, end: 15, delta: 1 })]);
+  });
 
-    const forbidden = withShift(afternoon, SENTINEL.dana);
-    const dana = forbidden.emps.find((employee) => employee.id === SENTINEL.dana)!;
-    dana.grid = (dana.grid ?? []).map(() => [SENTINEL.afternoon]);
-    expect(doubleShiftPlan(forbidden, afternoon, SENTINEL.dana)).toBeNull();
+  it("publishes when staggered hours cover every hour of the shift", () => {
+    const state = sundayOnly();
+    const withDana = setAssignmentHours(state, morning, SENTINEL.dana, 6, 13);
+    const withYossi = addEmployee(withDana, morning, SENTINEL.yossi);
+    const next = setAssignmentHours(withYossi, morning, SENTINEL.yossi, 13, 14);
+    const report = analyze(next, next.week);
+    expect(report.coverage).toEqual([]);
+    expect(report.violations).toEqual([]);
+    expect(report.unfilled).toEqual([]);
+    expect(publishCheck(next).ready).toBe(true);
+  });
 
-    const published = withShift(morning, SENTINEL.dana);
-    published.sched[published.week].status = "published";
-    expect(extendToDouble(published, morning, SENTINEL.dana)).toBe(published);
+  it("clears the override when the hours match the shift, and refuses a published week", () => {
+    const state = sundayOnly();
+    const shortened = setAssignmentHours(state, morning, SENTINEL.dana, 6, 13);
+    const cleared = setAssignmentHours(shortened, morning, SENTINEL.dana, 6, 14);
+    expect(cleared.sched[state.week].hours).toBeUndefined();
+    expect(setAssignmentHours(state, morning, SENTINEL.dana, 6, 19)).toBe(state);
+    expect(setAssignmentHours(state, morning, SENTINEL.dana, 14, 16)).toBe(state);
+    const removed = removeEmployee(shortened, morning, SENTINEL.dana);
+    expect(removed.sched[state.week].hours).toBeUndefined();
+    shortened.sched[state.week].status = "published";
+    expect(setAssignmentHours(shortened, morning, SENTINEL.dana, 6, 12)).toBe(shortened);
+  });
+
+  it("treats a 12-hour morning and a 12-hour night as covering the afternoon seat they fill", () => {
+    const state = sentinelState("2026-10-11");
+    const clocks: Record<string, { start: string; end: string; req: number[] }> = {
+      [SENTINEL.morning]: { start: "07:00", end: "15:00", req: [2, 0, 0, 0, 0, 0, 0] },
+      [SENTINEL.afternoon]: { start: "15:00", end: "23:00", req: [2, 0, 0, 0, 0, 0, 0] },
+      [SENTINEL.night]: { start: "23:00", end: "07:00", req: [1, 0, 0, 0, 0, 0, 0] },
+    };
+    state.biz = {
+      ...state.biz,
+      shifts: state.biz.shifts.map((shift) => ({ ...shift, ...clocks[shift.id] })),
+    };
+    const morning = `0|${SENTINEL.morning}`;
+    const afternoon = `0|${SENTINEL.afternoon}`;
+    const night = `0|${SENTINEL.night}`;
+    state.sched[state.week] = {
+      assign: {
+        [morning]: [SENTINEL.dana, SENTINEL.noa],
+        [afternoon]: [SENTINEL.maya],
+        [night]: [SENTINEL.yossi],
+      },
+      locked: [],
+      status: "draft",
+    };
+    const extended = setAssignmentHours(
+      setAssignmentHours(state, morning, SENTINEL.dana, 7, 19),
+      night,
+      SENTINEL.yossi,
+      19,
+      31,
+    );
+    const report = analyze(extended, extended.week);
+    expect(report.coverage).toEqual([]);
+    expect(report.unfilled).toEqual([]);
+    expect(report.violations).toEqual([]);
+    const afternoonSlot = slots(extended, extended.week).find((slot) => slot.key === afternoon);
+    const morningSlot = slots(extended, extended.week).find((slot) => slot.key === morning);
+    expect(afternoonSlot && slotPresence(extended, afternoonSlot)).toBe(2);
+    expect(afternoonSlot && fullShiftCoveredByHours(extended, afternoonSlot)).toBe(true);
+    expect(morningSlot && fullShiftCoveredByHours(extended, morningSlot)).toBe(false);
+    expect(publishCheck(extended).ready).toBe(true);
+  });
+
+  it("offers the afternoon worker an earlier start for the hour a morning worker leaves early", () => {
+    const state = sentinelState("2026-10-11");
+    const clocks: Record<string, { start: string; end: string; req: number[] }> = {
+      [SENTINEL.morning]: { start: "07:00", end: "15:00", req: [2, 0, 0, 0, 0, 0, 0] },
+      [SENTINEL.afternoon]: { start: "15:00", end: "23:00", req: [2, 0, 0, 0, 0, 0, 0] },
+      [SENTINEL.night]: { start: "23:00", end: "07:00", req: [0, 0, 0, 0, 0, 0, 0] },
+    };
+    state.biz = {
+      ...state.biz,
+      shifts: state.biz.shifts.map((shift) => ({ ...shift, ...clocks[shift.id] })),
+    };
+    const morning = `0|${SENTINEL.morning}`;
+    const afternoon = `0|${SENTINEL.afternoon}`;
+    state.sched[state.week] = {
+      assign: {
+        [morning]: [SENTINEL.dana, SENTINEL.noa],
+        [afternoon]: [SENTINEL.maya, SENTINEL.yossi],
+      },
+      locked: [],
+      status: "draft",
+    };
+    const next = setAssignmentHours(state, morning, SENTINEL.dana, 7, 14);
+    const report = analyze(next, next.week);
+    expect(report.coverage).toEqual([expect.objectContaining({ start: 14, end: 15, delta: -1 })]);
+    expect(report.unfilled).toEqual([]);
+    const morningSlot = slots(next, next.week).find((slot) => slot.key === morning);
+    expect(morningSlot && fullShiftCoveredByHours(next, morningSlot)).toBe(false);
+    const fixes = hourFixes(next, report.coverage[0]);
+    const maya = fixes.find((fix) => fix.employeeId === SENTINEL.maya);
+    expect(maya).toMatchObject({ slotKey: afternoon, start: 14, end: 23, edge: "start" });
+    expect(hourFixLine(maya!, "he", next)).toContain("צהריים");
+    expect(hourFixLine(maya!, "he", next)).toContain("14:00");
+    const fixed = setAssignmentHours(next, maya!.slotKey, maya!.employeeId, maya!.start, maya!.end);
+    expect(analyze(fixed, fixed.week).coverage).toEqual([]);
+    expect(publishCheck(fixed).ready).toBe(true);
+  });
+
+  it("offers a night worker an earlier start for the afternoon hours a capped morning shift cannot cover", () => {
+    const state = sentinelState("2026-10-11");
+    state.biz = {
+      ...state.biz,
+      shifts: state.biz.shifts.map((shift) => ({
+        ...shift,
+        req: [2, 0, 0, 0, 0, 0, 0],
+      })),
+    };
+    const morning = `0|${SENTINEL.morning}`;
+    const afternoon = `0|${SENTINEL.afternoon}`;
+    const night = `0|${SENTINEL.night}`;
+    state.sched[state.week] = {
+      assign: {
+        [morning]: [SENTINEL.dana, SENTINEL.noa],
+        [afternoon]: [SENTINEL.maya],
+        [night]: [SENTINEL.yossi, SENTINEL.tal],
+      },
+      locked: [],
+      status: "draft",
+    };
+    const next = setAssignmentHours(state, morning, SENTINEL.dana, 6, 18);
+    const gap = analyze(next, next.week).coverage.find((item) => item.delta < 0);
+    expect(gap).toMatchObject({ start: 18, end: 22, delta: -1 });
+    const yossi = hourFixes(next, gap!).find((fix) => fix.employeeId === SENTINEL.yossi);
+    expect(yossi).toMatchObject({ slotKey: night, start: 18, end: 30, edge: "start" });
+    const fixed = setAssignmentHours(next, yossi!.slotKey, yossi!.employeeId, yossi!.start, yossi!.end);
+    const report = analyze(fixed, fixed.week);
+    expect(report.coverage).toEqual([]);
+    expect(report.unfilled).toEqual([]);
+    const afternoonSlot = slots(fixed, fixed.week).find((slot) => slot.key === afternoon);
+    expect(afternoonSlot && fullShiftCoveredByHours(fixed, afternoonSlot)).toBe(true);
   });
 });
 
@@ -471,5 +598,20 @@ describe("deleteWeekVersion", () => {
       "2026-10-11": removed.versions?.["2026-10-11"],
     });
     expect(deleteWeekVersion(gone, MANAGER, "missing")).toBe(gone);
+  });
+});
+
+describe("who can join a shift", () => {
+  it("keeps a free colleague open and names a constraint as unavailable", () => {
+    const state = sentinelState("2026-10-11");
+    const slot = slots(state, state.week).find((item) => item.day === 0 && item.shiftId === SENTINEL.morning)!;
+    state.avail = { [state.week]: { [SENTINEL.maya]: [[], [], [], [], [], [], []] } };
+    expect(placementIssue(state, slot, SENTINEL.yossi)).toBeNull();
+    const maya = placementIssue(state, slot, SENTINEL.maya);
+    expect(maya?.code).toBe("unavailable");
+    expect(canPlace(maya)).toBe(false);
+    expect(formatReason(maya!, "he")).toBe("סומן באילוצים כלא זמין למשמרת Morning ביום ראשון");
+    expect(formatReason({ code: "rest", hours: 0, label: "ראשון צהריים" }, "he")).toBe("אין מנוחה ליד ראשון צהריים");
+    expect(canPlace({ code: "weekly_shifts", agreed: 5 })).toBe(true);
   });
 });

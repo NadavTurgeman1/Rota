@@ -21,6 +21,26 @@ export function parseClock(value: string): number {
   return hours + minutes / 60;
 }
 
+/** `HH:mm` for an hour on the Sunday-based clock. Minutes round to the nearest minute. */
+export function formatClock(hour: number): string {
+  const wrapped = ((hour % 24) + 24) % 24;
+  const hours = Math.floor(wrapped + 1e-9);
+  const minutes = Math.round((wrapped - hours) * 60);
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+}
+
+/** Place a clock time on the day nearest `anchor`. `anchor` is hours from Sunday 00:00. */
+export function clockNear(anchor: number, value: string): number {
+  const clock = parseClock(value);
+  if (!Number.isFinite(clock)) return anchor;
+  const dayBase = Math.floor(anchor / 24) * 24;
+  let best = dayBase + clock;
+  for (const candidate of [dayBase - 24 + clock, dayBase + clock, dayBase + 24 + clock]) {
+    if (Math.abs(candidate - anchor) < Math.abs(best - anchor)) best = candidate;
+  }
+  return best;
+}
+
 /** Overnight shifts (end <= start) roll past midnight. A zero-length clock span is 24h. */
 export function durationHours(start: string, end: string): number {
   const length = (parseClock(end) - parseClock(start) + 24) % 24;

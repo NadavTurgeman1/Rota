@@ -11,6 +11,7 @@ describe("employee card", () => {
         city: "חיפה",
         maritalStatus: "married",
         startedOn: "2024-02-31",
+        employeeNumber: " 1042 ",
         bankAccount: "123456",
       }),
     ).toEqual({
@@ -24,6 +25,7 @@ describe("employee card", () => {
       zip: "",
       startedOn: "",
       endedOn: "",
+      employeeNumber: "1042",
       department: "",
       maritalStatus: "married",
       bankName: "",

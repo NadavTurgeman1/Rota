@@ -15,6 +15,7 @@ export type {
   ShiftDefinition,
   ShiftExtension,
   Slot,
+  CoverageGap,
   OverQuota,
   UnderContract,
   UnfilledShift,
@@ -22,8 +23,9 @@ export type {
   Violation,
 } from "./types";
 
-export { addDays, durationHours, gapBetween, parseClock, shiftKind, sundayOnOrBefore } from "./time";
-export { coveredSeats, effectiveSlot, ensureSchedule, shiftById } from "./schedule";
+export { addDays, clockNear, durationHours, formatClock, gapBetween, parseClock, shiftKind, sundayOnOrBefore } from "./time";
+export { HOUR_SPAN_GROUP, clearAssignmentHours, coveredSeats, effectiveSlot, ensureSchedule, shiftById } from "./schedule";
+export { assignmentSpan, coverageGaps, fullShiftCoveredByHours, slotPresence, touchedSlotKeys, weekCoverage } from "./coverage";
 export {
   agreementAllows,
   approvedExtraShifts,

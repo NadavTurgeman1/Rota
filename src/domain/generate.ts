@@ -22,6 +22,7 @@ export interface GenerateResult {
 export function generate(state: RotaState, week: string): GenerateResult {
   const schedule = ensureSchedule(state, week);
   schedule.ext = {};
+  delete schedule.hours;
   schedule.over = {};
   const previous = schedule.assign;
   const openSlots = slots(state, week);

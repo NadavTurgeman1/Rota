@@ -560,6 +560,14 @@ function EmployeeDetails({
       <div className="border-t border-line pt-6">
         <h3 className="text-sm font-medium text-ink">{t.profileEmployment}</h3>
         <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <TextField
+            label={t.employeeNumber}
+            value={profile.employeeNumber}
+            readOnly={readOnly}
+            ltr
+            testId="employee-number"
+            onCommit={(employeeNumber) => setProfile({ employeeNumber })}
+          />
           <TextField label={t.role} value={employee.role} readOnly={readOnly} onCommit={(role) => onUpdate({ role })} />
           <TextField label={t.department} value={profile.department} readOnly={readOnly} onCommit={(department) => setProfile({ department })} />
           <TextField label={t.qualifications} value={employee.quals} readOnly={readOnly} onCommit={(quals) => onUpdate({ quals })} />

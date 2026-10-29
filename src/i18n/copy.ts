@@ -21,18 +21,21 @@ export interface Copy {
   copySchedule: string;
   pasteSchedule: string;
   clearSchedule: string;
-  extendDouble: string;
-  extendDoubleLabel: (name: string) => string;
-  clearDoubleLabel: (name: string) => string;
   editShiftLabel: (filled: number, required: number) => string;
   requiredOnShift: string;
   fewerRequired: string;
   moreRequired: string;
-  shortenShift: string;
-  noDoubleRoom: string;
+  startHourLabel: (name: string) => string;
+  endHourLabel: (name: string) => string;
+  resetShiftHours: string;
+  shiftHoursHint: string;
+  coverageTitle: string;
   callOffHint: string;
   closePanel: string;
   publish: string;
+  publishAskTitle: string;
+  publishAnyway: string;
+  publishStay: string;
   revert: string;
   undo: string;
   redo: string;
@@ -55,7 +58,13 @@ export interface Copy {
   noQuota: string;
   summaryTotal: string;
   approve: string;
+  solutionAdd: string;
+  solutionExtend: string;
+  solutionChange: string;
   addEmployee: string;
+  availableForShift: string;
+  unavailableForShift: string;
+  nobodyToAdd: string;
   remove: string;
   covered: string;
   cancelSelection: string;
@@ -87,6 +96,7 @@ export interface Copy {
   startedOn: string;
   endedOn: string;
   department: string;
+  employeeNumber: string;
   maritalStatus: string;
   maritalSingle: string;
   maritalMarried: string;
@@ -446,18 +456,21 @@ export const copy: Record<Lang, Copy> = {
     copySchedule: "העתקת סידור",
     pasteSchedule: "הדבקת סידור",
     clearSchedule: "נקה סידור",
-    extendDouble: "כפולה",
-    extendDoubleLabel: (name) => `הארכה של ${name} לכפולה`,
-    clearDoubleLabel: (name) => `ביטול הכפולה של ${name}`,
     editShiftLabel: (filled, required) => `עריכת משמרת, ${filled} מתוך ${required}`,
     requiredOnShift: "עובדים נדרשים",
     fewerRequired: "פחות עובדים",
     moreRequired: "יותר עובדים",
-    shortenShift: "קיצור",
-    noDoubleRoom: "אין משמרת צמודה להארכה",
+    startHourLabel: (name) => `שעת התחלה של ${name}`,
+    endHourLabel: (name) => `שעת סיום של ${name}`,
+    resetShiftHours: "לשעות המשמרת",
+    shiftHoursHint: "כל עובד מתחיל בשעות המשמרת. שעות שממשיכות למשמרת הבאה נספרות שם. חוסר או עודף שנשאר מופיע בהערות, והפרסום מבקש אישור.",
+    coverageTitle: "חוסר ועודף",
     callOffHint: "אפשר לסמן חיסור על עובד במשמרת הזו.",
     closePanel: "סגירה",
     publish: "פרסום",
+    publishAskTitle: "לפרסם בכל זאת?",
+    publishAnyway: "פרסום בכל זאת",
+    publishStay: "להשאיר טיוטה",
     revert: "ערוך סידור",
     undo: "ביטול",
     redo: "שחזר",
@@ -480,7 +493,13 @@ export const copy: Record<Lang, Copy> = {
     noQuota: "ללא מכסה",
     summaryTotal: "סה״כ",
     approve: "אישור",
+    solutionAdd: "הוספת עובד זמין למשמרת",
+    solutionExtend: "הארכת משמרות קיימות",
+    solutionChange: "שינויים, מעברים והחלפות",
     addEmployee: "הוספת עובד",
+    availableForShift: "זמינים",
+    unavailableForShift: "לא זמינים",
+    nobodyToAdd: "אין מי להוסיף",
     remove: "הסרה",
     covered: "מכוסה בהארכה",
     cancelSelection: "ביטול בחירה",
@@ -512,6 +531,7 @@ export const copy: Record<Lang, Copy> = {
     startedOn: "תאריך תחילה",
     endedOn: "תאריך סיום",
     department: "מחלקה",
+    employeeNumber: "מספר עובד",
     maritalStatus: "מצב משפחתי",
     maritalSingle: "רווק/ה",
     maritalMarried: "נשוי/אה",
@@ -883,18 +903,21 @@ export const copy: Record<Lang, Copy> = {
     copySchedule: "Copy schedule",
     pasteSchedule: "Paste schedule",
     clearSchedule: "Clear schedule",
-    extendDouble: "Double",
-    extendDoubleLabel: (name) => `Extend ${name} into a double`,
-    clearDoubleLabel: (name) => `Remove ${name}'s double`,
     editShiftLabel: (filled, required) => `Edit shift, ${filled} of ${required}`,
     requiredOnShift: "Employees required",
     fewerRequired: "Fewer employees",
     moreRequired: "More employees",
-    shortenShift: "Shorten",
-    noDoubleRoom: "No touching shift to extend into",
+    startHourLabel: (name) => `${name}'s start`,
+    endHourLabel: (name) => `${name}'s end`,
+    resetShiftHours: "Use the shift hours",
+    shiftHoursHint: "Each person starts on the shift's hours. Hours that run into the next shift count there. A shortage or surplus that remains is noted, and publishing asks first.",
+    coverageTitle: "Shortages and extras",
     callOffHint: "Mark a call-off for someone on this shift.",
     closePanel: "Close",
     publish: "Publish",
+    publishAskTitle: "Publish anyway?",
+    publishAnyway: "Publish anyway",
+    publishStay: "Keep as draft",
     revert: "Edit schedule",
     undo: "Undo",
     redo: "Redo",
@@ -917,7 +940,13 @@ export const copy: Record<Lang, Copy> = {
     noQuota: "No quota",
     summaryTotal: "Total",
     approve: "Approve",
+    solutionAdd: "Add an available employee",
+    solutionExtend: "Extend existing shifts",
+    solutionChange: "Changes, moves, and swaps",
     addEmployee: "Add employee",
+    availableForShift: "Available",
+    unavailableForShift: "Unavailable",
+    nobodyToAdd: "No one to add",
     remove: "Remove",
     covered: "Covered by an extension",
     cancelSelection: "Cancel selection",
@@ -949,6 +978,7 @@ export const copy: Record<Lang, Copy> = {
     startedOn: "Start date",
     endedOn: "End date",
     department: "Department",
+    employeeNumber: "Employee number",
     maritalStatus: "Family status",
     maritalSingle: "Single",
     maritalMarried: "Married",
@@ -1302,15 +1332,69 @@ export const copy: Record<Lang, Copy> = {
   },
 };
 
-export function publishBlocked(lang: Lang, violations: number, unfilled: number): string {
+function problemParts(lang: Lang, violations: number, unfilled: number, coverage: number): string {
+  const parts =
+    lang === "en"
+      ? [
+          unfilled === 1 ? "1 open shift" : unfilled > 0 ? `${unfilled} open shifts` : "",
+          violations === 1 ? "1 violation" : violations > 0 ? `${violations} violations` : "",
+          coverage === 1 ? "1 coverage gap" : coverage > 0 ? `${coverage} coverage gaps` : "",
+        ]
+      : [
+          unfilled === 1 ? "משמרת פתוחה אחת" : unfilled > 0 ? `${unfilled} משמרות פתוחות` : "",
+          violations === 1 ? "הפרה אחת" : violations > 0 ? `${violations} הפרות` : "",
+          coverage === 1 ? "פער כיסוי אחד" : coverage > 0 ? `${coverage} פערי כיסוי` : "",
+        ];
+  return parts.filter(Boolean).join(", ");
+}
+
+export function publishBlocked(lang: Lang, violations: number, unfilled: number, coverage = 0): string {
+  const body = problemParts(lang, violations, unfilled, coverage);
+  return lang === "en" ? `Publish is blocked: ${body}.` : `פרסום חסום: ${body}.`;
+}
+
+/** The sentence in the publish confirmation. The count is open shifts, violations, and coverage gaps. */
+export function publishProblems(lang: Lang, violations: number, unfilled: number, coverage = 0): string {
+  const count = violations + unfilled + coverage;
+  const body = problemParts(lang, violations, unfilled, coverage);
   if (lang === "en") {
-    const holes = unfilled === 1 ? "1 open shift" : `${unfilled} open shifts`;
-    const breaks = violations === 1 ? "1 violation" : `${violations} violations`;
-    return `Publish is blocked: ${holes}, ${breaks}.`;
+    const lead = count === 1 ? "There is 1 problem" : `There are ${count} problems`;
+    return body ? `${lead}: ${body}.` : `${lead}.`;
   }
-  const holes = unfilled === 1 ? "משמרת פתוחה אחת" : `${unfilled} משמרות פתוחות`;
-  const breaks = violations === 1 ? "הפרה אחת" : `${violations} הפרות`;
-  return `פרסום חסום: ${holes}, ${breaks}.`;
+  const lead = count === 1 ? "יש בעיה אחת" : `יש ${count} בעיות`;
+  return body ? `${lead}: ${body}.` : `${lead}.`;
+}
+
+export function publishWillAsk(lang: Lang, count: number): string {
+  if (lang === "en") return count === 1 ? "There is 1 problem. Publishing will ask first." : `There are ${count} problems. Publishing will ask first.`;
+  return count === 1 ? "יש בעיה אחת. הפרסום יבקש אישור." : `יש ${count} בעיות. הפרסום יבקש אישור.`;
+}
+
+export function constraintBlocked(lang: Lang, count: number): string {
+  if (lang === "en") {
+    return count === 1
+      ? "Publish is blocked: someone is scheduled against a constraint."
+      : `Publish is blocked: ${count} assignments break a constraint.`;
+  }
+  return count === 1 ? "פרסום חסום: יש שיבוץ על אילוץ." : `פרסום חסום: יש ${count} שיבוצים על אילוץ.`;
+}
+
+/** One suggested clock change. The time is the new start or the new end. */
+export function hourFixText(lang: Lang, name: string, shift: string, edge: "start" | "end", clock: string): string {
+  const time = `\u200E${clock}`;
+  if (lang === "en") return edge === "start" ? `${name} starts ${shift} at ${time}` : `${name} finishes ${shift} at ${time}`;
+  return edge === "start" ? `${name} — ${shift} מ-${time}` : `${name} — ${shift} עד ${time}`;
+}
+
+/** Shortage or surplus, without the shift name. The clock range is added beside it. */
+export function coverageGapText(lang: Lang, delta: number): string {
+  const count = Math.abs(delta);
+  if (lang === "en") {
+    if (delta < 0) return count === 1 ? "One employee short" : `${count} employees short`;
+    return count === 1 ? "One extra employee" : `${count} extra employees`;
+  }
+  if (delta < 0) return count === 1 ? "חוסר של עובד אחד" : `חוסר של ${count} עובדים`;
+  return count === 1 ? "עודף של עובד אחד" : `עודף של ${count} עובדים`;
 }
 
 export function selectionHint(lang: Lang, name: string): string {

@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import {
   formatReason,
   planCallOff,
@@ -9,9 +9,83 @@ import {
   type RotaState,
   type Slot,
 } from "../domain";
-import { copy } from "../i18n/copy";
-import { localizeShiftNames, proposalText, replacementText, slotTitle, splitText } from "../schedule/display";
-import { proposalsFor, reliefChoices } from "../schedule/edit";
+import { coverageGapText, copy } from "../i18n/copy";
+import { hourFixLine, localizeShiftNames, proposalText, replacementText, slotTitle, splitText } from "../schedule/display";
+import { clockLabel, hourFixBucket, hourFixes, proposalBucket, proposalsFor, reliefChoices, type HourFix, type Proposal } from "../schedule/edit";
+import { SolutionGroups } from "./solution-groups";
+
+function hourFixButton(
+  slot: Slot,
+  fix: HourFix,
+  lang: Lang,
+  state: RotaState,
+  onAdjustHours: (slotKey: string, employeeId: string, start: number, end: number) => void,
+) {
+  return (
+    <button
+      key={`${fix.slotKey}-${fix.employeeId}-${fix.edge}-${fix.start}-${fix.end}`}
+      type="button"
+      data-testid={`hour-fix-${slot.day}-${slot.shiftId}-${fix.employeeId}-${fix.edge}`}
+      className={buttons.action}
+      onClick={() => onAdjustHours(fix.slotKey, fix.employeeId, fix.start, fix.end)}
+    >
+      {hourFixLine(fix, lang, state)}
+    </button>
+  );
+}
+
+function proposalButton(slot: Slot, proposal: Proposal, index: number, lang: Lang, state: RotaState, onApprove: (slot: Slot, index: number) => void) {
+  const t = copy[lang];
+  return (
+    <button
+      key={`${proposal.kind}-${index}`}
+      type="button"
+      data-testid={`approve-${slot.day}-${slot.shiftId}-${index}`}
+      className={buttons.action}
+      onClick={() => onApprove(slot, index)}
+    >
+      {t.approve}: {proposalText(proposal, lang, state)}
+    </button>
+  );
+}
+
+function SolutionMenu({
+  testId,
+  lang,
+  state,
+  slot,
+  add,
+  extend,
+  change,
+  proposals,
+  onApprove,
+}: {
+  testId: string;
+  lang: Lang;
+  state: RotaState;
+  slot: Slot;
+  add: ReactNode[];
+  extend: ReactNode[];
+  change: ReactNode[];
+  proposals: Proposal[];
+  onApprove: (slot: Slot, index: number) => void;
+}) {
+  const t = copy[lang];
+  const groups: Record<"add" | "extend" | "change", ReactNode[]> = { add: [...add], extend: [...extend], change: [...change] };
+  proposals.forEach((proposal, index) => {
+    groups[proposalBucket(proposal)].push(proposalButton(slot, proposal, index, lang, state, onApprove));
+  });
+  return (
+    <SolutionGroups
+      testId={testId}
+      groups={[
+        { id: "add", title: t.solutionAdd, items: groups.add },
+        { id: "extend", title: t.solutionExtend, items: groups.extend },
+        { id: "change", title: t.solutionChange, items: groups.change },
+      ]}
+    />
+  );
+}
 import { jsonAuthHeaders } from "../supabase/browser";
 import { button as buttons, cardTitle, surface } from "./ui";
 
@@ -24,6 +98,7 @@ export function IssuesPanel({
   published,
   aiEnabled,
   onApprove,
+  onAdjustHours,
   onReplace,
   onEmergency,
   embedded = false,
@@ -36,13 +111,14 @@ export function IssuesPanel({
   published: boolean;
   aiEnabled: boolean;
   onApprove: (slot: Slot, index: number) => void;
+  onAdjustHours: (slotKey: string, employeeId: string, start: number, end: number) => void;
   onReplace: (slot: Slot, employeeId: string) => void;
   onEmergency: (slot: Slot, choice: EmergencyChoice) => void;
   /** Inside the schedule side box, so the frame and the title already exist. */
   embedded?: boolean;
 }) {
   const t = copy[lang];
-  const clear = hasSchedule && report.violations.length === 0 && report.unfilled.length === 0;
+  const clear = hasSchedule && report.violations.length === 0 && report.unfilled.length === 0 && report.coverage.length === 0;
   const showPublishHint = manager && !published;
 
   return (
@@ -59,6 +135,48 @@ export function IssuesPanel({
                 {localizeShiftNames(item.message, lang)}
               </li>
             ))}
+          </ul>
+        </section>
+      ) : null}
+      {report.coverage.length > 0 ? (
+        <section className="mt-4" data-testid="coverage-gaps">
+          <h3 className="text-sm font-medium text-danger-text">{t.coverageTitle}</h3>
+          <ul className="mt-2 space-y-2">
+            {report.coverage.map((item) => {
+              const fixes = manager && !published ? hourFixes(state, item) : [];
+              const wholeSeat =
+                fixes.length === 0 &&
+                manager &&
+                !published &&
+                item.delta < 0 &&
+                item.start <= item.slot.start + 0.05 &&
+                item.end >= item.slot.end - 0.05;
+              const proposals = wholeSeat ? proposalsFor(state, item.slot) : [];
+              return (
+                <li
+                  key={`${item.slot.key}-${item.start}-${item.end}-${item.delta}`}
+                  className="rounded-xl border border-danger-line/40 bg-danger-soft/50 px-3 py-2 text-sm leading-6"
+                >
+                  <span className="font-medium">{slotTitle(state, item.slot, lang)}</span>
+                  {": "}
+                  {coverageGapText(lang, item.delta)}{" "}
+                  <span dir="ltr" className="tabular-nums">
+                    {clockLabel(item.start)}–{clockLabel(item.end)}
+                  </span>
+                  <SolutionMenu
+                    testId={`solutions-${item.slot.day}-${item.slot.shiftId}-${item.start}`}
+                    lang={lang}
+                    state={state}
+                    slot={item.slot}
+                    add={[]}
+                    extend={hourFixBucket(item.delta) === "extend" ? fixes.map((fix) => hourFixButton(item.slot, fix, lang, state, onAdjustHours)) : []}
+                    change={hourFixBucket(item.delta) === "change" ? fixes.map((fix) => hourFixButton(item.slot, fix, lang, state, onAdjustHours)) : []}
+                    proposals={proposals}
+                    onApprove={onApprove}
+                  />
+                </li>
+              );
+            })}
           </ul>
         </section>
       ) : null}
@@ -85,21 +203,17 @@ export function IssuesPanel({
                   <p className="font-medium">{slotTitle(state, item.slot, lang)}</p>
                   <p className="mt-1 text-muted">{localizeShiftNames(item.why, lang)}</p>
                   <p className="mt-1 text-muted">{localizeShiftNames(item.tip, lang)}</p>
-                  {proposals.length === 0 ? null : (
-                    <div className="mt-2 flex flex-col gap-1">
-                      {proposals.map((proposal, index) => (
-                        <button
-                          key={`${proposal.kind}-${index}`}
-                          type="button"
-                          data-testid={`approve-${item.slot.day}-${item.slot.shiftId}-${index}`}
-                          className={buttons.action}
-                          onClick={() => onApprove(item.slot, index)}
-                        >
-                          {t.approve}: {proposalText(proposal, lang, state)}
-                        </button>
-                      ))}
-                    </div>
-                  )}
+                  <SolutionMenu
+                    testId={`solutions-${item.slot.day}-${item.slot.shiftId}`}
+                    lang={lang}
+                    add={[]}
+                    extend={[]}
+                    change={[]}
+                    proposals={proposals}
+                    state={state}
+                    slot={item.slot}
+                    onApprove={onApprove}
+                  />
                   {manager && !published
                     ? reliefChoices(state, item.slot)
                         .filter((choice) => choice.held)
@@ -218,68 +332,67 @@ function CallOffChoices({
   const t = copy[lang];
   const plan = planCallOff(state, slot);
   const button = buttons.action;
+  const hasReplacement = plan.replacements.length > 0;
+  const add = hasReplacement
+    ? plan.replacements.map((candidate) => (
+        <button
+          key={candidate.employeeId}
+          type="button"
+          data-testid={`replace-${slot.day}-${slot.shiftId}-${candidate.employeeId}`}
+          className={button}
+          onClick={() => onReplace(slot, candidate.employeeId)}
+        >
+          {t.assignReplacement}: {replacementText(candidate, lang)}
+        </button>
+      ))
+    : plan.extras.map((option, index) => (
+        <button
+          key={`extra-${index}`}
+          type="button"
+          data-testid={`emergency-extra-${slot.day}-${slot.shiftId}-${index}`}
+          className={button}
+          onClick={() => onEmergency(slot, { kind: "extra", index })}
+        >
+          {t.approve}: {proposalText({ kind: "extra", option }, lang, state)}
+        </button>
+      ));
+  const extend = hasReplacement
+    ? []
+    : plan.extensions.map((option, index) => (
+        <button
+          key={`extension-${index}`}
+          type="button"
+          data-testid={`emergency-extension-${slot.day}-${slot.shiftId}-${index}`}
+          className={button}
+          onClick={() => onEmergency(slot, { kind: "extension", index })}
+        >
+          {t.approve}: {proposalText({ kind: "coverage", option }, lang, state)}
+        </button>
+      ));
+  const change = hasReplacement
+    ? []
+    : plan.splits.map((option, index) => (
+        <button
+          key={`split-${index}`}
+          type="button"
+          data-testid={`emergency-split-${slot.day}-${slot.shiftId}-${index}`}
+          className={button}
+          onClick={() => onEmergency(slot, { kind: "split", index })}
+        >
+          {t.approve}: {splitText(option, lang, state)}
+        </button>
+      ));
   return (
     <div className="mt-2 flex flex-col gap-2">
-      {plan.replacements.length > 0 ? (
-        <div>
-          <p className="text-xs font-medium text-brand-text">{t.replacements}</p>
-          <div className="mt-1 flex flex-col gap-1">
-            {plan.replacements.map((candidate) => (
-              <button
-                key={candidate.employeeId}
-                type="button"
-                data-testid={`replace-${slot.day}-${slot.shiftId}-${candidate.employeeId}`}
-                className={button}
-                onClick={() => onReplace(slot, candidate.employeeId)}
-              >
-                {t.assignReplacement}: {replacementText(candidate, lang)}
-              </button>
-            ))}
-          </div>
-        </div>
-      ) : (
-        <div>
-          <p className="text-xs text-danger-text">{t.noReplacement}</p>
-          {plan.extensions.length + plan.splits.length + plan.extras.length > 0 ? (
-            <div className="mt-1 flex flex-col gap-1">
-              <p className="text-xs font-medium">{t.emergency}</p>
-              {plan.extras.map((option, index) => (
-                <button
-                  key={`extra-${index}`}
-                  type="button"
-                  data-testid={`emergency-extra-${slot.day}-${slot.shiftId}-${index}`}
-                  className={button}
-                  onClick={() => onEmergency(slot, { kind: "extra", index })}
-                >
-                  {t.approve}: {proposalText({ kind: "extra", option }, lang, state)}
-                </button>
-              ))}
-              {plan.extensions.map((option, index) => (
-                <button
-                  key={`extension-${index}`}
-                  type="button"
-                  data-testid={`emergency-extension-${slot.day}-${slot.shiftId}-${index}`}
-                  className={button}
-                  onClick={() => onEmergency(slot, { kind: "extension", index })}
-                >
-                  {t.approve}: {proposalText({ kind: "coverage", option }, lang, state)}
-                </button>
-              ))}
-              {plan.splits.map((option, index) => (
-                <button
-                  key={`split-${index}`}
-                  type="button"
-                  data-testid={`emergency-split-${slot.day}-${slot.shiftId}-${index}`}
-                  className={button}
-                  onClick={() => onEmergency(slot, { kind: "split", index })}
-                >
-                  {t.approve}: {splitText(option, lang, state)}
-                </button>
-              ))}
-            </div>
-          ) : null}
-        </div>
-      )}
+      {hasReplacement ? null : <p className="text-xs text-danger-text">{t.noReplacement}</p>}
+      <SolutionGroups
+        testId={`solutions-calloff-${slot.day}-${slot.shiftId}`}
+        groups={[
+          { id: "add", title: t.solutionAdd, items: add },
+          { id: "extend", title: t.solutionExtend, items: extend },
+          { id: "change", title: t.solutionChange, items: change },
+        ]}
+      />
       {plan.rejected.length > 0 ? (
         <div>
           <p className="text-xs font-medium text-muted">{t.rejectedTitle}</p>

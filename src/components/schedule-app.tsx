@@ -6,7 +6,7 @@ import type { VersionStamp } from "../domain/versions";
 import { peerDuties } from "../domain/peers";
 import { isRelief } from "../domain/relief";
 import { addShift, removeShift, setShiftRequirement, updateBusiness, updateShift } from "../business/edit";
-import { copy, deleteEmployeeBlocked, publishBlocked, selectionHint } from "../i18n/copy";
+import { constraintBlocked, copy, deleteEmployeeBlocked, publishWillAsk, selectionHint } from "../i18n/copy";
 import { exportFileName, formatWeekRange, pngFileName, siteLabel } from "../schedule/display";
 import { backupJson, parseBackupJson, siteShiftsIcs, weekCsv, weekExcelXml, weekExport, weekText } from "../schedule/export";
 import {
@@ -29,7 +29,7 @@ import {
   clearSchedule,
   copySchedule,
   deleteWeekVersion,
-  extendToDouble,
+  setAssignmentHours,
   hasAssignments,
   hasDraftAssignments,
   pasteSchedule,
@@ -98,10 +98,11 @@ import { VersionsPanel } from "./versions-panel";
 import { staffCanSubmitConstraints, withConstraintExtension } from "../schedule/constraint-window";
 import { WeekPicker } from "./week-picker";
 import { WeekSummary } from "./week-summary";
+import { PublishAsk } from "./publish-ask";
 import { button } from "./ui";
 import { downloadBlob, downloadWeekPng } from "./week-png";
 
-const EMPTY: Analysis = { violations: [], overQuota: [], unfilled: [], under: [], hours: {}, counts: {} };
+const EMPTY: Analysis = { violations: [], overQuota: [], unfilled: [], coverage: [], under: [], hours: {}, counts: {} };
 const THEME_KEY = "rota.theme";
 const SUPPORT_KEY = "rota.supportOrg";
 
@@ -256,6 +257,7 @@ export function ScheduleApp() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const staffChain = useRef(Promise.resolve());
   const [nowHours, setNowHours] = useState<number | null>(null);
+  const [publishAsk, setPublishAsk] = useState(false);
   const [currentWeek, setCurrentWeek] = useState("2026-10-11");
   const aiEnabled = useAiEnabled();
   const t = copy[lang];
@@ -1050,8 +1052,20 @@ export function ScheduleApp() {
   }
 
   function publish() {
-    if (!user) return;
-    const next = publishWeek(state, freshStamp(user.name));
+    if (!user || !scheduleIssuesOpen(state)) return;
+    const current = publishCheck(peered);
+    if (current.constraint > 0) return;
+    if (!current.ready) {
+      setPublishAsk(true);
+      return;
+    }
+    commitPublish(false);
+  }
+
+  function commitPublish(anyway: boolean) {
+    if (!user || publishCheck(peered).constraint > 0) return;
+    setPublishAsk(false);
+    const next = publishWeek(state, freshStamp(user.name), { anyway });
     if (next === state) return;
     change(() => next);
   }
@@ -1235,7 +1249,7 @@ export function ScheduleApp() {
   const issuesOpen = scheduleIssuesOpen(state);
   const fullReport = schedule ? analyze(peered, peered.week, lang) : EMPTY;
   const report = issuesOpen ? fullReport : EMPTY;
-  const check = issuesOpen ? publishCheck(peered) : { ready: false, violations: 0, unfilled: 0 };
+  const check = issuesOpen ? publishCheck(peered) : { ready: false, violations: 0, unfilled: 0, coverage: 0, constraint: 0 };
   const openSlots = slots(state, state.week);
   const selectedName = selection ? employeeName(state, parseAssignmentToken(selection)?.employeeId ?? "") : null;
 
@@ -1247,9 +1261,11 @@ export function ScheduleApp() {
         ? fullReport.unfilled.length > 0
           ? t.publishedOpen
           : t.publishedLock
-        : check.ready
-          ? t.allClear
-          : publishBlocked(lang, check.violations, check.unfilled);
+        : check.constraint > 0
+          ? constraintBlocked(lang, check.constraint)
+          : check.ready
+            ? t.allClear
+            : publishWillAsk(lang, check.violations + check.unfilled + check.coverage);
 
   const boardProps = {
     state: peered,
@@ -1277,7 +1293,8 @@ export function ScheduleApp() {
           nowHours: nowHours ?? Number.POSITIVE_INFINITY,
         }),
       ),
-    onExtend: (slotKey: string, employeeId: string) => change((current) => extendToDouble(current, slotKey, employeeId)),
+    onHours: (slotKey: string, employeeId: string, start: number, end: number) =>
+      change((current) => setAssignmentHours(current, slotKey, employeeId, start, end)),
     onRequired: (shiftId: string, day: number, count: number) =>
       change((current) => setShiftRequirement(current, actor, shiftId, day, count)),
   };
@@ -1456,7 +1473,7 @@ export function ScheduleApp() {
                 </button>
                 <PublishButton
                   lang={lang}
-                  canPublish={writer && Boolean(schedule) && !published && check.ready}
+                  canPublish={writer && Boolean(schedule) && !published && issuesOpen && check.constraint === 0}
                   published={Boolean(published)}
                   onPublish={publish}
                   onPng={exportPng}
@@ -1533,7 +1550,7 @@ export function ScheduleApp() {
                 ).map(([id, label]) => {
                   const count =
                     id === "issues" && schedule
-                      ? report.violations.length + report.unfilled.length + report.overQuota.length + report.under.length
+                      ? report.violations.length + report.unfilled.length + report.coverage.length + report.overQuota.length + report.under.length
                       : 0;
                   return (
                     <button
@@ -1565,6 +1582,9 @@ export function ScheduleApp() {
                     published={Boolean(published)}
                     aiEnabled={aiEnabled}
                     onApprove={(slot, index) => change((current) => approveProposal(current, slot, index))}
+                    onAdjustHours={(slotKey, employeeId, start, end) =>
+                      change((current) => setAssignmentHours(current, slotKey, employeeId, start, end))
+                    }
                     onReplace={(slot, employeeId) =>
                       change((current) => approveReplacement(current, actor, slot.key, employeeId))
                     }
@@ -1731,6 +1751,16 @@ export function ScheduleApp() {
             </button>
           </div>
         </div>
+      ) : null}
+      {publishAsk ? (
+        <PublishAsk
+          lang={lang}
+          violations={check.violations}
+          unfilled={check.unfilled}
+          coverage={check.coverage}
+          onPublish={() => commitPublish(true)}
+          onStay={() => setPublishAsk(false)}
+        />
       ) : null}
       {review && reviewSite ? (
         <ManagerTradePrompt

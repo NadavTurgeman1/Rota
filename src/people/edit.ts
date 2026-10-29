@@ -258,6 +258,8 @@ export function removeEmployeeRecord(state: RotaState, actor: Actor, employeeId:
     }
     schedule.locked = schedule.locked.filter((token) => !token.endsWith(suffix));
     for (const token of Object.keys(schedule.ext ?? {})) if (token.endsWith(suffix)) delete schedule.ext![token];
+    for (const token of Object.keys(schedule.hours ?? {})) if (token.endsWith(suffix)) delete schedule.hours![token];
+    if (schedule.hours && Object.keys(schedule.hours).length === 0) delete schedule.hours;
     for (const token of Object.keys(schedule.over ?? {})) if (token.endsWith(suffix)) delete schedule.over![token];
   }
   draft.former = { ...draft.former, [employeeId]: employee.name };

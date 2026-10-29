@@ -1,13 +1,14 @@
 import { useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
-import { dayName, type Lang, type RotaState, type Slot } from "../domain";
-import { callOffLabel, copy } from "../i18n/copy";
+import { clockNear, coverageGaps, type Lang, type RotaState, type Slot } from "../domain";
+import { callOffLabel, coverageGapText, copy } from "../i18n/copy";
 import { employeeName } from "../people/edit";
-import { shiftLabel } from "../schedule/display";
-import { assignmentToken, clockLabel, doubleShiftPlan } from "../schedule/edit";
-import { button, card, cardTitle } from "./ui";
+import { hourFixLine, slotTitle } from "../schedule/display";
+import { assignmentToken, clockLabel, hourFixBucket, hourFixes } from "../schedule/edit";
+import { SolutionGroups } from "./solution-groups";
+import { button, card, cardTitle, field } from "./ui";
 
-/** Edits one cell. A draft changes headcount and doubles. A published week only records a call-off. */
+/** Edits one cell. A draft changes headcount and each person's hours. A published week only records a call-off. */
 export function SlotEditor({
   state,
   slot,
@@ -16,7 +17,7 @@ export function SlotEditor({
   nowHours,
   onClose,
   onRequired,
-  onExtend,
+  onHours,
   onCallOff,
 }: {
   state: RotaState;
@@ -26,7 +27,7 @@ export function SlotEditor({
   nowHours: number | null;
   onClose: () => void;
   onRequired: (shiftId: string, day: number, count: number) => void;
-  onExtend: (slotKey: string, employeeId: string) => void;
+  onHours: (slotKey: string, employeeId: string, start: number, end: number) => void;
   onCallOff: (slotKey: string, employeeId: string) => void;
 }) {
   const t = copy[lang];
@@ -34,7 +35,8 @@ export function SlotEditor({
   const schedule = state.sched[state.week];
   const ids = schedule?.assign[slot.key] ?? [];
   const shift = state.biz.shifts.find((item) => item.id === slot.shiftId);
-  const title = `${dayName(slot.day, lang)} · ${shiftLabel(shift?.name ?? "", lang)}`;
+  const title = slotTitle(state, slot, lang);
+  const gaps = published ? [] : coverageGaps(state, slot);
 
   useEffect(() => {
     dialog.current?.focus();
@@ -64,7 +66,7 @@ export function SlotEditor({
         tabIndex={-1}
         data-testid="slot-editor"
         data-mode={published ? "calloff" : "draft"}
-        className={`${card} pop-in pop-in-center w-full max-w-md outline-none`}
+        className={`${card} pop-in pop-in-center flex max-h-[min(40rem,calc(100dvh-2rem))] w-full max-w-md flex-col overflow-y-auto outline-none`}
         onClick={(event) => event.stopPropagation()}
       >
         <h2 id="slot-editor-title" className={cardTitle}>
@@ -77,33 +79,36 @@ export function SlotEditor({
         {published ? (
           <p className="mt-4 text-sm leading-6 text-ink">{t.callOffHint}</p>
         ) : (
-          <div className="mt-4 flex items-center justify-between gap-3">
-            <p className="text-sm font-medium text-ink">{t.requiredOnShift}</p>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                data-testid="slot-required-less"
-                aria-label={t.fewerRequired}
-                className={button.icon}
-                disabled={slot.required <= 1}
-                onClick={() => onRequired(slot.shiftId, slot.day, slot.required - 1)}
-              >
-                −
-              </button>
-              <span data-testid="slot-required" className="w-8 text-center text-sm font-semibold tabular-nums text-ink">
-                {slot.required}
-              </span>
-              <button
-                type="button"
-                data-testid="slot-required-more"
-                aria-label={t.moreRequired}
-                className={button.icon}
-                onClick={() => onRequired(slot.shiftId, slot.day, slot.required + 1)}
-              >
-                +
-              </button>
+          <>
+            <div className="mt-4 flex items-center justify-between gap-3">
+              <p className="text-sm font-medium text-ink">{t.requiredOnShift}</p>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  data-testid="slot-required-less"
+                  aria-label={t.fewerRequired}
+                  className={button.icon}
+                  disabled={slot.required <= 1}
+                  onClick={() => onRequired(slot.shiftId, slot.day, slot.required - 1)}
+                >
+                  −
+                </button>
+                <span data-testid="slot-required" className="w-8 text-center text-sm font-semibold tabular-nums text-ink">
+                  {slot.required}
+                </span>
+                <button
+                  type="button"
+                  data-testid="slot-required-more"
+                  aria-label={t.moreRequired}
+                  className={button.icon}
+                  onClick={() => onRequired(slot.shiftId, slot.day, slot.required + 1)}
+                >
+                  +
+                </button>
+              </div>
             </div>
-          </div>
+            <p className="mt-3 text-sm leading-6 text-muted">{t.shiftHoursHint}</p>
+          </>
         )}
 
         <ul className="mt-4 flex flex-col">
@@ -111,59 +116,139 @@ export function SlotEditor({
             const name = employeeName(state, employeeId);
             const token = assignmentToken(slot.key, employeeId);
             const extension = schedule?.ext?.[token];
-            const canDouble = Boolean(extension) || doubleShiftPlan(state, slot.key, employeeId) !== null;
-            const openShift = nowHours !== null && (extension?.end ?? slot.end) > nowHours;
+            const custom = schedule?.hours?.[token];
+            const span = extension ?? custom ?? { start: slot.start, end: slot.end };
+            const openShift = nowHours !== null && span.end > nowHours;
+            const shiftName = shift?.name ?? "shift";
+            function commit(kind: "start" | "end", value: string) {
+              const clock = value.slice(0, 5);
+              if (!/^\d{2}:\d{2}$/.test(clock)) return;
+              const nextStart = kind === "start" ? clockNear(span.start, clock) : span.start;
+              const nextEnd = kind === "end" ? clockNear(span.end, clock) : span.end;
+              onHours(slot.key, employeeId, nextStart, nextEnd);
+            }
             return (
-              <li key={employeeId} className="flex items-center gap-3 border-t border-line py-2.5">
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium text-ink">{name}</p>
-                  {extension ? (
-                    <p dir="ltr" className="text-xs tabular-nums text-danger-text">
-                      {clockLabel(extension.start)}–{clockLabel(extension.end)}
-                    </p>
-                  ) : null}
-                </div>
-                {published ? (
-                  openShift ? (
+              <li key={employeeId} className="flex flex-col gap-2 border-t border-line py-3">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-ink">{name}</p>
+                    {published && (extension || custom) ? (
+                      <p dir="ltr" className="text-xs tabular-nums text-danger-text">
+                        {clockLabel(span.start)}–{clockLabel(span.end)}
+                      </p>
+                    ) : null}
+                  </div>
+                  {published && openShift ? (
                     <button
                       type="button"
-                      data-testid={`calloff-${slot.day}-${shift?.name ?? "shift"}-${name}`}
+                      data-testid={`calloff-${slot.day}-${shiftName}-${name}`}
                       aria-label={callOffLabel(lang, name)}
                       className={`${button.danger} shrink-0`}
                       onClick={() => onCallOff(slot.key, employeeId)}
                     >
                       {t.callOff}
                     </button>
-                  ) : null
-                ) : extension ? (
-                  <button
-                    type="button"
-                    data-testid={`double-${slot.day}-${shift?.name ?? "shift"}-${name}`}
-                    aria-pressed="true"
-                    aria-label={t.clearDoubleLabel(name)}
-                    className={`${button.small} shrink-0`}
-                    onClick={() => onExtend(slot.key, employeeId)}
-                  >
-                    {t.shortenShift}
-                  </button>
-                ) : canDouble ? (
-                  <button
-                    type="button"
-                    data-testid={`double-${slot.day}-${shift?.name ?? "shift"}-${name}`}
-                    aria-pressed="false"
-                    aria-label={t.extendDoubleLabel(name)}
-                    className={`${button.small} shrink-0`}
-                    onClick={() => onExtend(slot.key, employeeId)}
-                  >
-                    {t.extendDouble}
-                  </button>
-                ) : (
-                  <p className="max-w-40 text-end text-xs leading-5 text-muted">{t.noDoubleRoom}</p>
+                  ) : null}
+                </div>
+                {published ? null : (
+                  <div className="grid grid-cols-2 gap-2">
+                    <label className="flex min-w-0 flex-col gap-1">
+                      <span className="text-xs font-medium text-ink-soft">{t.shiftStart}</span>
+                      <input
+                        type="time"
+                        dir="ltr"
+                        step={60}
+                        data-testid={`hours-start-${slot.day}-${shiftName}-${name}`}
+                        aria-label={t.startHourLabel(name)}
+                        className={`${field} tabular-nums focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus`}
+                        value={clockLabel(span.start)}
+                        onChange={(event) => commit("start", event.target.value)}
+                      />
+                    </label>
+                    <label className="flex min-w-0 flex-col gap-1">
+                      <span className="text-xs font-medium text-ink-soft">{t.shiftEnd}</span>
+                      <input
+                        type="time"
+                        dir="ltr"
+                        step={60}
+                        data-testid={`hours-end-${slot.day}-${shiftName}-${name}`}
+                        aria-label={t.endHourLabel(name)}
+                        className={`${field} tabular-nums focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus`}
+                        value={clockLabel(span.end)}
+                        onChange={(event) => commit("end", event.target.value)}
+                      />
+                    </label>
+                  </div>
                 )}
+                {!published && (custom || extension) ? (
+                  <button
+                    type="button"
+                    data-testid={`hours-reset-${slot.day}-${shiftName}-${name}`}
+                    className={`${button.small} self-start`}
+                    onClick={() => onHours(slot.key, employeeId, slot.start, slot.end)}
+                  >
+                    {t.resetShiftHours}
+                  </button>
+                ) : null}
               </li>
             );
           })}
         </ul>
+
+        {gaps.map((gap) => {
+          const fixes = hourFixes(state, gap);
+          return (
+            <div key={`${gap.start}-${gap.end}-${gap.delta}`} data-testid="slot-coverage" className="mt-3">
+              <p className="text-sm font-medium leading-6 text-danger-text">
+                {coverageGapText(lang, gap.delta)}{" "}
+                <span dir="ltr" className="tabular-nums">
+                  {clockLabel(gap.start)}–{clockLabel(gap.end)}
+                </span>
+              </p>
+              <SolutionGroups
+                testId={`solutions-slot-${slot.day}-${slot.shiftId}-${gap.start}`}
+                groups={[
+                  {
+                    id: "extend",
+                    title: t.solutionExtend,
+                    items:
+                      hourFixBucket(gap.delta) === "extend"
+                        ? fixes.map((fix) => (
+                            <button
+                              key={`${fix.slotKey}-${fix.employeeId}-${fix.edge}`}
+                              type="button"
+                              data-testid={`slot-hour-fix-${fix.employeeId}-${fix.edge}`}
+                              className={button.action}
+                              onClick={() => onHours(fix.slotKey, fix.employeeId, fix.start, fix.end)}
+                            >
+                              {hourFixLine(fix, lang, state)}
+                            </button>
+                          ))
+                        : [],
+                  },
+                  {
+                    id: "change",
+                    title: t.solutionChange,
+                    items:
+                      hourFixBucket(gap.delta) === "change"
+                        ? fixes.map((fix) => (
+                            <button
+                              key={`${fix.slotKey}-${fix.employeeId}-${fix.edge}`}
+                              type="button"
+                              data-testid={`slot-hour-fix-${fix.employeeId}-${fix.edge}`}
+                              className={button.action}
+                              onClick={() => onHours(fix.slotKey, fix.employeeId, fix.start, fix.end)}
+                            >
+                              {hourFixLine(fix, lang, state)}
+                            </button>
+                          ))
+                        : [],
+                  },
+                ]}
+              />
+            </div>
+          );
+        })}
 
         {published
           ? (schedule?.calloffs ?? [])

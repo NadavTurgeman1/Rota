@@ -1,4 +1,5 @@
 import { cleanProfile } from "../domain/profile";
+import { HOUR_SPAN_GROUP } from "../domain/schedule";
 import type { CallOff, RotaState, Schedule, ScheduleVersion } from "../domain/types";
 import type { SqlClient } from "./types";
 
@@ -578,6 +579,20 @@ export async function writeSchedule(
     extensionCovers.push(cover.shiftId);
     extensionCoverDays.push(cover.weekday);
     extensionSizes.push(Math.max(1, Math.trunc(extension.groupSize)));
+  }
+  for (const [key, span] of Object.entries(input.schedule.hours ?? {})) {
+    if (!seated.has(key) || input.schedule.ext?.[key]) continue;
+    const seat = parseSeat(key);
+    if (!seat || !input.shiftIds.has(seat.shiftId)) continue;
+    extensionShifts.push(seat.shiftId);
+    extensionDays.push(seat.weekday);
+    extensionEmployees.push(seat.employeeId);
+    extensionStarts.push(span.start);
+    extensionEnds.push(span.end);
+    extensionGroups.push(HOUR_SPAN_GROUP);
+    extensionCovers.push(seat.shiftId);
+    extensionCoverDays.push(seat.weekday);
+    extensionSizes.push(1);
   }
   await writeRows(
     sql,

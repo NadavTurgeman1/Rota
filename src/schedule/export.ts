@@ -1,4 +1,4 @@
-import { addDays, coveredSeats, dayName, durationHours, shiftKind, slots, type Lang, type RotaState } from "../domain";
+import { addDays, coveredSeats, dayName, durationHours, fullShiftCoveredByHours, shiftKind, slots, type Lang, type RotaState } from "../domain";
 import { calendarTitle, shiftsIcs, type CalendarShift } from "./calendar";
 import { clockLabel } from "./edit";
 import { formatDayDate, formatWeekRange, shiftLabel, siteLabel } from "./display";
@@ -76,14 +76,19 @@ export function weekExport(state: RotaState, lang: Lang, org: string, hebrew = t
       if (!slot) return { closed: true, required: 0, people: [], covered: 0, open: 0 };
       const people = (schedule.assign[slot.key] ?? []).map((id): ExportPerson => {
         const extension = schedule.ext?.[`${slot.key}#${id}`];
+        const span = extension ?? schedule.hours?.[`${slot.key}#${id}`];
         if (extension) extended += 1;
         return {
           name: names.get(id) ?? id,
-          ...(extension ? { hours: `${clockLabel(extension.start)}–${clockLabel(extension.end)}` } : {}),
+          ...(span ? { hours: `${clockLabel(span.start)}–${clockLabel(span.end)}` } : {}),
           ...(schedule.over?.[`${slot.key}#${id}`] ? { over: true } : {}),
         };
       });
-      const covered = coveredSeats(schedule, slot.key);
+      const emergency = coveredSeats(schedule, slot.key);
+      const hourCovered = fullShiftCoveredByHours(state, slot)
+        ? Math.max(0, slot.required - people.length - emergency)
+        : 0;
+      const covered = emergency + hourCovered;
       const missing = Math.max(0, slot.required - people.length - covered);
       open += missing;
       return { closed: false, required: slot.required, people, covered, open: missing };
@@ -127,7 +132,7 @@ export function publishedAssignments(state: RotaState, lang: Lang, onlyEmployeeI
       const assigned = schedule.assign[slotKey] ?? [];
       for (const id of assigned) {
         if (onlyEmployeeId && id !== onlyEmployeeId) continue;
-        const ext = schedule.ext?.[`${slotKey}#${id}`];
+        const ext = schedule.ext?.[`${slotKey}#${id}`] ?? schedule.hours?.[`${slotKey}#${id}`];
         const start = ext ? clockLabel(ext.start) : shift.start;
         const end = ext ? clockLabel(ext.end) : shift.end;
         const duration = ext ? ext.end - ext.start : durationHours(shift.start, shift.end);

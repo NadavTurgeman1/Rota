@@ -1,3 +1,4 @@
+import { touchedSlotKeys, weekCoverage } from "./coverage";
 import { isRelief, peerLoad } from "./relief";
 import { coveredSeats, effectiveSlot } from "./schedule";
 import { approvedExtraShifts, dynamicReason, formatReason, slotLabel, slots, staticReason, type Lang } from "./rules";
@@ -6,7 +7,7 @@ import type { Analysis, Employee, OverQuota, RotaState, UnfilledShift } from "./
 /** Explain a stored week. Does not change it. An unfilled seat stays unfilled. */
 export function analyze(state: RotaState, week: string, lang: Lang = "he"): Analysis {
   const schedule = state.sched[week];
-  if (!schedule) return { violations: [], overQuota: [], unfilled: [], under: [], hours: {}, counts: {} };
+  if (!schedule) return { violations: [], overQuota: [], unfilled: [], coverage: [], under: [], hours: {}, counts: {} };
 
   const openSlots = slots(state, week);
   const employees = state.emps.filter((employee) => employee.active);
@@ -28,6 +29,7 @@ export function analyze(state: RotaState, week: string, lang: Lang = "he"): Anal
 
   const violations: Analysis["violations"] = [];
   const unfilled: UnfilledShift[] = [];
+  const touched = touchedSlotKeys(state, week);
   for (const slot of openSlots) {
     const ids = schedule.assign[slot.key] ?? [];
     for (const employeeId of ids) {
@@ -40,8 +42,10 @@ export function analyze(state: RotaState, week: string, lang: Lang = "he"): Anal
       violations.push({
         key: `${slot.key}#${employeeId}`,
         message: `${employee.name} — ${slotLabel(state, slot, lang)}: ${formatReason(reason, lang)}`,
+        reason,
       });
     }
+    if (touched.has(slot.key)) continue;
     if (ids.length > slot.required) {
       const label = slotLabel(state, slot, lang);
       violations.push({
@@ -53,6 +57,7 @@ export function analyze(state: RotaState, week: string, lang: Lang = "he"): Anal
       unfilled.push(explainGap(state, week, slot, employees, ids.length + covered, lang));
     }
   }
+  const coverage = weekCoverage(state, week);
 
   const under: Analysis["under"] = [];
   for (const employee of employees) {
@@ -97,7 +102,7 @@ export function analyze(state: RotaState, week: string, lang: Lang = "he"): Anal
     });
   }
 
-  return { violations, overQuota, unfilled, under, hours, counts };
+  return { violations, overQuota, unfilled, coverage, under, hours, counts };
 }
 
 function explainGap(

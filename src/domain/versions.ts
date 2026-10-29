@@ -100,10 +100,16 @@ export function diffSchedules(before: Schedule | undefined, after: Schedule | un
   const removed = [...was].filter((token) => !now.has(token)).map(splitToken).sort(bySeat);
 
   const extensions: ExtensionChange[] = [];
-  const keys = new Set([...Object.keys(before?.ext ?? {}), ...Object.keys(after?.ext ?? {})]);
+  const spans = (schedule: Schedule | undefined, token: string) => schedule?.ext?.[token] ?? schedule?.hours?.[token];
+  const keys = new Set([
+    ...Object.keys(before?.ext ?? {}),
+    ...Object.keys(after?.ext ?? {}),
+    ...Object.keys(before?.hours ?? {}),
+    ...Object.keys(after?.hours ?? {}),
+  ]);
   for (const token of keys) {
-    const old = before?.ext?.[token];
-    const next = after?.ext?.[token];
+    const old = spans(before, token);
+    const next = spans(after, token);
     if (old && next && old.start === next.start && old.end === next.end) continue;
     extensions.push({
       ...splitToken(token),

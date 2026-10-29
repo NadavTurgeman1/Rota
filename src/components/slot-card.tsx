@@ -1,9 +1,9 @@
 import { useRef, useState, type DragEvent } from "react";
-import { coveredSeats, shiftKind, type Lang, type RotaState, type Slot } from "../domain";
+import { coveredSeats, coverageGaps, fullShiftCoveredByHours, shiftKind, slotPresence, type Lang, type RotaState, type Slot } from "../domain";
 import { copy, removeLabel } from "../i18n/copy";
 import { employeeName } from "../people/edit";
-import { localizeShiftNames } from "../schedule/display";
-import { assignmentToken, clockLabel, parseAssignmentToken, placementWarning } from "../schedule/edit";
+import { assignmentToken, clockLabel, parseAssignmentToken } from "../schedule/edit";
+import { AddEmployeeMenu } from "./add-employee-menu";
 import { SlotEditor } from "./slot-editor";
 
 const FILL: Record<ReturnType<typeof shiftKind>, string> = {
@@ -27,7 +27,7 @@ export function SlotCard({
   onSwap,
   onToggleSelect,
   onCallOff,
-  onExtend,
+  onHours,
   onRequired,
 }: {
   state: RotaState;
@@ -44,7 +44,7 @@ export function SlotCard({
   onSwap: (slotKey: string, employeeId: string, otherId: string) => void;
   onToggleSelect: (token: string) => void;
   onCallOff: (slotKey: string, employeeId: string) => void;
-  onExtend: (slotKey: string, employeeId: string) => void;
+  onHours: (slotKey: string, employeeId: string, start: number, end: number) => void;
   onRequired: (shiftId: string, day: number, count: number) => void;
 }) {
   const dragged = useRef(false);
@@ -55,20 +55,17 @@ export function SlotCard({
   const schedule = state.sched[state.week];
   const ids = schedule?.assign[slot.key] ?? [];
   const covered = schedule ? coveredSeats(schedule, slot.key) : 0;
-  const filled = ids.length + covered;
+  const presence = slotPresence(state, slot);
+  const headcount = ids.length + covered;
+  const filled = presence ?? headcount;
   const shift = state.biz.shifts.find((item) => item.id === slot.shiftId);
   const kind = shiftKind(shift?.start ?? "06:00", shift?.end ?? "14:00");
-  const short = filled < slot.required;
-  const over = ids.length > slot.required;
+  const gaps = coverageGaps(state, slot);
+  const hourCovered = fullShiftCoveredByHours(state, slot);
+  const short = gaps.some((gap) => gap.delta < 0) || (presence === null ? headcount < slot.required : presence < slot.required);
+  const over = !short && (gaps.some((gap) => gap.delta > 0) || (presence === null && ids.length > slot.required));
   const testId = `slot-${slot.day}-${shift?.name ?? slot.shiftId}`;
   const canEdit = !published || canCallOff;
-
-  const candidates = state.emps
-    .filter((employee) => !ids.includes(employee.id))
-    .map((employee) => ({
-      employee,
-      warning: placementWarning(state, slot, employee.id, lang),
-    }));
 
   function acceptDrop(event: DragEvent<HTMLDivElement>) {
     if (published) return;
@@ -126,37 +123,21 @@ export function SlotCard({
           </span>
         )}
         {published ? null : (
-          <span
-            title={t.addEmployee}
-            className="relative grid h-6 w-6 shrink-0 place-items-center rounded-md border border-dashed border-field-line text-sm leading-none text-ink-soft focus-within:outline focus-within:outline-2 focus-within:outline-offset-1 focus-within:outline-focus hover:border-solid hover:bg-chip"
-          >
-            <span aria-hidden="true">+</span>
-            <select
-              aria-label={t.addEmployee}
-              data-testid={`add-${slot.day}-${shift?.name ?? "shift"}`}
-              value=""
-              className="absolute inset-0 h-full w-full cursor-pointer appearance-none opacity-0"
-              onClick={(event) => event.stopPropagation()}
-              onChange={(event) => {
-                const employeeId = event.target.value;
-                if (employeeId) onAdd(slot.key, employeeId);
-              }}
-            >
-              <option value="">{t.addEmployee}</option>
-              {candidates.map(({ employee, warning }) => (
-                <option key={employee.id} value={employee.id}>
-                  {employee.name}
-                  {warning ? ` — ${localizeShiftNames(warning, lang)}` : ""}
-                </option>
-              ))}
-            </select>
-          </span>
+          <AddEmployeeMenu
+            state={state}
+            slot={slot}
+            lang={lang}
+            testId={`add-${slot.day}-${shift?.name ?? "shift"}`}
+            onAdd={onAdd}
+          />
         )}
       </div>
       <div className="flex flex-1 flex-col gap-1">
         {ids.map((employeeId) => {
           const token = assignmentToken(slot.key, employeeId);
           const extension = schedule?.ext?.[token];
+          const custom = schedule?.hours?.[token];
+          const span = extension ?? custom;
           const name = employeeName(state, employeeId);
           return (
             <div
@@ -219,9 +200,9 @@ export function SlotCard({
                 <span className="max-w-full truncate leading-5" title={name}>
                   {name}
                 </span>
-                {extension ? (
+                {span ? (
                   <span dir="ltr" className="text-[11px] font-normal tabular-nums text-danger-text">
-                    {clockLabel(extension.start)}–{clockLabel(extension.end)}
+                    {clockLabel(span.start)}–{clockLabel(span.end)}
                   </span>
                 ) : null}
                 {schedule?.over?.[token] ? (
@@ -244,7 +225,11 @@ export function SlotCard({
             </div>
           );
         })}
-        {covered > 0 ? <p className="text-[11px] font-medium text-brand-text">{t.covered}</p> : null}
+        {covered > 0 || hourCovered ? (
+          <p data-testid={`${testId}-covered`} className="text-[11px] font-medium text-brand-text">
+            {t.covered}
+          </p>
+        ) : null}
         {(schedule?.calloffs ?? [])
           .filter((item) => item.slotKey === slot.key && !ids.includes(item.employeeId))
           .map((item) => (
@@ -267,7 +252,7 @@ export function SlotCard({
           nowHours={nowHours}
           onClose={() => setEditing(false)}
           onRequired={onRequired}
-          onExtend={onExtend}
+          onHours={onHours}
           onCallOff={onCallOff}
         />
       ) : null}

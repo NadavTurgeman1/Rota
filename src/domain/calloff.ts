@@ -1,5 +1,5 @@
 import { addDays, shiftKind } from "./time";
-import { effectiveSlot, shiftById } from "./schedule";
+import { clearAssignmentHours, effectiveSlot, shiftById } from "./schedule";
 import { dynamicReason, slots, staticReason } from "./rules";
 import { isRelief, reliefAllowed } from "./relief";
 import { applyCoverage, applyExtra, suggest, suggestExtra } from "./suggest";
@@ -315,6 +315,7 @@ export function recordCallOff(state: RotaState, input: CallOffInput): RotaState 
   next.assign[slot.key] = (next.assign[slot.key] ?? []).filter((id) => id !== input.employeeId);
   next.locked = (next.locked ?? []).filter((token) => token !== `${slot.key}#${input.employeeId}`);
   clearExtensionGroup(next, slot.key, input.employeeId);
+  clearAssignmentHours(next, slot.key, input.employeeId);
   clearOverage(next, slot.key, input.employeeId);
   next.calloffs = [
     ...(next.calloffs ?? []),

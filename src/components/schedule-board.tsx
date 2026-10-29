@@ -28,7 +28,7 @@ function slotActions(props: {
   onSwap: (slotKey: string, employeeId: string, otherId: string) => void;
   onToggleSelect: (token: string) => void;
   onCallOff: (slotKey: string, employeeId: string) => void;
-  onExtend: (slotKey: string, employeeId: string) => void;
+  onHours: (slotKey: string, employeeId: string, start: number, end: number) => void;
   onRequired: (shiftId: string, day: number, count: number) => void;
 }) {
   return props;
@@ -49,7 +49,7 @@ export function WeekBoard({
   onSwap,
   onToggleSelect,
   onCallOff,
-  onExtend,
+  onHours,
   onRequired,
 }: {
   state: RotaState;
@@ -66,7 +66,7 @@ export function WeekBoard({
   onSwap: (slotKey: string, employeeId: string, otherId: string) => void;
   onToggleSelect: (token: string) => void;
   onCallOff: (slotKey: string, employeeId: string) => void;
-  onExtend: (slotKey: string, employeeId: string) => void;
+  onHours: (slotKey: string, employeeId: string, start: number, end: number) => void;
   onRequired: (shiftId: string, day: number, count: number) => void;
 }) {
   const t = copy[lang];
@@ -88,7 +88,7 @@ export function WeekBoard({
     onSwap,
     onToggleSelect,
     onCallOff,
-    onExtend,
+    onHours,
     onRequired,
   });
   return (

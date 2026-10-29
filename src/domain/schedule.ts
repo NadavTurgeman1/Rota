@@ -14,10 +14,24 @@ export function ensureSchedule(state: RotaState, week: string): Schedule {
   return created;
 }
 
+/** Stored on `assignment_extensions.group_id` for a personal clock, not a coverage group. */
+export const HOUR_SPAN_GROUP = "hours";
+
+export function clearAssignmentHours(schedule: Schedule, slotKey: string, employeeId: string): void {
+  const key = `${slotKey}#${employeeId}`;
+  if (!schedule.hours?.[key]) return;
+  const next = { ...schedule.hours };
+  delete next[key];
+  if (Object.keys(next).length === 0) delete schedule.hours;
+  else schedule.hours = next;
+}
+
 export function effectiveSlot(schedule: Schedule, slot: Slot, employeeId: string): Slot {
   const extension = schedule.ext?.[`${slot.key}#${employeeId}`];
-  if (!extension) return slot;
-  return { ...slot, start: extension.start, end: extension.end };
+  const custom = schedule.hours?.[`${slot.key}#${employeeId}`];
+  const span = extension ?? custom;
+  if (!span || (span.start === slot.start && span.end === slot.end)) return slot;
+  return { ...slot, start: span.start, end: span.end };
 }
 
 /**

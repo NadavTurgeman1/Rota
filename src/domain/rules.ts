@@ -202,45 +202,42 @@ export function dynamicReason(
   return null;
 }
 
+function hourCount(hours: number): string {
+  const rounded = Math.round(hours * 10) / 10;
+  if (Math.abs(rounded) < 0.05) return "0";
+  return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
+}
+
 export function formatReason(reason: Reason, lang: "en" | "he" = "he"): string {
   switch (reason.code) {
     case "inactive":
-      return lang === "he" ? "לא פעיל" : "inactive";
+      return lang === "he" ? "העובד לא פעיל" : "Inactive";
     case "agreement":
       return lang === "he"
-        ? `לפי ההסכם אינו עובד ${dayName(reason.day, lang)} ${reason.shiftName}`
-        : `agreement excludes ${dayName(reason.day, lang)} ${reason.shiftName}`;
+        ? `ההסכם לא כולל משמרת ${reason.shiftName} ביום ${dayName(reason.day, lang)}`
+        : `The agreement does not include ${dayName(reason.day, lang)} ${reason.shiftName}`;
     case "role":
-      return lang === "he" ? `חסרה הסמכה "${reason.role}"` : `lacks required role "${reason.role}"`;
+      return lang === "he" ? `אין הסמכה למשמרת הזו (${reason.role})` : `Missing the qualification for this shift (${reason.role})`;
     case "unavailable":
       return lang === "he"
-        ? `לא זמין ${dayName(reason.day, lang)} ${reason.shiftName} השבוע`
-        : `unavailable ${dayName(reason.day, lang)} ${reason.shiftName} this week`;
+        ? `סומן באילוצים כלא זמין למשמרת ${reason.shiftName} ביום ${dayName(reason.day, lang)}`
+        : `Marked unavailable for ${dayName(reason.day, lang)} ${reason.shiftName}`;
     case "overlap":
-      return lang === "he" ? `חופף עם ${reason.label}` : `overlaps ${reason.label}`;
-    case "rest":
-      return lang === "he"
-        ? `רק ${reason.hours} שעות מנוחה ליד ${reason.label}`
-        : `only ${reason.hours}h rest next to ${reason.label}`;
+      return lang === "he" ? `כבר משובץ באותו זמן: ${reason.label}` : `Already working at the same time: ${reason.label}`;
+    case "rest": {
+      const hours = hourCount(reason.hours);
+      if (lang === "he") return hours === "0" ? `אין מנוחה ליד ${reason.label}` : `רק ${hours} שעות מנוחה ליד ${reason.label}`;
+      return hours === "0" ? `No rest next to ${reason.label}` : `Only ${hours}h rest next to ${reason.label}`;
+    }
     case "weekly_hours":
-      return lang === "he"
-        ? `חורג ממגבלת השעות השבועית (${reason.cap} שעות)`
-        : `exceeds weekly hours cap (${reason.cap}h)`;
+      return lang === "he" ? `עובר את ${reason.cap} השעות המותרות השבוע` : `Over the weekly limit of ${reason.cap}h`;
     case "daily_hours":
-      return lang === "he"
-        ? `חורג מתקרת השעות היומית (${reason.cap} שעות)`
-        : `exceeds the daily hour cap (${reason.cap}h)`;
+      return lang === "he" ? `עובר את ${reason.cap} השעות המותרות ביום` : `Over the daily limit of ${reason.cap}h`;
     case "weekly_shifts":
-      return lang === "he"
-        ? `חורג מ-${reason.agreed} המשמרות השבועיות המוסכמות`
-        : `exceeds agreed ${reason.agreed} shifts/week`;
+      return lang === "he" ? `כבר הגיע ל־${reason.agreed} המשמרות שבהסכם` : `Already at the agreed ${reason.agreed} shifts`;
     case "shift_length":
-      return lang === "he"
-        ? `המשמרת ארוכה מ־${reason.cap} שעות`
-        : `shift is longer than ${reason.cap}h`;
+      return lang === "he" ? `המשמרת ארוכה מ־${reason.cap} שעות` : `Longer than the ${reason.cap}h limit`;
     case "home_schedule":
-      return lang === "he"
-        ? "הסידור באתר הראשי עדיין לא מוכן לפרסום"
-        : "the primary site's schedule is not ready to publish";
+      return lang === "he" ? "הסידור באתר הראשי עוד לא מוכן" : "The home site's week is not ready to publish";
   }
 }

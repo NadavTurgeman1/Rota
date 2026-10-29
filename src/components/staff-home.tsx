@@ -589,7 +589,7 @@ export function StaffHome({
                       onSwap={() => undefined}
                       onToggleSelect={() => undefined}
                       onCallOff={() => undefined}
-                      onExtend={() => undefined}
+                      onHours={() => undefined}
                       onRequired={() => undefined}
                     />
                   ) : (

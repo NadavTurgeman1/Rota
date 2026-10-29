@@ -2,9 +2,12 @@ import {
   analyze,
   applyCoverage,
   applyExtra,
+  assignmentSpan,
+  clearAssignmentHours,
   coveredSeats,
   deleteVersion,
   dynamicReason,
+  formatClock,
   effectiveSlot,
   ensureSchedule,
   formatReason,
@@ -19,12 +22,15 @@ import {
   recordCallOff,
   recordVersion,
   restoreVersion,
+  weekCoverage,
+  type CoverageGap,
   type CoverageOption,
   type DroppedLock,
   type EmergencyChoice,
   type VersionStamp,
   type ExtraShiftOption,
   type Lang,
+  type Reason,
   type RotaState,
   type Schedule,
   type Slot,
@@ -37,6 +43,17 @@ export type Proposal =
   | { kind: "extra"; option: ExtraShiftOption }
   | { kind: "relief"; employeeId: string; name: string };
 
+/** Which closed suggestion group a proposal belongs in. A move stays a move even when someone also extends. */
+export function proposalBucket(proposal: Proposal): SolutionBucket {
+  if (proposal.kind === "extra" || proposal.kind === "relief") return "add";
+  return proposal.option.parts.some((part) => part.from !== part.slotKey) ? "change" : "extend";
+}
+
+/** A shortage nudge lengthens a shift. A surplus nudge pulls an edge back. */
+export function hourFixBucket(delta: number): SolutionBucket {
+  return delta < 0 ? "extend" : "change";
+}
+
 export interface ReliefChoice {
   employeeId: string;
   name: string;
@@ -44,10 +61,15 @@ export interface ReliefChoice {
   held: boolean;
 }
 
+export type SolutionBucket = "add" | "extend" | "change";
+
 export interface PublishCheck {
   ready: boolean;
   violations: number;
   unfilled: number;
+  coverage: number;
+  /** Seats on a submitted constraint. Publishing stays refused. */
+  constraint: number;
 }
 
 export interface History {
@@ -172,6 +194,7 @@ export function clearSchedule(state: RotaState): RotaState {
     schedule.assign = {};
     schedule.locked = [];
     schedule.ext = {};
+    delete schedule.hours;
     schedule.over = {};
     schedule.calloffs = [];
     schedule.status = "draft";
@@ -179,21 +202,24 @@ export function clearSchedule(state: RotaState): RotaState {
   });
 }
 
-/** An empty week is treated as unfilled, so it cannot be published. */
+/** An empty week is unfilled. Publishing it needs an explicit confirmation. A seat on a constraint never publishes. */
 export function publishCheck(state: RotaState): PublishCheck {
   const draft = cloneState(state);
   ensureSchedule(draft, draft.week);
   const report = analyze(draft, draft.week);
   return {
-    ready: report.violations.length === 0 && report.unfilled.length === 0,
+    ready: report.violations.length === 0 && report.unfilled.length === 0 && report.coverage.length === 0,
     violations: report.violations.length,
     unfilled: report.unfilled.length,
+    coverage: report.coverage.length,
+    constraint: report.violations.filter((item) => item.reason?.code === "unavailable").length,
   };
 }
 
-/** Publishing freezes a new version of the week. */
-export function publishWeek(state: RotaState, stamp: VersionStamp = freshStamp()): RotaState {
-  if (isPublished(state) || !publishCheck(state).ready) return state;
+/** Publishing freezes a new version of the week. `anyway` confirms every problem except a constraint seat. */
+export function publishWeek(state: RotaState, stamp: VersionStamp = freshStamp(), options?: { anyway?: boolean }): RotaState {
+  const check = publishCheck(state);
+  if (isPublished(state) || check.constraint > 0 || (!check.ready && !options?.anyway)) return state;
   const published = mutate(state, (draft) => {
     ensureSchedule(draft, draft.week).status = "published";
   });
@@ -234,6 +260,7 @@ export function removeEmployee(state: RotaState, slotKey: string, employeeId: st
     const schedule = ensureSchedule(draft, draft.week);
     schedule.assign[slotKey] = (schedule.assign[slotKey] ?? []).filter((id) => id !== employeeId);
     clearExtensionGroup(schedule, slotKey, employeeId);
+    clearAssignmentHours(schedule, slotKey, employeeId);
     clearOverage(schedule, slotKey, employeeId);
     clearLock(schedule, slotKey, employeeId);
   });
@@ -251,13 +278,10 @@ export function moveEmployee(state: RotaState, fromKey: string, employeeId: stri
     schedule.assign[fromKey] = (schedule.assign[fromKey] ?? []).filter((id) => id !== employeeId);
     schedule.assign[toKey] = [...(schedule.assign[toKey] ?? []), employeeId];
     clearExtensionGroup(schedule, fromKey, employeeId);
+    clearAssignmentHours(schedule, fromKey, employeeId);
     clearOverage(schedule, fromKey, employeeId);
     clearLock(schedule, fromKey, employeeId);
   });
-}
-
-function near(left: number, right: number): boolean {
-  return Math.abs(left - right) < 0.01;
 }
 
 function keptAssignments(state: RotaState, source: Schedule | null | undefined): Record<string, string[]> | null {
@@ -303,6 +327,14 @@ export function pasteSchedule(state: RotaState, source: Schedule | null): RotaSt
       ext[token] = { ...extension };
     }
     schedule.ext = ext;
+    const hours: NonNullable<Schedule["hours"]> = {};
+    for (const [token, span] of Object.entries(source.hours ?? {})) {
+      const parsed = parseAssignmentToken(token);
+      if (!parsed || !assign[parsed.slotKey]?.includes(parsed.employeeId)) continue;
+      hours[token] = { ...span };
+    }
+    if (Object.keys(hours).length > 0) schedule.hours = hours;
+    else delete schedule.hours;
     const over: NonNullable<Schedule["over"]> = {};
     for (const token of Object.keys(source.over ?? {})) {
       const parsed = parseAssignmentToken(token);
@@ -312,73 +344,128 @@ export function pasteSchedule(state: RotaState, source: Schedule | null): RotaSt
   });
 }
 
-/** How far this person's shift can stretch into the touching neighbour, within the site cap. */
-export function doubleShiftPlan(
-  state: RotaState,
-  slotKey: string,
-  employeeId: string,
-): { start: number; end: number; cover: string; full: boolean } | null {
-  const schedule = state.sched[state.week];
-  const employee = state.emps.find((item) => item.id === employeeId);
-  if (!schedule || !employee?.active || !(schedule.assign[slotKey] ?? []).includes(employeeId)) return null;
-  if (schedule.ext?.[`${slotKey}#${employeeId}`]) return null;
-  const open = slots(state, state.week);
-  const slot = open.find((item) => item.key === slotKey);
-  if (!slot) return null;
-  const cap = state.biz.maxShift > 0 ? state.biz.maxShift : 12;
-  const room = cap - (slot.end - slot.start);
-  if (room <= 0.01) return null;
-  const forward = open.find((item) => near(item.start, slot.end));
-  const backward = open.find((item) => near(item.end, slot.start));
-  for (const neighbor of [forward, backward]) {
-    if (!neighbor) continue;
-    if (staticReason(state, employee, neighbor, state.week)) continue;
-    const span = neighbor.end - neighbor.start;
-    const take = Math.min(room, span);
-    if (take <= 0.01) continue;
-    const full = near(take, span);
-    const ahead = neighbor === forward;
-    const start = ahead ? slot.start : slot.start - take;
-    const end = ahead ? slot.end + take : slot.end;
-    const proposed: Slot = { ...slot, start, end };
-    const mine = open
-      .filter((item) => item.key !== slot.key && (!full || item.key !== neighbor.key) && (schedule.assign[item.key] ?? []).includes(employeeId))
-      .map((item) => effectiveSlot(schedule, item, employeeId));
-    if (dynamicReason(state, employee, proposed, mine)) continue;
-    return { start, end, cover: neighbor.key, full };
-  }
-  return null;
-}
-
-/** Extend one assigned shift into the touching neighbour, or remove that extension. */
-export function extendToDouble(state: RotaState, slotKey: string, employeeId: string): RotaState {
+/** Set one person's clock on a draft shift. The shift's own hours clear the override. */
+export function setAssignmentHours(state: RotaState, slotKey: string, employeeId: string, start: number, end: number): RotaState {
   if (isPublished(state)) return state;
   const schedule = state.sched[state.week];
   if (!schedule || !(schedule.assign[slotKey] ?? []).includes(employeeId)) return state;
-  if (schedule.ext?.[`${slotKey}#${employeeId}`]) {
-    return mutate(state, (draft) => {
-      clearExtensionGroup(ensureSchedule(draft, draft.week), slotKey, employeeId);
-    });
-  }
-  const plan = doubleShiftPlan(state, slotKey, employeeId);
-  if (!plan) return state;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || !(end > start) || start < 0) return state;
+  const slot = slots(state, state.week).find((item) => item.key === slotKey);
+  if (!slot) return state;
+  const cap = state.biz.maxShift > 0 ? state.biz.maxShift : 12;
+  const length = end - start;
+  if (length < 0.5 - 1e-6 || length > cap + 1e-6) return state;
+  if (end <= slot.start + 1e-6 || start >= slot.end - 1e-6) return state;
+  const key = `${slotKey}#${employeeId}`;
+  const current = schedule.hours?.[key];
+  const hasExtension = Boolean(schedule.ext?.[key]);
+  const sameAsSlot = Math.abs(start - slot.start) < 0.01 && Math.abs(end - slot.end) < 0.01;
+  if (!hasExtension && current && Math.abs(current.start - start) < 0.01 && Math.abs(current.end - end) < 0.01) return state;
+  if (!hasExtension && !current && sameAsSlot) return state;
   return mutate(state, (draft) => {
     const next = ensureSchedule(draft, draft.week);
-    if (plan.full) {
-      next.assign[plan.cover] = (next.assign[plan.cover] ?? []).filter((id) => id !== employeeId);
-      clearExtensionGroup(next, plan.cover, employeeId);
-      clearOverage(next, plan.cover, employeeId);
-      clearLock(next, plan.cover, employeeId);
-    }
-    next.ext = { ...(next.ext ?? {}) };
-    next.ext[`${slotKey}#${employeeId}`] = {
-      start: plan.start,
-      end: plan.end,
-      groupId: `double:${slotKey}#${employeeId}`,
-      cover: plan.cover,
-      groupSize: plan.full ? 1 : 2,
-    };
+    clearExtensionGroup(next, slotKey, employeeId);
+    if (sameAsSlot) clearAssignmentHours(next, slotKey, employeeId);
+    else next.hours = { ...(next.hours ?? {}), [key]: { start, end } };
   });
+}
+
+export type HourFix = {
+  employeeId: string;
+  name: string;
+  /** The shift the person is already on. The clock change is applied there. */
+  slotKey: string;
+  start: number;
+  end: number;
+  edge: "start" | "end";
+};
+
+const HOUR_FIX_EPS = 0.05;
+
+function coverageImbalance(state: RotaState): number {
+  return weekCoverage(state, state.week).reduce((sum, gap) => sum + Math.abs(gap.delta) * (gap.end - gap.start), 0);
+}
+
+function spanIsLegal(state: RotaState, employeeId: string, home: Slot, start: number, end: number): boolean {
+  const employee = state.emps.find((item) => item.id === employeeId);
+  const schedule = state.sched[state.week];
+  if (!employee || !schedule) return false;
+  const mine = slots(state, state.week)
+    .filter((open) => open.key !== home.key && (schedule.assign[open.key] ?? []).includes(employeeId))
+    .map((open) => effectiveSlot(schedule, open, employeeId));
+  const reason = dynamicReason(state, employee, { ...home, start, end }, mine);
+  return reason === null || reason.code === "weekly_shifts";
+}
+
+/**
+ * A neighbor who can start earlier or stay later, or the person whose extra hour can move back.
+ * Only a change that shrinks the week's shortage and surplus is offered.
+ */
+export function hourFixes(state: RotaState, gap: CoverageGap): HourFix[] {
+  if (isPublished(state)) return [];
+  const schedule = state.sched[state.week];
+  if (!schedule) return [];
+  const before = coverageImbalance(state);
+  const cap = state.biz.maxShift > 0 ? state.biz.maxShift : 12;
+  const found: (HourFix & { change: number })[] = [];
+  const seen = new Set<string>();
+
+  for (const slot of slots(state, state.week)) {
+    for (const employeeId of schedule.assign[slot.key] ?? []) {
+      const employee = state.emps.find((item) => item.id === employeeId);
+      if (!employee) continue;
+      const span = assignmentSpan(schedule, slot, employeeId);
+      const proposals: { start: number; end: number; edge: HourFix["edge"] }[] = [];
+      if (gap.delta < 0 && Math.abs(span.end - gap.start) < HOUR_FIX_EPS) {
+        const end = Math.min(gap.end, span.start + cap);
+        if (end > span.end + HOUR_FIX_EPS) proposals.push({ start: span.start, end, edge: "end" });
+      }
+      if (gap.delta < 0 && Math.abs(span.start - gap.end) < HOUR_FIX_EPS) {
+        const start = Math.max(gap.start, span.end - cap);
+        if (start < span.start - HOUR_FIX_EPS) proposals.push({ start, end: span.end, edge: "start" });
+      }
+      if (gap.delta > 0 && span.start < gap.start + HOUR_FIX_EPS && span.end > gap.start + HOUR_FIX_EPS) {
+        const end = gap.start;
+        if (end < span.end - HOUR_FIX_EPS && end - span.start >= 0.5) proposals.push({ start: span.start, end, edge: "end" });
+      }
+      if (gap.delta > 0 && span.end > gap.end - HOUR_FIX_EPS && span.start < gap.end - HOUR_FIX_EPS) {
+        const start = gap.end;
+        if (start > span.start + HOUR_FIX_EPS && span.end - start >= 0.5) proposals.push({ start, end: span.end, edge: "start" });
+      }
+      for (const proposal of proposals) {
+        const id = `${employeeId}|${proposal.edge}|${proposal.start}|${proposal.end}`;
+        if (seen.has(id) || !spanIsLegal(state, employeeId, slot, proposal.start, proposal.end)) continue;
+        const next = setAssignmentHours(state, slot.key, employeeId, proposal.start, proposal.end);
+        if (next === state || coverageImbalance(next) >= before - 0.01) continue;
+        seen.add(id);
+        const change = proposal.edge === "end" ? Math.abs(proposal.end - span.end) : Math.abs(proposal.start - span.start);
+        found.push({
+          employeeId,
+          name: employee.name,
+          slotKey: slot.key,
+          start: proposal.start,
+          end: proposal.end,
+          edge: proposal.edge,
+          change,
+        });
+      }
+    }
+  }
+
+  found.sort(
+    (left, right) =>
+      left.change - right.change ||
+      Number(left.slotKey === gap.slot.key) - Number(right.slotKey === gap.slot.key) ||
+      left.name.localeCompare(right.name, "he"),
+  );
+  return found.slice(0, 4).map((item) => ({
+    employeeId: item.employeeId,
+    name: item.name,
+    slotKey: item.slotKey,
+    start: item.start,
+    end: item.end,
+    edge: item.edge,
+  }));
 }
 
 /** Swap the order of two people in the same shift. Who works it does not change. */
@@ -411,18 +498,28 @@ function assignmentBlocked(state: RotaState, slotKey: string, employeeId: string
   return reason !== null && reason.code !== "weekly_shifts";
 }
 
-export function placementWarning(state: RotaState, slot: Slot, employeeId: string, lang: Lang): string | null {
+/** Why this person cannot take the seat, including a shift past the agreement. `null` means the seat is open to them. */
+export function placementIssue(state: RotaState, slot: Slot, employeeId: string, lang: Lang = "he"): Reason | null {
   const employee = state.emps.find((item) => item.id === employeeId);
-  if (!employee) return null;
-  if (!reliefAllowed(state, employee)) return formatReason({ code: "home_schedule" }, lang);
+  if (!employee) return { code: "inactive" };
+  if (!reliefAllowed(state, employee)) return { code: "home_schedule" };
   const blocked = staticReason(state, employee, slot, state.week);
-  if (blocked) return formatReason(blocked, lang);
+  if (blocked) return blocked;
   const schedule = state.sched[state.week];
   const mine = slots(state, state.week)
     .filter((open) => (schedule?.assign[open.key] ?? []).includes(employeeId))
     .map((open) => (schedule ? effectiveSlot(schedule, open, employeeId) : open));
-  const dynamic = dynamicReason(state, employee, slot, mine, lang);
-  return dynamic ? formatReason(dynamic, lang) : null;
+  return dynamicReason(state, employee, slot, mine, lang);
+}
+
+/** A shift past the weekly agreement is still a choice. Every other issue refuses the seat. */
+export function canPlace(reason: Reason | null): boolean {
+  return reason === null || reason.code === "weekly_shifts";
+}
+
+export function placementWarning(state: RotaState, slot: Slot, employeeId: string, lang: Lang): string | null {
+  const reason = placementIssue(state, slot, employeeId, lang);
+  return reason ? formatReason(reason, lang) : null;
 }
 
 export function proposalsFor(state: RotaState, slot: Slot): Proposal[] {
@@ -537,10 +634,7 @@ export function parseAssignmentToken(token: string): { slotKey: string; employee
 }
 
 export function clockLabel(hour: number): string {
-  const wrapped = ((hour % 24) + 24) % 24;
-  const hours = Math.floor(wrapped + 1e-9);
-  const minutes = Math.round((wrapped - hours) * 60);
-  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  return formatClock(hour);
 }
 
 export function commit(history: History, next: RotaState): History {

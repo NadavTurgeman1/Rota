@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ensureSchedule, slots, suggest, type Employee, type RotaState, type ShiftDefinition } from "../domain";
-import { proposalsFor } from "./edit";
+import { hourFixBucket, proposalBucket, proposalsFor } from "./edit";
 import { proposalText } from "./display";
 
 const week = "2026-10-18";
@@ -72,5 +72,12 @@ describe("hole suggestions", () => {
     expect(text.indexOf("מעבר")).toBeLessThan(text.indexOf("הארכה לכפולה"));
     expect(text).not.toContain("גל");
     expect(proposalText(proposals[0]!, "he", state)).toContain("גל: משמרת נוספת");
+    expect(proposals.filter((proposal) => proposal.kind === "extra").every((proposal) => proposalBucket(proposal) === "add")).toBe(true);
+    const moved = proposals.find(
+      (proposal) => proposal.kind === "coverage" && proposal.option.parts.some((part) => part.from !== part.slotKey),
+    );
+    expect(moved && proposalBucket(moved)).toBe("change");
+    expect(hourFixBucket(-1)).toBe("extend");
+    expect(hourFixBucket(1)).toBe("change");
   });
 });

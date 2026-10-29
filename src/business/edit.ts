@@ -149,6 +149,8 @@ export function removeShift(state: RotaState, actor: Actor, shiftId: string): Ro
     for (const [key, extension] of Object.entries(schedule.ext ?? {})) {
       if (ofShift(key) || ofShift(extension.cover)) delete schedule.ext![key];
     }
+    for (const key of Object.keys(schedule.hours ?? {})) if (ofShift(key)) delete schedule.hours![key];
+    if (schedule.hours && Object.keys(schedule.hours).length === 0) delete schedule.hours;
     for (const key of Object.keys(schedule.over ?? {})) if (ofShift(key)) delete schedule.over![key];
   }
   return draft;

@@ -1,4 +1,5 @@
 import { cleanProfile } from "../domain/profile";
+import { HOUR_SPAN_GROUP } from "../domain/schedule";
 import type { RotaState, Schedule, ScheduleVersion, ShiftDefinition } from "../domain/types";
 import type { SiteBundle } from "./types";
 
@@ -175,9 +176,15 @@ function scheduleFromBundle(
     if (row.over_quota) over[`${key}#${row.employee_id}`] = true;
   }
   const ext: NonNullable<Schedule["ext"]> = {};
+  const hours: NonNullable<Schedule["hours"]> = {};
   for (const row of bundle.extensions) {
     if (row.schedule_id !== scheduleId) continue;
-    ext[`${Number(row.weekday)}|${row.shift_id}#${row.employee_id}`] = {
+    const key = `${Number(row.weekday)}|${row.shift_id}#${row.employee_id}`;
+    if (row.group_id === HOUR_SPAN_GROUP) {
+      hours[key] = { start: Number(row.start_hour), end: Number(row.end_hour) };
+      continue;
+    }
+    ext[key] = {
       start: Number(row.start_hour),
       end: Number(row.end_hour),
       groupId: row.group_id,
@@ -201,6 +208,7 @@ function scheduleFromBundle(
     status,
     ...(restoredFrom ? { restoredFrom: Number(restoredFrom) } : {}),
     ...(Object.keys(ext).length ? { ext } : {}),
+    ...(Object.keys(hours).length ? { hours } : {}),
     ...(Object.keys(over).length ? { over } : {}),
     ...(calloffs.length ? { calloffs } : {}),
   };

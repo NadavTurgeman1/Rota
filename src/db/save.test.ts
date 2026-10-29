@@ -112,6 +112,7 @@ describe("saving a site", () => {
                 zip: "33000",
                 startedOn: "2024-01-07",
                 endedOn: "",
+                employeeNumber: "",
                 department: "מבצעים",
                 maritalStatus: "married",
                 bankName: "לאומי",
@@ -123,7 +124,12 @@ describe("saving a site", () => {
       ),
       sched: {
         ...state.sched,
-        [nextWeek]: { assign: { [`0|${morning.id}`]: [person.id] }, locked: [], status: "draft" },
+        [nextWeek]: {
+          assign: { [`0|${morning.id}`]: [person.id] },
+          locked: [],
+          status: "draft",
+          hours: { [`0|${morning.id}#${person.id}`]: { start: 6, end: 13 } },
+        },
       },
     };
     await asRole(db, "authenticated", manager);
@@ -147,6 +153,7 @@ describe("saving a site", () => {
     expect(loaded.former?.[person.id]).toBeUndefined();
     expect(loaded.sched[nextWeek]?.status).toBe("draft");
     expect(loaded.sched[nextWeek]?.assign[`0|${morning.id}`]).toEqual([person.id]);
+    expect(loaded.sched[nextWeek]?.hours).toEqual({ [`0|${morning.id}#${person.id}`]: { start: 6, end: 13 } });
   });
 
   it("lets a manager save their site and refuses another organization", async () => {

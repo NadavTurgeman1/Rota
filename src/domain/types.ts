@@ -28,6 +28,8 @@ export interface EmployeeProfile {
   startedOn: string;
   /** `YYYY-MM-DD`, or empty. */
   endedOn: string;
+  /** Company employee number. Empty until someone fills it in. */
+  employeeNumber: string;
   department: string;
   /** `single`, `married`, `divorced`, `widowed`, or empty. */
   maritalStatus: string;
@@ -126,6 +128,11 @@ export interface Schedule {
   locked: string[];
   status: "draft" | "published";
   ext?: Record<string, ShiftExtension>;
+  /**
+   * Clock override for one person on one shift. Key: `slotKey#employeeId`.
+   * Hours use the same scale as `Slot`. Missing means the shift's own hours.
+   */
+  hours?: Record<string, { start: number; end: number }>;
   /** Approved shifts beyond the weekly agreement. Key: `slotKey#employeeId`. */
   over?: Record<string, true>;
   /** People removed from a published week. The seat stays open until a manager covers it. */
@@ -243,6 +250,8 @@ export type Reason =
 export interface Violation {
   key?: string;
   message: string;
+  /** The rule behind a person's seat. Missing on a headcount note. */
+  reason?: Reason;
 }
 
 export interface UnfilledShift {
@@ -265,11 +274,22 @@ export interface OverQuota {
   message: string;
 }
 
+/** One stretch where the people actually present differ from the shift's required count. */
+export interface CoverageGap {
+  slot: Slot;
+  start: number;
+  end: number;
+  /** Negative is a shortage. Positive is a surplus. */
+  delta: number;
+}
+
 export interface Analysis {
   violations: Violation[];
   /** Shifts past the agreed weekly count. Shown as an exception, and it does not block publishing. */
   overQuota: OverQuota[];
   unfilled: UnfilledShift[];
+  /** Hour-by-hour shortages and surpluses. Publishing asks before it goes out with these. */
+  coverage: CoverageGap[];
   under: UnderContract[];
   hours: Record<string, number>;
   counts: Record<string, number>;

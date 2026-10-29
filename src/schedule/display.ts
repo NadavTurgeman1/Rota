@@ -8,7 +8,8 @@ import {
   type ReplacementCandidate,
   type RotaState,
 } from "../domain";
-import { clockLabel, type Proposal } from "./edit";
+import { hourFixText } from "../i18n/copy";
+import { clockLabel, type HourFix, type Proposal } from "./edit";
 
 const SHIFT_LABELS: Record<string, Record<Lang, string>> = {
   Morning: { he: "בוקר", en: "Morning" },
@@ -127,6 +128,13 @@ function changeLine(part: CoveragePart, lang: Lang, state?: RotaState): string {
   if (moved && part.extended) return `${part.name} — moves from ${from} to ${to} and extends into a double (${hours})${wage}`;
   if (moved) return `${part.name} — moves from ${from} to ${to}`;
   return `${part.name} — extends ${to} into a double (${hours})${wage}`;
+}
+
+export function hourFixLine(fix: HourFix, lang: Lang, state: RotaState): string {
+  const shiftId = fix.slotKey.split("|")[1] ?? "";
+  const shift = state.biz.shifts.find((item) => item.id === shiftId);
+  const clock = clockLabel(fix.edge === "start" ? fix.start : fix.end);
+  return hourFixText(lang, fix.name, shiftLabel(shift?.name ?? "", lang), fix.edge, clock);
 }
 
 export function proposalText(proposal: Proposal, lang: Lang, state?: RotaState): string {
