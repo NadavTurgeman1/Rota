@@ -118,7 +118,13 @@ export function IssuesPanel({
   embedded?: boolean;
 }) {
   const t = copy[lang];
-  const clear = hasSchedule && report.violations.length === 0 && report.unfilled.length === 0 && report.coverage.length === 0;
+  const [laborOpen, setLaborOpen] = useState(false);
+  const clear =
+    hasSchedule &&
+    report.violations.length === 0 &&
+    report.unfilled.length === 0 &&
+    report.coverage.length === 0 &&
+    report.labor.length === 0;
   const showPublishHint = manager && !published;
 
   return (
@@ -136,6 +142,40 @@ export function IssuesPanel({
               </li>
             ))}
           </ul>
+        </section>
+      ) : null}
+      {report.labor.length > 0 ? (
+        <section className="mt-4" data-testid="labor-notes">
+          <button
+            type="button"
+            data-testid="labor-toggle"
+            aria-expanded={laborOpen}
+            className="flex min-h-9 w-full items-center justify-between gap-2 rounded-lg border border-line bg-card px-3 py-1.5 text-start text-sm font-medium text-ink hover:bg-well"
+            onClick={() => setLaborOpen((open) => !open)}
+          >
+            <span className="min-w-0">{t.laborTitle}</span>
+            <span className="inline-flex shrink-0 items-center gap-2 text-xs font-medium text-muted">
+              <span className="tabular-nums">{report.labor.length}</span>
+              {laborOpen ? t.laborClose : t.laborOpen}
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 20 20"
+                className={`h-3.5 w-3.5 transition-transform ${laborOpen ? "rotate-180" : ""}`}
+                fill="currentColor"
+              >
+                <path d="M5.2 7.5a.75.75 0 0 1 1.06 0L10 11.2l3.74-3.7a.75.75 0 1 1 1.06 1.06l-4.27 4.24a.75.75 0 0 1-1.06 0L5.2 8.56a.75.75 0 0 1 0-1.06Z" />
+              </svg>
+            </span>
+          </button>
+          {laborOpen ? (
+            <ul className="mt-2 space-y-2">
+              {report.labor.map((item) => (
+                <li key={item.key} className="rounded-xl border border-warn-line/40 bg-warn-softer px-3 py-2 text-sm leading-6">
+                  {item.message}
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </section>
       ) : null}
       {report.coverage.length > 0 ? (

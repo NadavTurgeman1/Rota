@@ -1,4 +1,5 @@
 import { touchedSlotKeys, weekCoverage } from "./coverage";
+import { consecutiveStreaks, laborNotes } from "./labor";
 import { isRelief, peerLoad } from "./relief";
 import { coveredSeats, effectiveSlot } from "./schedule";
 import { approvedExtraShifts, dynamicReason, formatReason, slotLabel, slots, staticReason, type Lang } from "./rules";
@@ -7,7 +8,7 @@ import type { Analysis, Employee, OverQuota, RotaState, UnfilledShift } from "./
 /** Explain a stored week. Does not change it. An unfilled seat stays unfilled. */
 export function analyze(state: RotaState, week: string, lang: Lang = "he"): Analysis {
   const schedule = state.sched[week];
-  if (!schedule) return { violations: [], overQuota: [], unfilled: [], coverage: [], under: [], hours: {}, counts: {} };
+  if (!schedule) return { violations: [], labor: [], overQuota: [], unfilled: [], coverage: [], under: [], hours: {}, counts: {} };
 
   const openSlots = slots(state, week);
   const employees = state.emps.filter((employee) => employee.active);
@@ -38,7 +39,7 @@ export function analyze(state: RotaState, week: string, lang: Lang = "he"): Anal
       const reason =
         staticReason(state, employee, slot, week) ||
         dynamicReason(state, employee, effectiveSlot(schedule, slot, employeeId), mine[employeeId], lang);
-      if (!reason || reason.code === "weekly_shifts") continue;
+      if (!reason || reason.code === "weekly_shifts" || reason.code === "consecutive_days") continue;
       violations.push({
         key: `${slot.key}#${employeeId}`,
         message: `${employee.name} — ${slotLabel(state, slot, lang)}: ${formatReason(reason, lang)}`,
@@ -57,6 +58,17 @@ export function analyze(state: RotaState, week: string, lang: Lang = "he"): Anal
       unfilled.push(explainGap(state, week, slot, employees, ids.length + covered, lang));
     }
   }
+  for (const employee of state.emps) {
+    for (const streak of consecutiveStreaks(state, employee.id, week)) {
+      const reason = { code: "consecutive_days" as const, from: streak.from, to: streak.to, days: streak.days };
+      violations.push({
+        key: `consecutive#${employee.id}#${streak.from}`,
+        message: `${employee.name} — ${formatReason(reason, lang)}`,
+        reason,
+      });
+    }
+  }
+  const labor = laborNotes(state, week, lang);
   const coverage = weekCoverage(state, week);
 
   const under: Analysis["under"] = [];
@@ -102,7 +114,7 @@ export function analyze(state: RotaState, week: string, lang: Lang = "he"): Anal
     });
   }
 
-  return { violations, overQuota, unfilled, coverage, under, hours, counts };
+  return { violations, labor, overQuota, unfilled, coverage, under, hours, counts };
 }
 
 function explainGap(

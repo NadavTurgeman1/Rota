@@ -99,14 +99,14 @@ import { ManagerTradePrompt, tradeStillHeld, useSetAside, type ShiftTrade, type 
 import { useAiEnabled } from "./use-ai";
 import { SettingsMenu, type Theme } from "./settings-menu";
 import { VersionsPanel } from "./versions-panel";
-import { staffCanSubmitConstraints, withConstraintExtension } from "../schedule/constraint-window";
+import { closeExtraSubmissionWindow, millisUntilConstraintWindowChange, settleClosedConstraintWindow, staffCanSubmitConstraints, withConstraintExtension } from "../schedule/constraint-window";
 import { WeekPicker } from "./week-picker";
 import { WeekSummary } from "./week-summary";
-import { PublishAsk } from "./publish-ask";
+import { LaborAsk, PublishAsk } from "./publish-ask";
 import { button } from "./ui";
 import { downloadBlob, downloadWeekPng } from "./week-png";
 
-const EMPTY: Analysis = { violations: [], overQuota: [], unfilled: [], coverage: [], under: [], hours: {}, counts: {} };
+const EMPTY: Analysis = { violations: [], labor: [], overQuota: [], unfilled: [], coverage: [], under: [], hours: {}, counts: {} };
 const THEME_KEY = "rota.theme";
 const SUPPORT_KEY = "rota.supportOrg";
 
@@ -214,6 +214,7 @@ export function ScheduleApp() {
   const recovering = useRef(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [saveNote, setSaveNote] = useState<string | null>(null);
+  const [constraintClock, setConstraintClock] = useState(0);
   const remote = remoteConfigured();
   const tokenRef = useRef<string | null>(null);
   const retrySave = useRef(false);
@@ -272,6 +273,7 @@ export function ScheduleApp() {
   const staffChain = useRef(Promise.resolve());
   const [nowHours, setNowHours] = useState<number | null>(null);
   const [publishAsk, setPublishAsk] = useState(false);
+  const [laborAsk, setLaborAsk] = useState(false);
   const [currentWeek, setCurrentWeek] = useState("2026-10-11");
   const aiEnabled = useAiEnabled();
   const t = copy[lang];
@@ -935,11 +937,43 @@ export function ScheduleApp() {
       }
       setSaveNote(null);
     }
-    patchPresent((current) => {
-      const biz = withConstraintExtension(current.biz, null);
-      return biz === current.biz ? current : { ...current, biz };
-    });
+    patchPresent((current) => closeExtraSubmissionWindow(current));
   }
+
+  useEffect(() => {
+    if (!writer) return;
+    let cancelled = false;
+    const siteId = live.activeSiteId;
+    if (settleClosedConstraintWindow(state) !== state) {
+      void (async () => {
+        if (remote && siteId) {
+          const response = await fetch("/api/constraints", {
+            method: "POST",
+            headers: authHeaders(true),
+            body: JSON.stringify({ siteId, settle: true }),
+          });
+          if (!response.ok || cancelled) {
+            if (!cancelled) setSaveNote("failed");
+            return;
+          }
+        }
+        if (!cancelled) patchPresent((current) => settleClosedConstraintWindow(current));
+      })();
+    }
+    const wait = millisUntilConstraintWindowChange(state.biz);
+    if (wait === null) {
+      return () => {
+        cancelled = true;
+      };
+    }
+    const timer = window.setTimeout(() => {
+      if (!cancelled) setConstraintClock((tick) => tick + 1);
+    }, wait);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [state.biz, state.constraintGrants, writer, remote, live.activeSiteId, constraintClock]);
 
   async function decideRequest(requestId: string, approve: boolean) {
     const siteId = live.activeSiteId;
@@ -1151,12 +1185,31 @@ export function ScheduleApp() {
       setPublishAsk(true);
       return;
     }
+    if (analyze(peered, peered.week, lang).labor.length > 0) {
+      setLaborAsk(true);
+      return;
+    }
     commitPublish(false);
+  }
+
+  function confirmProblems() {
+    setPublishAsk(false);
+    if (analyze(peered, peered.week, lang).labor.length > 0) {
+      setLaborAsk(true);
+      return;
+    }
+    commitPublish(true);
+  }
+
+  function confirmLabor() {
+    setLaborAsk(false);
+    commitPublish(!publishCheck(peered).ready);
   }
 
   function commitPublish(anyway: boolean) {
     if (!user || publishCheck(peered).constraint > 0) return;
     setPublishAsk(false);
+    setLaborAsk(false);
     const next = publishWeek(state, freshStamp(user.name), { anyway });
     if (next === state) return;
     change(() => next);
@@ -1356,7 +1409,9 @@ export function ScheduleApp() {
         : check.constraint > 0
           ? constraintBlocked(lang, check.constraint)
           : check.ready
-            ? t.allClear
+            ? fullReport.labor.length > 0
+              ? t.laborWillAsk
+              : t.allClear
             : publishWillAsk(lang, check.violations + check.unfilled + check.coverage);
 
   const boardProps = {
@@ -1868,8 +1923,16 @@ export function ScheduleApp() {
           violations={check.violations}
           unfilled={check.unfilled}
           coverage={check.coverage}
-          onPublish={() => commitPublish(true)}
+          onPublish={confirmProblems}
           onStay={() => setPublishAsk(false)}
+        />
+      ) : null}
+      {laborAsk ? (
+        <LaborAsk
+          lang={lang}
+          notes={analyze(peered, peered.week, lang).labor}
+          onPublish={confirmLabor}
+          onStay={() => setLaborAsk(false)}
         />
       ) : null}
       {review && reviewSite ? (

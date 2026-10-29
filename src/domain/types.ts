@@ -271,7 +271,17 @@ export type Reason =
   | { code: "shift_length"; cap: number }
   | { code: "home_schedule" }
   | { code: "shabbat" }
-  | { code: "holiday" };
+  | { code: "holiday" }
+  | { code: "consecutive_days"; from: string; to: string; days: number };
+
+/** A Hours of Work and Rest Law note. It does not block placement. */
+export interface LaborNote {
+  key: string;
+  employeeId: string;
+  code: "weekly_rest" | "daily_gap" | "day_cap" | "overtime" | "night_weeks" | "consecutive_shabbat";
+  hours?: number;
+  message: string;
+}
 
 export interface Violation {
   key?: string;
@@ -311,6 +321,8 @@ export interface CoverageGap {
 
 export interface Analysis {
   violations: Violation[];
+  /** Hours of Work and Rest Law notes. They do not block placement or publishing by themselves. */
+  labor: LaborNote[];
   /** Shifts past the agreed weekly count. Shown as an exception, and it does not block publishing. */
   overQuota: OverQuota[];
   unfilled: UnfilledShift[];

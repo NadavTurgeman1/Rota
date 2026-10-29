@@ -27,6 +27,7 @@ const CODES = new Set<Reason["code"]>([
   "weekly_shifts",
   "shabbat",
   "holiday",
+  "consecutive_days",
 ]);
 
 export function readExplainRequest(body: unknown): ExplainRequest | null {

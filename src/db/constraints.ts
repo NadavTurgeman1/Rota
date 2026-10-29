@@ -57,6 +57,16 @@ export async function openConstraintExtension(sql: SqlClient, input: { siteId: s
   }
 }
 
+/** Drop exception toggles after the submission window has closed. A permanent window that is still open is left alone. */
+export async function clearClosedConstraintGrants(sql: SqlClient, siteId: string): Promise<void> {
+  if (!UUID.test(siteId)) throw new SaveError("window");
+  try {
+    await sql.query(`select private.clear_closed_constraint_grants($1)`, [siteId]);
+  } catch (error) {
+    fail(error, "window");
+  }
+}
+
 /** Close the extra submission window. */
 export async function closeConstraintExtension(sql: SqlClient, siteId: string): Promise<void> {
   if (!UUID.test(siteId)) throw new SaveError("window");

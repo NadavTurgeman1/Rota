@@ -21,6 +21,7 @@ export type {
   UnfilledShift,
   VersionReason,
   Violation,
+  LaborNote,
 } from "./types";
 
 export { addDays, clockNear, durationHours, formatClock, gapBetween, parseClock, shiftKind, sundayOnOrBefore } from "./time";

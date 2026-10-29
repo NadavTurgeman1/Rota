@@ -95,6 +95,27 @@ describe("a roster employee login", () => {
     await asRole(db, "authenticated", worker);
     await expect(submitAvailabilityRequest(sql, { siteId: headquarters, week: constraintWeek, shifts: grid })).rejects.toBeInstanceOf(SaveError);
     await db.exec("reset role");
+    const beforeClose = await sql.query<{ opens_day: number; closes_day: number; opens: string; closes: string }>(
+      `select constraint_opens_day as opens_day, constraint_closes_day as closes_day, constraint_opens::text as opens, constraint_closes::text as closes
+       from public.sites where id = $1`,
+      [headquarters],
+    );
+    await asRole(db, "authenticated", owner);
+    await sql.query(`select private.set_constraint_grant($1, $2, $3::date, true)`, [headquarters, staff.id, constraintWeek]);
+    await sql.query(`select private.open_constraint_extension($1, 30)`, [headquarters]);
+    await sql.query(`select private.close_constraint_extension($1)`, [headquarters]);
+    const clearedGrants = await sql.query<{ count: string }>(
+      `select count(*)::text as count from public.constraint_grants where site_id = $1`,
+      [headquarters],
+    );
+    expect(clearedGrants[0]?.count).toBe("0");
+    const afterClose = await sql.query<{ opens_day: number; closes_day: number; opens: string; closes: string }>(
+      `select constraint_opens_day as opens_day, constraint_closes_day as closes_day, constraint_opens::text as opens, constraint_closes::text as closes
+       from public.sites where id = $1`,
+      [headquarters],
+    );
+    expect(afterClose).toEqual(beforeClose);
+    await db.exec("reset role");
     await sql.query(
       `update public.sites
        set constraint_opens_day = 0, constraint_closes_day = 6, constraint_opens = '00:00', constraint_closes = '23:59'

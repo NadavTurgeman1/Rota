@@ -1,6 +1,19 @@
 import { describe, expect, it } from "vitest";
 import type { Business } from "../domain/types";
-import { constraintWindowOpen, constraintWindowText, staffCanSubmitConstraints, staffConstraintWeek, underwayWeek, withConstraintExtension } from "./constraint-window";
+import { closeExtraSubmissionWindow, constraintWindowOpen, constraintWindowText, millisUntilConstraintWindowChange, settleClosedConstraintWindow, staffCanSubmitConstraints, staffConstraintWeek, underwayWeek, withConstraintExtension } from "./constraint-window";
+import type { RotaState } from "../domain/types";
+
+function roster(biz: Business, grants?: Record<string, string[]>): RotaState {
+  return {
+    week: "2026-10-18",
+    biz,
+    emps: [],
+    avail: {},
+    sched: {},
+    closed: {},
+    ...(grants ? { constraintGrants: grants } : {}),
+  };
+}
 
 const site: Business = {
   name: "דרום",
@@ -55,6 +68,67 @@ describe("constraint window", () => {
     expect(closed.constraintExtensionUntil).toBeUndefined();
     expect(constraintWindowOpen(closed, now)).toBe(false);
     expect(withConstraintExtension(closed, null)).toBe(closed);
+  });
+
+  it("turns exception toggles off when the permanent window reaches its close time", () => {
+    const during = new Date("2026-10-18T07:00:00.000Z");
+    const closesAt = new Date("2026-10-18T09:01:00.000Z");
+    const open = roster(site, { "2026-10-25": ["dana"] });
+    expect(millisUntilConstraintWindowChange(site, during)).toBe(closesAt.getTime() - during.getTime());
+    expect(settleClosedConstraintWindow(open, closesAt).constraintGrants).toBeUndefined();
+    expect(settleClosedConstraintWindow(open, closesAt).biz.constraintCloses).toBe("12:00");
+    const before = new Date("2026-10-18T05:00:00.000Z");
+    expect(millisUntilConstraintWindowChange(site, before)).toBe(new Date("2026-10-18T06:00:00.000Z").getTime() - before.getTime());
+    const withExtra = { ...site, constraintExtensionUntil: "2026-10-18T10:00:00.000Z" };
+    expect(millisUntilConstraintWindowChange(withExtra, new Date("2026-10-18T09:00:00.000Z"))).toBe(60 * 60 * 1000);
+    expect(millisUntilConstraintWindowChange({ ...site, constraintStartDay: 0, constraintEndDay: 6, constraintOpens: "00:00", constraintCloses: "23:59" }, during)).toBeNull();
+  });
+
+  it("turns exception toggles off when the submission window closes", () => {
+    const during = new Date("2026-10-18T07:00:00.000Z");
+    const after = new Date("2026-10-18T09:01:00.000Z");
+    const open = roster(site, { "2026-10-25": ["dana"] });
+    expect(settleClosedConstraintWindow(open, during)).toBe(open);
+    const closed = settleClosedConstraintWindow(open, after);
+    expect(closed.constraintGrants).toBeUndefined();
+    expect(closed.biz.constraintOpens).toBe("09:00");
+    expect(closed.biz.constraintCloses).toBe("12:00");
+    expect(settleClosedConstraintWindow(closed, after)).toBe(closed);
+  });
+
+  it("leaves the permanent window alone when an earlier extra window closes first", () => {
+    const before = new Date("2026-10-18T05:30:00.000Z");
+    const inside = new Date("2026-10-18T07:00:00.000Z");
+    const early = roster(
+      { ...site, constraintExtensionUntil: "2026-10-18T05:50:00.000Z" },
+      { "2026-10-25": ["dana"] },
+    );
+    expect(constraintWindowOpen(early.biz, before)).toBe(true);
+    const closed = closeExtraSubmissionWindow(early, before);
+    expect(closed.biz.constraintExtensionUntil).toBeUndefined();
+    expect(closed.constraintGrants).toBeUndefined();
+    expect(closed.biz.constraintStartDay).toBe(0);
+    expect(closed.biz.constraintEndDay).toBe(0);
+    expect(closed.biz.constraintOpens).toBe("09:00");
+    expect(closed.biz.constraintCloses).toBe("12:00");
+    expect(constraintWindowOpen(closed.biz, before)).toBe(false);
+    expect(constraintWindowOpen(closed.biz, inside)).toBe(true);
+    const expired = settleClosedConstraintWindow(early, new Date("2026-10-18T05:55:00.000Z"));
+    expect(expired.biz.constraintOpens).toBe("09:00");
+    expect(expired.constraintGrants).toBeUndefined();
+    expect(constraintWindowOpen(expired.biz, inside)).toBe(true);
+  });
+
+  it("keeps exception toggles when the extra window closes during the permanent window", () => {
+    const during = new Date("2026-10-18T07:00:00.000Z");
+    const open = roster(
+      { ...site, constraintExtensionUntil: "2026-10-18T08:00:00.000Z" },
+      { "2026-10-25": ["dana"] },
+    );
+    const closed = closeExtraSubmissionWindow(open, during);
+    expect(closed.biz.constraintExtensionUntil).toBeUndefined();
+    expect(closed.constraintGrants).toEqual({ "2026-10-25": ["dana"] });
+    expect(constraintWindowOpen(closed.biz, during)).toBe(true);
   });
 
   it("lets an employee submit constraints only for the week after the one underway", () => {

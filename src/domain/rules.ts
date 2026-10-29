@@ -1,5 +1,6 @@
 import { addDays, durationHours, gapBetween, parseClock } from "./time";
 import { effectiveSlot, shiftById } from "./schedule";
+import { consecutiveRun, workedDates } from "./labor";
 import { shabbatBlocks, shiftRest, staffedCount } from "./rest";
 import type { Employee, Reason, RotaState, Slot } from "./types";
 
@@ -204,6 +205,8 @@ export function dynamicReason(
     if (dayHours > dailyCap + 1e-9) return { code: "daily_hours", cap: dailyCap };
   }
   if (hours > cap) return { code: "weekly_hours", cap };
+  const run = consecutiveRun(workedDates(state, employee.id, state.week, mine, slot.day), addDays(state.week, slot.day));
+  if (run) return { code: "consecutive_days", from: run.from, to: run.to, days: run.days };
   const agreed = employee.perWeek;
   if (agreed && count > agreed + approvedExtraShifts(state, employee.id)) {
     return { code: "weekly_shifts", agreed };
@@ -256,5 +259,16 @@ export function formatReason(reason: Reason, lang: "en" | "he" = "he"): string {
       return lang === "he"
         ? "שומר חג: אין שיבוץ מ-15:00 בערב החג עד 21:00 במוצאי החג"
         : "Observes the festival: no shift from 15:00 the day before until 21:00 on the festival day";
+    case "consecutive_days": {
+      const span = `${dotDate(reason.from)}–${dotDate(reason.to)}`;
+      return lang === "he"
+        ? `${reason.days} ימים ברצף (${span}). אסור לעבוד שבעה ימים ברצף`
+        : `${reason.days} days in a row (${span}). Seven days in a row is not allowed`;
+    }
   }
+}
+
+function dotDate(iso: string): string {
+  const [, month, date] = iso.split("-");
+  return `${Number(date)}.${Number(month)}`;
 }

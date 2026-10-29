@@ -7,7 +7,7 @@ import { overBucketIds } from "../people/blocks";
 import { availabilitySubmitted, gridWithCell, hasConstraintGrant } from "../people/edit";
 import { constraintsAsSeenHere } from "../people/sites";
 import { BlockLimitNote } from "./block-limit";
-import { extensionStillOpen } from "../schedule/constraint-window";
+import { constraintWindowOpen, extensionStillOpen } from "../schedule/constraint-window";
 import type { StaffRequest } from "../workspace/workspace";
 import { ConstraintPaste } from "./constraint-paste";
 import { DurationWheels, useCountdown } from "./duration-wheel";
@@ -63,6 +63,8 @@ export function ConstraintsScreen({
     return { biz: home.biz, name: home.name, away: true };
   }
   const selectedHome = selected ? homeFor(selected.id) : null;
+  const submissionOpen = constraintWindowOpen(state.biz);
+  const granted = Boolean(selected && submissionOpen && hasConstraintGrant(state, selected.id));
   const shown = selected && viewOnly ? reliefView(selected.id) : state;
   function reliefView(employeeId: string): RotaState {
     const person = state.emps.find((employee) => employee.id === employeeId);
@@ -226,26 +228,30 @@ export function ConstraintsScreen({
               </div> : null}
             </div>
             {editable && selectedHome?.biz.blockLimit === true ? (
-              <div className="mt-3 flex flex-wrap items-center justify-between gap-3 border-t border-line pt-3">
-                <div className="min-w-0">
+              <div className="mt-3 border-t border-line pt-3">
+                <div className="flex w-fit max-w-full items-center gap-3">
                   <p className="text-sm font-medium text-ink">{t.exceptionGrant}</p>
-                  <p className="text-sm leading-6 text-muted">{t.exceptionGrantHint}</p>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={granted}
+                    aria-label={t.exceptionGrant}
+                    data-testid={`exception-grant-${selected.name}`}
+                    disabled={!submissionOpen}
+                    className={`relative h-8 w-12 shrink-0 rounded-full disabled:opacity-60 ${granted ? "bg-brand" : "bg-well"}`}
+                    onClick={() => {
+                      if (!submissionOpen) return;
+                      onGrant(selected.id, !hasConstraintGrant(state, selected.id));
+                    }}
+                  >
+                    <span
+                      className={`absolute top-1 start-1 h-6 w-6 rounded-full bg-card shadow-sm motion-safe:transition-transform motion-safe:duration-200 ${
+                        granted ? "translate-x-4 rtl:-translate-x-4" : ""
+                      }`}
+                    />
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={hasConstraintGrant(state, selected.id)}
-                  aria-label={t.exceptionGrant}
-                  data-testid={`exception-grant-${selected.name}`}
-                  className={`relative h-8 w-12 shrink-0 rounded-full ${hasConstraintGrant(state, selected.id) ? "bg-brand" : "bg-well"}`}
-                  onClick={() => onGrant(selected.id, !hasConstraintGrant(state, selected.id))}
-                >
-                  <span
-                    className={`absolute top-1 start-1 h-6 w-6 rounded-full bg-card shadow-sm motion-safe:transition-transform motion-safe:duration-200 ${
-                      hasConstraintGrant(state, selected.id) ? "translate-x-4 rtl:-translate-x-4" : ""
-                    }`}
-                  />
-                </button>
+                <p className="mt-1 max-w-xl text-sm leading-6 text-muted">{t.exceptionGrantHint}</p>
               </div>
             ) : null}
             {selectedHome ? (

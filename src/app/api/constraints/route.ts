@@ -1,4 +1,4 @@
-import { closeConstraintExtension, openConstraintExtension, saveConstraintGrant } from "../../../db/constraints";
+import { clearClosedConstraintGrants, closeConstraintExtension, openConstraintExtension, saveConstraintGrant } from "../../../db/constraints";
 import { SaveError } from "../../../db/save";
 import { supportOrgFrom, withUserDb } from "../../../supabase/database";
 import { userIdFromAuthorization } from "../../../supabase/user";
@@ -46,10 +46,14 @@ export async function PUT(request: Request) {
 export async function POST(request: Request) {
   const userId = await userIdFromAuthorization(request.headers.get("authorization"));
   if (!userId) return Response.json({ error: "unauthorized" }, { status: 401 });
-  const body = (await request.json().catch(() => null)) as { siteId?: unknown; minutes?: unknown } | null;
+  const body = (await request.json().catch(() => null)) as { siteId?: unknown; minutes?: unknown; settle?: unknown } | null;
   const siteId = typeof body?.siteId === "string" ? body.siteId : "";
   if (!siteId) return Response.json({ error: "window" }, { status: 400 });
   try {
+    if (body?.settle === true) {
+      await withUserDb(userId, (sql) => clearClosedConstraintGrants(sql, siteId), supportOrgFrom(request));
+      return Response.json({ ok: true });
+    }
     if (body?.minutes === null) {
       await withUserDb(userId, (sql) => closeConstraintExtension(sql, siteId), supportOrgFrom(request));
       return Response.json({ ok: true, until: null });

@@ -49,6 +49,11 @@ export interface Copy {
   noSchedule: string;
   issues: string;
   violations: string;
+  laborTitle: string;
+  laborOpen: string;
+  laborClose: string;
+  laborWillAsk: string;
+  laborAskLead: string;
   openShifts: string;
   underQuota: string;
   summaryTitle: string;
@@ -525,6 +530,11 @@ export const copy: Record<Lang, Copy> = {
     noSchedule: "אין עדיין שיבוץ. יצירת הסידור תמלא את המושבים לפי המנוע.",
     issues: "בעיות",
     violations: "הפרות",
+    laborTitle: "הפרות חוקי עבודה ומנוחה",
+    laborOpen: "לפתוח",
+    laborClose: "לסגור",
+    laborWillAsk: "יש הערות לחוק שעות עבודה ומנוחה. הפרסום ישאל לפני כן.",
+    laborAskLead: "בסידור יש הערות לפי חוק שעות עבודה ומנוחה. השיבוץ נשאר מותר, והפרסום מחכה לאישור.",
     openShifts: "משמרות פתוחות",
     underQuota: "מתחת למכסה",
     summaryTitle: "סיכום שבועי",
@@ -1013,6 +1023,11 @@ export const copy: Record<Lang, Copy> = {
     noSchedule: "Nothing is assigned yet. Generate fills the seats through the engine.",
     issues: "Issues",
     violations: "Violations",
+    laborTitle: "Hours of work and rest",
+    laborOpen: "Open",
+    laborClose: "Close",
+    laborWillAsk: "There are hours-of-work-and-rest notes. Publishing will ask first.",
+    laborAskLead: "This schedule has notes under the Hours of Work and Rest Law. Assignment stays allowed, and publishing waits for confirmation.",
     openShifts: "Open shifts",
     underQuota: "Under the agreement",
     summaryTitle: "Week summary",
