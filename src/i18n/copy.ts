@@ -365,6 +365,40 @@ export interface Copy {
   selectAll: string;
   clearAll: string;
   navInsights: string;
+  navMessages: string;
+  messagesHint: string;
+  messagesCompose: string;
+  messagesBody: string;
+  messagesAudience: string;
+  messagesAudienceAll: string;
+  messagesAudiencePeople: string;
+  messagesAudienceShift: string;
+  messagesDeliver: string;
+  messagesDeliverNow: string;
+  messagesDeliverAt: string;
+  messagesDeliverShift: string;
+  messagesWhen: string;
+  messagesPickPeople: string;
+  messagesPickShift: string;
+  messagesSend: string;
+  messagesSending: string;
+  messagesEmpty: string;
+  messagesNone: string;
+  messagesScheduled: string;
+  messagesSent: string;
+  messagesDelete: string;
+  messagesFailed: string;
+  messagesBodyNeeded: string;
+  messagesNoRecipients: string;
+  messagesReadOnly: string;
+  messagesReadCount: (read: number, total: number) => string;
+  messagesFrom: (name: string) => string;
+  messagesInbox: string;
+  messagesInboxEmpty: string;
+  messagesPopupTitle: string;
+  messagesPopupOk: string;
+  messagesUnread: (count: number) => string;
+  messagesCloseInbox: string;
   railLabel: string;
   staffRail: string;
   nameSearch: string;
@@ -847,6 +881,40 @@ export const copy: Record<Lang, Copy> = {
     selectAll: "בחר הכל",
     clearAll: "נקה",
     navInsights: "דשבורד",
+    navMessages: "הודעות",
+    messagesHint: "הודעה לעובדים באתר הזה. בוחרים למי, ומתי היא תופיע אצלם.",
+    messagesCompose: "הודעה חדשה",
+    messagesBody: "תוכן ההודעה",
+    messagesAudience: "למי שולחים",
+    messagesAudienceAll: "לכל העובדים באתר",
+    messagesAudiencePeople: "בחירת עובדים",
+    messagesAudienceShift: "לעובדים במשמרת",
+    messagesDeliver: "מתי שולחים",
+    messagesDeliverNow: "מיד",
+    messagesDeliverAt: "בתאריך ושעה",
+    messagesDeliverShift: "בתחילת משמרת",
+    messagesWhen: "תאריך ושעה",
+    messagesPickPeople: "בחירת עובדים",
+    messagesPickShift: "בחירת משמרת",
+    messagesSend: "שליחה",
+    messagesSending: "שולח…",
+    messagesEmpty: "כתבו הודעה, בחרו למי, ואז שלחו.",
+    messagesNone: "עדיין אין הודעות באתר הזה.",
+    messagesScheduled: "מתוזמן",
+    messagesSent: "נשלח",
+    messagesDelete: "מחיקה",
+    messagesFailed: "השליחה נכשלה. נסו שוב.",
+    messagesBodyNeeded: "חסר טקסט להודעה.",
+    messagesNoRecipients: "אין נמענים לבחירה הזו.",
+    messagesReadOnly: "רק מנהל משמרות יכול לשלוח הודעה.",
+    messagesReadCount: (read, total) => `${read} מתוך ${total} קראו`,
+    messagesFrom: (name) => (name ? `מאת ${name}` : "מהמנהל"),
+    messagesInbox: "הודעות מהמנהל",
+    messagesInboxEmpty: "אין הודעות.",
+    messagesPopupTitle: "הודעה מהמנהל",
+    messagesPopupOk: "הבנתי",
+    messagesUnread: (count) => (count === 1 ? "הודעה אחת שלא נקראה" : `${count} הודעות שלא נקראו`),
+    messagesCloseInbox: "סגירה",
     railLabel: "ניהול",
     staffRail: "שלי",
     nameSearch: "חיפוש שם",
@@ -1340,6 +1408,40 @@ export const copy: Record<Lang, Copy> = {
     selectAll: "Select all",
     clearAll: "Clear",
     navInsights: "Dashboard",
+    navMessages: "Messages",
+    messagesHint: "A note to staff at this site. Choose who receives it, and when it appears for them.",
+    messagesCompose: "New message",
+    messagesBody: "Message",
+    messagesAudience: "Who receives it",
+    messagesAudienceAll: "Everyone at this site",
+    messagesAudiencePeople: "Choose employees",
+    messagesAudienceShift: "People on a shift",
+    messagesDeliver: "When it is sent",
+    messagesDeliverNow: "Now",
+    messagesDeliverAt: "On a date and time",
+    messagesDeliverShift: "At the start of a shift",
+    messagesWhen: "Date and time",
+    messagesPickPeople: "Choose employees",
+    messagesPickShift: "Choose a shift",
+    messagesSend: "Send",
+    messagesSending: "Sending…",
+    messagesEmpty: "Write a message, choose who it is for, then send.",
+    messagesNone: "No messages at this site yet.",
+    messagesScheduled: "Scheduled",
+    messagesSent: "Sent",
+    messagesDelete: "Delete",
+    messagesFailed: "That didn't send. Try again.",
+    messagesBodyNeeded: "The message is empty.",
+    messagesNoRecipients: "Nobody matches that choice.",
+    messagesReadOnly: "Only a shift manager can send a message.",
+    messagesReadCount: (read, total) => `${read} of ${total} read`,
+    messagesFrom: (name) => (name ? `From ${name}` : "From the manager"),
+    messagesInbox: "Messages from the manager",
+    messagesInboxEmpty: "No messages.",
+    messagesPopupTitle: "Message from the manager",
+    messagesPopupOk: "Got it",
+    messagesUnread: (count) => (count === 1 ? "One unread message" : `${count} unread messages`),
+    messagesCloseInbox: "Close",
     railLabel: "Manage",
     staffRail: "Mine",
     nameSearch: "Search names",

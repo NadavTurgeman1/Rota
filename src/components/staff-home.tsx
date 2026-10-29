@@ -16,6 +16,8 @@ import { RailIcon } from "./rail-icon";
 import { downloadBlob, downloadWeekPng } from "./week-png";
 import { useHebrewCalendar } from "./day-dates";
 import { StaffTrades, type ShiftTrade, type TradeApi } from "./trades";
+import { StaffEnvelopeButton, StaffMessageInbox, StaffMessagePopup } from "./staff-messages";
+import type { ManagerMessage } from "../db/messages";
 import { WeekPicker } from "./week-picker";
 import { overBucketIds } from "../people/blocks";
 import { availabilitySubmitted, gridWithCell, hasConstraintGrant, openAvailabilityGrid, openConstraintShiftIds } from "../people/edit";
@@ -322,6 +324,8 @@ export function StaffHome({
   takeable = [],
   tradeApi,
   attendanceApi,
+  messages = [],
+  onMessageAck,
 }: {
   state: RotaState;
   lang: Lang;
@@ -343,12 +347,15 @@ export function StaffHome({
   /** Swaps and giveaways go through the server, so they are off without one. */
   tradeApi?: TradeApi;
   attendanceApi: AttendanceApi;
+  messages?: ManagerMessage[];
+  onMessageAck?: (messageId: string, kind: "popup" | "read") => Promise<boolean>;
 }) {
   const t = copy[lang];
   const hebrew = useHebrewCalendar();
   const [tab, setTab] = useState<"attendance" | "schedule" | "constraints">("attendance");
   const activeNav = useRef<HTMLButtonElement>(null);
   const [copied, setCopied] = useState(false);
+  const [inboxOpen, setInboxOpen] = useState(false);
   const employee = selfId ? state.emps.find((item) => item.id === selfId) ?? null : null;
   const homeSite = employee?.homeSiteId ? rosterSites.find((site) => site.id === employee.homeSiteId) : undefined;
   const homeBiz = homeSite?.state.biz ?? state.biz;
@@ -444,6 +451,20 @@ export function StaffHome({
             <p className="mt-2 text-sm text-muted">{siteName}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
+            {selfId ? (
+              <StaffEnvelopeButton
+                lang={lang}
+                unread={messages.filter((row) => !row.readAt).length}
+                open={inboxOpen}
+                onToggle={() => {
+                  const next = !inboxOpen;
+                  setInboxOpen(next);
+                  if (next && onMessageAck) {
+                    void Promise.all(messages.filter((row) => !row.readAt).map((row) => onMessageAck(row.id, "read")));
+                  }
+                }}
+              />
+            ) : null}
             {sites.length > 1 ? (
               <select
                 data-testid="site-select"
@@ -632,6 +653,20 @@ export function StaffHome({
         </div>
       </div>
       {decision ? <DecisionNotice key={decision.id} decision={decision} lang={lang} onClose={() => onAcknowledge(decision.id)} /> : null}
+      {inboxOpen ? <StaffMessageInbox lang={lang} messages={messages} onClose={() => setInboxOpen(false)} /> : null}
+      {!inboxOpen && !decision
+        ? messages
+            .filter((row) => !row.seenPopupAt)
+            .slice(0, 1)
+            .map((row) => (
+              <StaffMessagePopup
+                key={row.id}
+                lang={lang}
+                message={row}
+                onClose={() => (onMessageAck ? onMessageAck(row.id, "popup") : Promise.resolve(true))}
+              />
+            ))
+        : null}
     </div>
   );
 }

@@ -82,6 +82,8 @@ import {
 import { BusinessScreen } from "./business-screen";
 import { ConstraintsScreen, ExtraWindowMenu } from "./constraints-screen";
 import { InsightsScreen } from "./insights-screen";
+import { MessagesScreen, type MessagesApi } from "./messages-screen";
+import type { ManagerMessage } from "../db/messages";
 import { IssuesPanel } from "./issues-panel";
 import { ApprovalsScreen, type SignupApproval, type TenantRow } from "./approvals-screen";
 import { CreateOrgScreen, CreateSiteScreen, LoginScreen, Logo, NewPasswordScreen, SignupScreen } from "./login-screen";
@@ -159,7 +161,7 @@ function blankWorkspace(userId: string, email: string): Workspace {
   };
 }
 
-type Screen = "business" | "team" | "constraints" | "insights" | "schedule" | "approvals";
+type Screen = "business" | "team" | "constraints" | "insights" | "messages" | "schedule" | "approvals";
 
 function todayIso(now = new Date()): string {
   const year = now.getFullYear();
@@ -289,6 +291,8 @@ export function ScheduleApp() {
   const owner = Boolean(user && isOwner(user));
   const hebrew = hebrewCalendarOn(live);
   const [trades, setTrades] = useState<{ trades: ShiftTrade[]; takeable: string[] }>({ trades: [], takeable: [] });
+  const [staffNotes, setStaffNotes] = useState<ManagerMessage[]>([]);
+  const [managerNotes, setManagerNotes] = useState<ManagerMessage[]>([]);
   const [rosterLog, setRosterLog] = useState<(AttendanceRoster & { siteId: string }) | null>(null);
   const [rosterSite, setRosterSite] = useState<string | null>(null);
   const approvedSeen = useRef<Set<string> | null>(null);
@@ -306,12 +310,38 @@ export function ScheduleApp() {
     setTrades({ trades: body?.trades ?? [], takeable: body?.takeable ?? [] });
   }, []);
 
+  const loadStaffNotes = useCallback(async () => {
+    const token = tokenRef.current;
+    if (!token) return;
+    const headers: Record<string, string> = { authorization: `Bearer ${token}` };
+    if (supportRef.current) headers["x-rota-support-org"] = supportRef.current;
+    const response = await fetch("/api/messages", { headers }).catch(() => null);
+    if (!response?.ok) return;
+    const body = (await response.json().catch(() => null)) as { messages?: ManagerMessage[] } | null;
+    setStaffNotes(body?.messages ?? []);
+  }, []);
+
+  const loadManagerNotes = useCallback(async (siteId: string) => {
+    const token = tokenRef.current;
+    if (!token || !siteId) return;
+    const headers: Record<string, string> = { authorization: `Bearer ${token}` };
+    if (supportRef.current) headers["x-rota-support-org"] = supportRef.current;
+    const response = await fetch(`/api/messages?siteId=${encodeURIComponent(siteId)}`, { headers }).catch(() => null);
+    if (!response?.ok) return;
+    const body = (await response.json().catch(() => null)) as { messages?: ManagerMessage[] } | null;
+    setManagerNotes(body?.messages ?? []);
+  }, []);
+
   const signedIn = Boolean(remote && hydrated && userId && live.sites.length > 0);
   useEffect(() => {
     if (!signedIn) return;
     void loadTrades();
+    void loadStaffNotes();
     function onVisible() {
-      if (document.visibilityState === "visible") void loadTrades();
+      if (document.visibilityState === "visible") {
+        void loadTrades();
+        void loadStaffNotes();
+      }
     }
     document.addEventListener("visibilitychange", onVisible);
     window.addEventListener("focus", onVisible);
@@ -321,7 +351,12 @@ export function ScheduleApp() {
       window.removeEventListener("focus", onVisible);
       window.clearInterval(poll);
     };
-  }, [signedIn, loadTrades]);
+  }, [signedIn, loadTrades, loadStaffNotes]);
+
+  useEffect(() => {
+    if (!signedIn || !live.activeSiteId) return;
+    void loadManagerNotes(live.activeSiteId);
+  }, [signedIn, live.activeSiteId, loadManagerNotes, screen]);
 
   useEffect(() => {
     if (!remote || !writer || screen !== "team" || !live.activeSiteId) return;
@@ -379,6 +414,42 @@ export function ScheduleApp() {
     const result = await postTrade(body);
     void loadTrades();
     return result.ok ? null : result.code;
+  }
+
+  async function postMessage(body: Record<string, unknown>): Promise<{ ok: true } | { ok: false; code: string }> {
+    if (!tokenRef.current) return { ok: false, code: "failed" };
+    const response = await fetch("/api/messages", { method: "POST", headers: authHeaders(true), body: JSON.stringify(body) }).catch(() => null);
+    const data = ((await response?.json().catch(() => null)) ?? {}) as Record<string, unknown>;
+    if (!response?.ok) return { ok: false, code: typeof data.error === "string" ? data.error : "failed" };
+    return { ok: true };
+  }
+
+  const messagesApi: MessagesApi = {
+    refresh: async () => {
+      await loadManagerNotes(live.activeSiteId);
+    },
+    send: async (draft) => {
+      const result = await postMessage({ action: "create", siteId: live.activeSiteId, ...draft });
+      await loadManagerNotes(live.activeSiteId);
+      void loadStaffNotes();
+      return result.ok ? null : result.code;
+    },
+    remove: async (messageId) => {
+      if (!tokenRef.current) return "failed";
+      const response = await fetch(`/api/messages?messageId=${encodeURIComponent(messageId)}`, {
+        method: "DELETE",
+        headers: authHeaders(false),
+      }).catch(() => null);
+      await loadManagerNotes(live.activeSiteId);
+      if (!response?.ok) return "failed";
+      return null;
+    },
+  };
+
+  async function ackStaffNote(messageId: string, kind: "popup" | "read"): Promise<boolean> {
+    const result = await postMessage({ action: "ack", messageId, kind });
+    await loadStaffNotes();
+    return result.ok;
   }
 
   async function attendanceRequest(path: string, body?: object, signal?: AbortSignal): Promise<AttendanceSnapshot | string> {
@@ -1383,6 +1454,8 @@ export function ScheduleApp() {
         takeable={trades.takeable}
         tradeApi={remote ? tradeApi : undefined}
         attendanceApi={attendanceApi}
+        messages={staffNotes}
+        onMessageAck={ackStaffNote}
       />
       </HebrewCalendarContext.Provider>
     );
@@ -1452,9 +1525,10 @@ export function ScheduleApp() {
     { id: "team", label: t.navTeam },
     { id: "constraints", label: t.navConstraints },
     { id: "insights", label: t.navInsights },
+    { id: "messages", label: t.navMessages },
     { id: "business", label: t.navBusiness },
   ];
-  const weekly = screen === "schedule" || screen === "constraints";
+  const weekly = screen === "schedule" || screen === "constraints" || screen === "messages";
 
   return (
     <HebrewCalendarContext.Provider value={hebrew}>
@@ -1853,6 +1927,9 @@ export function ScheduleApp() {
         ) : null}
         {screen === "approvals" && operator ? (
           <ApprovalsScreen bare lang={lang} toolbar={null} load={loadCompanies} onApprove={approveEmail} onStatus={setCompanyStatus} onEnter={(orgId) => void enterCompany(orgId)} />
+        ) : null}
+        {screen === "messages" ? (
+          <MessagesScreen state={state} lang={lang} canWrite={writer} messages={managerNotes} api={messagesApi} />
         ) : null}
         {screen === "business" ? (
           <BusinessScreen

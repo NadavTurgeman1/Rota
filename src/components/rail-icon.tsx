@@ -1,6 +1,6 @@
 /** Outline icons for the side rail. One stroke, one weight. */
 
-export function RailIcon({ name }: { name: "schedule" | "team" | "constraints" | "insights" | "business" | "attendance" }) {
+export function RailIcon({ name }: { name: "schedule" | "team" | "constraints" | "insights" | "messages" | "business" | "attendance" }) {
   const common = {
     viewBox: "0 0 20 20",
     className: "h-4 w-4 shrink-0",
@@ -43,6 +43,14 @@ export function RailIcon({ name }: { name: "schedule" | "team" | "constraints" |
     return (
       <svg {...common}>
         <path d="M3.5 15.5V10M8.2 15.5V4.5M12.8 15.5V8M16.5 15.5V6" />
+      </svg>
+    );
+  }
+  if (name === "messages") {
+    return (
+      <svg {...common}>
+        <rect x="3.2" y="5" width="13.6" height="10" rx="1.4" />
+        <path d="M4 6.2 10 11l6-4.8" />
       </svg>
     );
   }
