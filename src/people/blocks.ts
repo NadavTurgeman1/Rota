@@ -1,3 +1,4 @@
+import { absenceOnWeekDay } from "../domain/absence";
 import { agreementAllows, parseClock, shiftKind, type Business, type Employee, type RotaState, type ShiftDefinition } from "../domain";
 import { shiftRest, staffedCount } from "../domain/rest";
 
@@ -88,6 +89,7 @@ export function blockedCells(state: RotaState, employeeId: string, grid: string[
   if (!employee) return [];
   const cells: { day: number; shiftId: string }[] = [];
   for (let day = 0; day < 7; day += 1) {
+    if (absenceOnWeekDay(state, employeeId, day)) continue;
     const marked = new Set(grid[day] ?? []);
     for (const shift of state.biz.shifts) {
       if (!agreementAllows(employee, day, shift.id, shift) || staffedCount(shift, day, state.week) <= 0) continue;

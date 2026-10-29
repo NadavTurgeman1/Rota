@@ -7,6 +7,7 @@ import type {
   CallOffRow,
   EmployeeRow,
   ExtensionRow,
+  AbsenceRow,
   ConstraintGrantRow,
   NoteRow,
   PreferenceRow,
@@ -72,6 +73,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
     versions,
     notes,
     grants,
+    absences,
   ] =
     await Promise.all([
       sql.query<ShiftRow>(
@@ -233,6 +235,20 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
          order by week_start, employee_id`,
         [siteId],
       ),
+      sql.query<AbsenceRow>(
+        `select r.employee_id, r.kind,
+                to_char(r.start_date, 'YYYY-MM-DD') as start_date,
+                to_char(r.end_date, 'YYYY-MM-DD') as end_date
+         from public.absence_requests r
+         join public.employee_sites es
+           on es.employee_id = r.employee_id and es.org_id = r.org_id
+         where es.site_id = $1
+           and r.status = 'approved'
+           and r.end_date >= ($2::date - 14)
+           and r.start_date <= ($2::date + 21)
+         order by r.start_date, r.employee_id`,
+        [siteId, week],
+      ),
     ]);
 
   const bundle: SiteBundle = {
@@ -255,6 +271,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
     versions,
     notes,
     grants,
+    absences,
   };
   return toRotaState(bundle, week);
 }

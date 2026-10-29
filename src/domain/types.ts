@@ -231,6 +231,8 @@ export interface RotaState {
   homeReady?: Record<string, boolean>;
   /** Employee ids allowed to ignore the block cap, keyed by week. */
   constraintGrants?: Record<string, string[]>;
+  /** Approved sick leave and vacation. Scheduling reads these. */
+  absences?: import("./absence").ApprovedAbsence[];
 }
 
 /** Work at another site of the same business, for the same employee id. */
@@ -263,6 +265,7 @@ export type Reason =
   | { code: "agreement"; day: number; shiftName: string }
   | { code: "role"; role: string }
   | { code: "unavailable"; day: number; shiftName: string }
+  | { code: "absent"; day: number; kind: import("./absence").AbsenceKind }
   | { code: "overlap"; label: string }
   | { code: "rest"; hours: number; label: string }
   | { code: "weekly_hours"; cap: number }

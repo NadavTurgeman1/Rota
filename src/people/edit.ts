@@ -1,4 +1,5 @@
 import { addDays, agreementAllows, type Business, type Employee, type EmployeeProfile, type RotaState } from "../domain";
+import { absenceOnWeekDay } from "../domain/absence";
 import { isRelief } from "../domain/relief";
 import { shabbatBlocks, shiftRest, staffedCount } from "../domain/rest";
 import { cleanProfile, employeeProfile } from "../domain/profile";
@@ -61,6 +62,7 @@ export function openAvailabilityGrid(state: RotaState, employeeId: string): stri
 export function openConstraintShiftIds(state: RotaState, employeeId: string, day: number): string[] {
   const employee = findEmployee(state, employeeId);
   if (!employee) return [];
+  if (absenceOnWeekDay(state, employeeId, day)) return [];
   return state.biz.shifts
     .filter(
       (shift) =>
@@ -404,7 +406,14 @@ export function setAvailability(
   if (!canEditAvailability(actor, employeeId) || day < 0 || day > 6 || reliefLocked(state, employeeId)) return state;
   const employee = findEmployee(state, employeeId);
   const shift = state.biz.shifts.find((item) => item.id === shiftId);
-  if (!employee || !shift || staffedCount(shift, day, state.week) <= 0 || shiftRest(employee, shift, day, state.week) || !agreementAllows(employee, day, shiftId, shift)) {
+  if (
+    !employee ||
+    !shift ||
+    staffedCount(shift, day, state.week) <= 0 ||
+    shiftRest(employee, shift, day, state.week) ||
+    absenceOnWeekDay(state, employeeId, day) ||
+    !agreementAllows(employee, day, shiftId, shift)
+  ) {
     return state;
   }
 
@@ -469,7 +478,7 @@ export function setWholeAvailability(state: RotaState, actor: Actor, employeeId:
 }
 
 export type AgreementCell = "closed" | "allowed" | "excluded" | "shabbat";
-export type AvailabilityCell = "closed" | "forbidden" | "available" | "unavailable" | "shabbat" | "holiday";
+export type AvailabilityCell = "closed" | "forbidden" | "available" | "unavailable" | "shabbat" | "holiday" | "absent";
 
 export function agreementCell(state: RotaState, employeeId: string, day: number, shiftId: string): AgreementCell {
   if (siteClosed(state, day, shiftId)) return "closed";
@@ -484,6 +493,7 @@ export function availabilityCell(state: RotaState, employeeId: string, day: numb
   const shift = state.biz.shifts.find((item) => item.id === shiftId);
   const employee = findEmployee(state, employeeId);
   if (!shift || staffedCount(shift, day, state.week) <= 0) return "closed";
+  if (employee && absenceOnWeekDay(state, employeeId, day)) return "absent";
   if (employee && shabbatBlocks(employee, shift, day)) return "shabbat";
   if (employee && shiftRest(employee, shift, day, state.week) === "holiday") return "holiday";
   if (!employee || !agreementAllows(employee, day, shiftId, shift)) return "forbidden";

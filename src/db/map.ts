@@ -163,6 +163,16 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
     ...(Object.keys(grants).length ? { constraintGrants: grants } : {}),
     ...(Object.keys(versions).length ? { versions } : {}),
     ...(Object.keys(former).length ? { former } : {}),
+    ...((bundle.absences ?? []).length
+      ? {
+          absences: bundle.absences.map((row) => ({
+            employeeId: row.employee_id,
+            kind: row.kind,
+            start: row.start_date.slice(0, 10),
+            end: row.end_date.slice(0, 10),
+          })),
+        }
+      : {}),
   };
 }
 

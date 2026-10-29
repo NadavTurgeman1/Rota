@@ -116,4 +116,12 @@ describe("block splits", () => {
     expect(withinBlockLimit(relief, "p", grid(reliefShifts, [{ day: 0, id: "early" }, { day: 2, id: "early" }]), home)).toBe(false);
     expect(overBucketIds(relief, "p", grid(reliefShifts, [{ day: 3, id: "overnight" }]), home)).toEqual(["unmatched:overnight"]);
   });
+
+  it("does not count an approved absence day as a weekly constraint block", () => {
+    const site = state(shifts);
+    site.biz.maxBlocks = 0;
+    site.absences = [{ employeeId: "p", kind: "sick", start: "2026-10-11", end: "2026-10-11" }];
+    expect(withinBlockLimit(site, "p", grid(shifts, [{ day: 0, id: "m" }, { day: 0, id: "a" }, { day: 0, id: "n" }]))).toBe(true);
+    expect(withinBlockLimit(site, "p", grid(shifts, [{ day: 1, id: "m" }]))).toBe(false);
+  });
 });

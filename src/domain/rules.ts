@@ -1,3 +1,4 @@
+import { absenceOnWeekDay } from "./absence";
 import { addDays, durationHours, gapBetween, parseClock } from "./time";
 import { effectiveSlot, shiftById } from "./schedule";
 import { consecutiveRun, workedDates } from "./labor";
@@ -72,6 +73,8 @@ export function staticReason(
 ): Reason | null {
   const shift = shiftById(state, slot.shiftId);
   if (!employee.active) return { code: "inactive" };
+  const absent = absenceOnWeekDay(state, employee.id, slot.day, week);
+  if (absent) return { code: "absent", day: slot.day, kind: absent };
   const observance = shiftRest(employee, shift, slot.day, week);
   if (observance) return { code: observance };
   if (!agreementAllows(employee, slot.day, slot.shiftId, shift)) {
@@ -234,6 +237,10 @@ export function formatReason(reason: Reason, lang: "en" | "he" = "he"): string {
       return lang === "he"
         ? `סומן באילוצים כלא זמין למשמרת ${reason.shiftName} ביום ${dayName(reason.day, lang)}`
         : `Marked unavailable for ${dayName(reason.day, lang)} ${reason.shiftName}`;
+    case "absent": {
+      const kind = reason.kind === "sick" ? (lang === "he" ? "מחלה" : "sick leave") : lang === "he" ? "חופשה" : "vacation";
+      return lang === "he" ? `${kind} ביום ${dayName(reason.day, lang)}` : `${kind} on ${dayName(reason.day, lang)}`;
+    }
     case "overlap":
       return lang === "he" ? `כבר משובץ באותו זמן: ${reason.label}` : `Already working at the same time: ${reason.label}`;
     case "rest": {

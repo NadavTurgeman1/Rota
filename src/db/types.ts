@@ -174,6 +174,14 @@ export interface SiteBundle {
   versions: VersionRow[];
   notes: NoteRow[];
   grants: ConstraintGrantRow[];
+  absences: AbsenceRow[];
+}
+
+export interface AbsenceRow {
+  employee_id: string;
+  kind: "sick" | "vacation";
+  start_date: string;
+  end_date: string;
 }
 
 export interface SqlClient {

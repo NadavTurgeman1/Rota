@@ -399,6 +399,37 @@ export interface Copy {
   messagesPopupOk: string;
   messagesUnread: (count: number) => string;
   messagesCloseInbox: string;
+  navAbsences: string;
+  absencesHint: string;
+  absencesStaffHint: string;
+  absencesKind: string;
+  absenceSick: string;
+  absenceVacation: string;
+  absencesFrom: string;
+  absencesTo: string;
+  absencesDays: string;
+  absencesDaysHint: string;
+  absencesNote: string;
+  absencesFiles: string;
+  absencesFilesHint: string;
+  absencesUpload: string;
+  absencesSend: string;
+  absencesSending: string;
+  absencesNone: string;
+  absencesPending: string;
+  absencesApproved: string;
+  absencesRejected: string;
+  absencesCancelled: string;
+  absencesApprove: string;
+  absencesReject: string;
+  absencesCancel: string;
+  absencesDelete: string;
+  absencesFailed: string;
+  absencesOverlap: string;
+  absencesWhen: string;
+  absencesPerson: string;
+  absencesRecord: string;
+  absencesLock: string;
   railLabel: string;
   staffRail: string;
   nameSearch: string;
@@ -409,6 +440,7 @@ export interface Copy {
   staffConstraints: string;
   staffSchedule: string;
   staffAttendance: string;
+  staffAbsences: string;
   attendanceHint: string;
   attendanceIn: string;
   attendanceOut: string;
@@ -915,6 +947,37 @@ export const copy: Record<Lang, Copy> = {
     messagesPopupOk: "הבנתי",
     messagesUnread: (count) => (count === 1 ? "הודעה אחת שלא נקראה" : `${count} הודעות שלא נקראו`),
     messagesCloseInbox: "סגירה",
+    navAbsences: "היעדרויות",
+    absencesHint: "דיווחי מחלה וחופשה מהעובדים. אחרי אישור הימים נחסמים בסידור ולא נספרים באילוצים השבועיים.",
+    absencesStaffHint: "מדווחים כאן מחלה או חופשה, עם תאריכים. למחלה מצרפים אישור. אחרי אישור המנהל הימים נחסמים אוטומטית, ואישור המחלה נשמר בטפסי העובד. אפשר עדיין להגיש אילוצים לימים הפנויים.",
+    absencesKind: "סוג",
+    absenceSick: "מחלה",
+    absenceVacation: "חופשה",
+    absencesFrom: "מתאריך",
+    absencesTo: "עד תאריך",
+    absencesDays: "ימים",
+    absencesDaysHint: "לוחצים על יום אחד. לטווח לוחצים על יום נוסף. לחיצה חוזרת על אותו יום מבטלת.",
+    absencesNote: "הערה",
+    absencesFiles: "אישור מחלה",
+    absencesFilesHint: "מצרפים כאן את אישור המחלה. אחרי אישור המנהל הקובץ נשמר גם בטפסי העובד.",
+    absencesUpload: "העלאת אישור",
+    absencesSend: "שליחת דיווח",
+    absencesSending: "שולח…",
+    absencesNone: "אין דיווחים.",
+    absencesPending: "ממתין לאישור",
+    absencesApproved: "אושר",
+    absencesRejected: "נדחה",
+    absencesCancelled: "בוטל",
+    absencesApprove: "אישור",
+    absencesReject: "דחייה",
+    absencesCancel: "ביטול",
+    absencesDelete: "מחיקה",
+    absencesFailed: "הפעולה נכשלה. נסו שוב.",
+    absencesOverlap: "כבר יש דיווח פתוח או מאושר שחופף לתאריכים האלה.",
+    absencesWhen: "בחרו טווח תאריכים תקין.",
+    absencesPerson: "עובד",
+    absencesRecord: "רישום היעדרות",
+    absencesLock: "היעדרות מאושרת",
     railLabel: "ניהול",
     staffRail: "שלי",
     nameSearch: "חיפוש שם",
@@ -925,6 +988,7 @@ export const copy: Record<Lang, Copy> = {
     staffConstraints: "האילוצים שלי",
     staffSchedule: "הסידור",
     staffAttendance: "כניסה ויציאה",
+    staffAbsences: "היעדרויות",
     attendanceHint: "השעה נלקחת משעון הטלפון ונבדקת מול השרת ואזור הזמן של האתר. הגישה למיקום מתבקשת עם פתיחת המסך, והכניסה נפתחת רק אחרי שהמיקום נעול.",
     attendanceIn: "כניסה",
     attendanceOut: "יציאה",
@@ -1442,6 +1506,37 @@ export const copy: Record<Lang, Copy> = {
     messagesPopupOk: "Got it",
     messagesUnread: (count) => (count === 1 ? "One unread message" : `${count} unread messages`),
     messagesCloseInbox: "Close",
+    navAbsences: "Absences",
+    absencesHint: "Sick leave and vacation reports from staff. After approval those days are blocked on the schedule and do not count as weekly constraint blocks.",
+    absencesStaffHint: "Report sick leave or vacation, with dates. Attach a document for sick leave. After a manager approves, those days are blocked, and a sick-leave document is kept on the employee forms. Weekly constraints can still be submitted for the other days.",
+    absencesKind: "Kind",
+    absenceSick: "Sick leave",
+    absenceVacation: "Vacation",
+    absencesFrom: "From",
+    absencesTo: "Until",
+    absencesDays: "Days",
+    absencesDaysHint: "Tap one day. Tap another day for a range. Tap the same day again to clear.",
+    absencesNote: "Note",
+    absencesFiles: "Sick-leave document",
+    absencesFilesHint: "Attach the sick note here. After a manager approves, the file is also kept on the employee forms.",
+    absencesUpload: "Upload a document",
+    absencesSend: "Send report",
+    absencesSending: "Sending…",
+    absencesNone: "No reports.",
+    absencesPending: "Waiting for approval",
+    absencesApproved: "Approved",
+    absencesRejected: "Rejected",
+    absencesCancelled: "Cancelled",
+    absencesApprove: "Approve",
+    absencesReject: "Reject",
+    absencesCancel: "Cancel",
+    absencesDelete: "Delete",
+    absencesFailed: "That didn't work. Try again.",
+    absencesOverlap: "An open or approved report already covers those dates.",
+    absencesWhen: "Pick a valid date range.",
+    absencesPerson: "Employee",
+    absencesRecord: "Record an absence",
+    absencesLock: "Approved absence",
     railLabel: "Manage",
     staffRail: "Mine",
     nameSearch: "Search names",
@@ -1452,6 +1547,7 @@ export const copy: Record<Lang, Copy> = {
     staffConstraints: "My constraints",
     staffSchedule: "Schedule",
     staffAttendance: "Clock in / out",
+    staffAbsences: "Absences",
     attendanceHint: "The time comes from the phone clock and is checked against the server and the site timezone. Location access is requested when this screen opens, and clock-in appears after the location locks.",
     attendanceIn: "Clock in",
     attendanceOut: "Clock out",

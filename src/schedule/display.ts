@@ -61,6 +61,13 @@ function formatIso(iso: string, lang: Lang, withYear: boolean): string {
   });
 }
 
+/** `29.10.2026` — day, then month, then year. */
+export function formatCalendarDate(iso: string): string {
+  const [year, month, date] = iso.split("-");
+  if (!year || !month || !date) return iso;
+  return `${Number(date)}.${Number(month)}.${year}`;
+}
+
 export function formatDayDate(week: string, day: number, lang: Lang): string {
   return formatIso(addDays(week, day), lang, false);
 }

@@ -4,6 +4,7 @@ import { employeeProfile } from "../domain/profile";
 import { isRelief } from "../domain/relief";
 import { confirmDeleteEmployee, copy } from "../i18n/copy";
 import { columnIsToday, shiftLabel, siteLabel } from "../schedule/display";
+import { absenceOnWeekDay } from "../domain/absence";
 import { agreementCell, availabilityCell, type EmployeePatch } from "../people/edit";
 import { blockSplitOf, customFromSite } from "../people/blocks";
 import { BlockNumberFields } from "./block-limit";
@@ -418,17 +419,27 @@ export function WeekGrid({
                 const agreement = agreementCell(state, employeeId, day, shift.id);
                 const availability = availabilityCell(state, employeeId, day, shift.id);
                 const locked =
-                  (mode === "agreement" && agreement === "shabbat") || (mode === "availability" && availability === "shabbat")
-                    ? "shabbat"
-                    : mode === "availability" && availability === "holiday"
-                      ? "holiday"
-                      : null;
+                  mode === "availability" && availability === "absent"
+                    ? "absent"
+                    : (mode === "agreement" && agreement === "shabbat") || (mode === "availability" && availability === "shabbat")
+                      ? "shabbat"
+                      : mode === "availability" && availability === "holiday"
+                        ? "holiday"
+                        : null;
                 const closed = mode === "agreement" ? agreement === "closed" : availability === "closed";
                 const forbidden = mode === "availability" && availability === "forbidden";
                 const checked = mode === "agreement" ? agreement === "allowed" : availability === "available";
                 const disabled = !editable || closed || forbidden || locked !== null;
                 const label = `${dayName(day, lang)} ${shiftLabel(shift.name, lang)}`;
-                const lockedLabel = locked === "shabbat" ? t.observanceShabbat : t.observanceHoliday;
+                const lockedLabel =
+                  locked === "absent"
+                    ? (() => {
+                        const kind = absenceOnWeekDay(state, employeeId, day);
+                        return kind === "sick" ? t.absenceSick : t.absenceVacation;
+                      })()
+                    : locked === "shabbat"
+                      ? t.observanceShabbat
+                      : t.observanceHoliday;
                 const tone = closed || locked
                   ? "bg-well-strong"
                   : forbidden
@@ -444,7 +455,17 @@ export function WeekGrid({
                       <span
                         className="block px-1 text-xs font-medium text-subtle"
                         data-testid={locked ? `${mode}-lock-${day}-${shift.name}` : undefined}
-                        title={locked ? (locked === "shabbat" ? t.observesShabbat : t.observesHolidays) : closed ? t.siteClosed : t.agreementForbids}
+                        title={
+                          locked === "absent"
+                            ? t.absencesLock
+                            : locked
+                              ? locked === "shabbat"
+                                ? t.observesShabbat
+                                : t.observesHolidays
+                              : closed
+                                ? t.siteClosed
+                                : t.agreementForbids
+                        }
                         aria-label={`${label}: ${locked ? lockedLabel : closed ? t.siteClosed : t.agreementForbids}`}
                       >
                         {locked ? lockedLabel : closed ? t.closed : "—"}

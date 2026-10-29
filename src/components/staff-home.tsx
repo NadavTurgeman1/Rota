@@ -18,6 +18,8 @@ import { useHebrewCalendar } from "./day-dates";
 import { StaffTrades, type ShiftTrade, type TradeApi } from "./trades";
 import { StaffEnvelopeButton, StaffMessageInbox, StaffMessagePopup } from "./staff-messages";
 import type { ManagerMessage } from "../db/messages";
+import { AbsenceScreen, type AbsencesApi } from "./absence-screen";
+import type { AbsenceRequest } from "../db/absences";
 import { WeekPicker } from "./week-picker";
 import { overBucketIds } from "../people/blocks";
 import { availabilitySubmitted, gridWithCell, hasConstraintGrant, openAvailabilityGrid, openConstraintShiftIds } from "../people/edit";
@@ -326,6 +328,8 @@ export function StaffHome({
   attendanceApi,
   messages = [],
   onMessageAck,
+  absences = [],
+  absencesApi,
 }: {
   state: RotaState;
   lang: Lang;
@@ -349,10 +353,12 @@ export function StaffHome({
   attendanceApi: AttendanceApi;
   messages?: ManagerMessage[];
   onMessageAck?: (messageId: string, kind: "popup" | "read") => Promise<boolean>;
+  absences?: AbsenceRequest[];
+  absencesApi?: AbsencesApi;
 }) {
   const t = copy[lang];
   const hebrew = useHebrewCalendar();
-  const [tab, setTab] = useState<"attendance" | "schedule" | "constraints">("attendance");
+  const [tab, setTab] = useState<"attendance" | "schedule" | "constraints" | "absences">("attendance");
   const activeNav = useRef<HTMLButtonElement>(null);
   const [copied, setCopied] = useState(false);
   const [inboxOpen, setInboxOpen] = useState(false);
@@ -379,6 +385,7 @@ export function StaffHome({
     { id: "attendance" as const, label: t.staffAttendance },
     { id: "schedule" as const, label: t.staffSchedule },
     { id: "constraints" as const, label: t.staffConstraints },
+    { id: "absences" as const, label: t.staffAbsences },
   ];
 
   const pageTitle = tabs.find((item) => item.id === tab)?.label ?? "";
@@ -387,7 +394,7 @@ export function StaffHome({
     return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000);
   }
 
-  function openTab(next: "attendance" | "schedule" | "constraints") {
+  function openTab(next: "attendance" | "schedule" | "constraints" | "absences") {
     if (next === tab) return;
     setTab(next);
     const target = next === "constraints" ? staffConstraintWeek() : next === "schedule" ? underwayWeek() : null;
@@ -483,7 +490,7 @@ export function StaffHome({
             {toolbar}
           </div>
         </div>
-        {tab === "attendance" ? null : (
+        {tab === "attendance" || tab === "absences" ? null : (
           <section className="flex flex-wrap items-center gap-2">
             <div className="flex items-center gap-1 rounded-lg border border-line bg-card p-1">
               <button type="button" data-testid="prev-week" aria-label={t.previousWeek} className="grid h-8 w-8 place-items-center rounded-lg text-ink-soft hover:bg-well hover:text-ink" onClick={() => onWeek(-7)}>
@@ -517,6 +524,8 @@ export function StaffHome({
           <p className={`${card} text-sm leading-6 text-ink`}>{t.staffUnlinked}</p>
         ) : tab === "attendance" ? (
           <AttendanceScreen lang={lang} siteId={activeSiteId} api={attendanceApi} />
+        ) : tab === "absences" && absencesApi ? (
+          <AbsenceScreen lang={lang} canWrite={Boolean(selfId)} manager={false} requests={absences} api={absencesApi} />
         ) : tab === "constraints" ? (
           employee ? (
             <StaffConstraints

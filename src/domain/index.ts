@@ -25,6 +25,8 @@ export type {
 } from "./types";
 
 export { addDays, clockNear, durationHours, formatClock, gapBetween, parseClock, shiftKind, sundayOnOrBefore } from "./time";
+export { absenceOnDate, absenceOnWeekDay, clickAbsenceDay, dateInRange } from "./absence";
+export type { AbsenceKind, ApprovedAbsence } from "./absence";
 export { HOUR_SPAN_GROUP, clearAssignmentHours, coveredSeats, effectiveSlot, ensureSchedule, shiftById } from "./schedule";
 export { assignmentSpan, coverageGaps, fullShiftCoveredByHours, slotPresence, touchedSlotKeys, weekCoverage } from "./coverage";
 export {

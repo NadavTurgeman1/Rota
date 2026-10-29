@@ -84,6 +84,8 @@ import { ConstraintsScreen, ExtraWindowMenu } from "./constraints-screen";
 import { InsightsScreen } from "./insights-screen";
 import { MessagesScreen, type MessagesApi } from "./messages-screen";
 import type { ManagerMessage } from "../db/messages";
+import { AbsenceScreen, type AbsencesApi } from "./absence-screen";
+import type { AbsenceRequest } from "../db/absences";
 import { IssuesPanel } from "./issues-panel";
 import { ApprovalsScreen, type SignupApproval, type TenantRow } from "./approvals-screen";
 import { CreateOrgScreen, CreateSiteScreen, LoginScreen, Logo, NewPasswordScreen, SignupScreen } from "./login-screen";
@@ -161,7 +163,7 @@ function blankWorkspace(userId: string, email: string): Workspace {
   };
 }
 
-type Screen = "business" | "team" | "constraints" | "insights" | "messages" | "schedule" | "approvals";
+type Screen = "business" | "team" | "constraints" | "insights" | "messages" | "absences" | "schedule" | "approvals";
 
 function todayIso(now = new Date()): string {
   const year = now.getFullYear();
@@ -293,6 +295,7 @@ export function ScheduleApp() {
   const [trades, setTrades] = useState<{ trades: ShiftTrade[]; takeable: string[] }>({ trades: [], takeable: [] });
   const [staffNotes, setStaffNotes] = useState<ManagerMessage[]>([]);
   const [managerNotes, setManagerNotes] = useState<ManagerMessage[]>([]);
+  const [absenceRequests, setAbsenceRequests] = useState<AbsenceRequest[]>([]);
   const [rosterLog, setRosterLog] = useState<(AttendanceRoster & { siteId: string }) | null>(null);
   const [rosterSite, setRosterSite] = useState<string | null>(null);
   const approvedSeen = useRef<Set<string> | null>(null);
@@ -319,6 +322,17 @@ export function ScheduleApp() {
     if (!response?.ok) return;
     const body = (await response.json().catch(() => null)) as { messages?: ManagerMessage[] } | null;
     setStaffNotes(body?.messages ?? []);
+  }, []);
+
+  const loadAbsences = useCallback(async (siteId: string) => {
+    const token = tokenRef.current;
+    if (!token || !siteId) return;
+    const headers: Record<string, string> = { authorization: `Bearer ${token}` };
+    if (supportRef.current) headers["x-rota-support-org"] = supportRef.current;
+    const response = await fetch(`/api/absences?siteId=${encodeURIComponent(siteId)}`, { headers }).catch(() => null);
+    if (!response?.ok) return;
+    const body = (await response.json().catch(() => null)) as { requests?: AbsenceRequest[] } | null;
+    setAbsenceRequests(body?.requests ?? []);
   }, []);
 
   const loadManagerNotes = useCallback(async (siteId: string) => {
@@ -356,7 +370,8 @@ export function ScheduleApp() {
   useEffect(() => {
     if (!signedIn || !live.activeSiteId) return;
     void loadManagerNotes(live.activeSiteId);
-  }, [signedIn, live.activeSiteId, loadManagerNotes, screen]);
+    void loadAbsences(live.activeSiteId);
+  }, [signedIn, live.activeSiteId, loadManagerNotes, loadAbsences, screen]);
 
   useEffect(() => {
     if (!remote || !writer || screen !== "team" || !live.activeSiteId) return;
@@ -442,6 +457,68 @@ export function ScheduleApp() {
       }).catch(() => null);
       await loadManagerNotes(live.activeSiteId);
       if (!response?.ok) return "failed";
+      return null;
+    },
+  };
+
+  const absencesApi: AbsencesApi = {
+    refresh: async () => {
+      await loadAbsences(live.activeSiteId);
+    },
+    create: async (input) => {
+      if (!tokenRef.current) return "failed";
+      const form = new FormData();
+      form.set("siteId", live.activeSiteId);
+      form.set("kind", input.kind);
+      form.set("start", input.start);
+      form.set("end", input.end);
+      form.set("note", input.note);
+      if (input.employeeId) form.set("employeeId", input.employeeId);
+      for (const file of input.files) form.append("file", file);
+      const headers: Record<string, string> = { authorization: `Bearer ${tokenRef.current}` };
+      if (supportRef.current) headers["x-rota-support-org"] = supportRef.current;
+      const response = await fetch("/api/absences", { method: "POST", headers, body: form }).catch(() => null);
+      const data = ((await response?.json().catch(() => null)) ?? {}) as Record<string, unknown>;
+      await loadAbsences(live.activeSiteId);
+      if (input.employeeId) reloadWorkspace();
+      if (!response?.ok) return typeof data.error === "string" ? data.error : "failed";
+      return null;
+    },
+    decide: async (requestId, approve) => {
+      if (!tokenRef.current) return "failed";
+      const response = await fetch("/api/absences", {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({ action: approve ? "approve" : "reject", requestId }),
+      }).catch(() => null);
+      const data = ((await response?.json().catch(() => null)) ?? {}) as Record<string, unknown>;
+      await loadAbsences(live.activeSiteId);
+      reloadWorkspace();
+      if (!response?.ok) return typeof data.error === "string" ? data.error : "failed";
+      return null;
+    },
+    remove: async (requestId) => {
+      if (!tokenRef.current) return "failed";
+      const response = await fetch("/api/absences", {
+        method: "POST",
+        headers: authHeaders(true),
+        body: JSON.stringify({ action: "delete", requestId }),
+      }).catch(() => null);
+      await loadAbsences(live.activeSiteId);
+      reloadWorkspace();
+      if (!response?.ok) return "failed";
+      return null;
+    },
+    openFile: async (fileId) => {
+      if (!tokenRef.current) return "failed";
+      const headers: Record<string, string> = { authorization: `Bearer ${tokenRef.current}` };
+      if (supportRef.current) headers["x-rota-support-org"] = supportRef.current;
+      const response = await fetch(`/api/absences?fileId=${encodeURIComponent(fileId)}`, { headers }).catch(() => null);
+      if (!response?.ok) return "failed";
+      const blob = await response.blob();
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
       return null;
     },
   };
@@ -1456,6 +1533,8 @@ export function ScheduleApp() {
         attendanceApi={attendanceApi}
         messages={staffNotes}
         onMessageAck={ackStaffNote}
+        absences={absenceRequests}
+        absencesApi={remote ? absencesApi : undefined}
       />
       </HebrewCalendarContext.Provider>
     );
@@ -1526,6 +1605,7 @@ export function ScheduleApp() {
     { id: "constraints", label: t.navConstraints },
     { id: "insights", label: t.navInsights },
     { id: "messages", label: t.navMessages },
+    { id: "absences", label: t.navAbsences },
     { id: "business", label: t.navBusiness },
   ];
   const weekly = screen === "schedule" || screen === "constraints" || screen === "messages";
@@ -1930,6 +2010,16 @@ export function ScheduleApp() {
         ) : null}
         {screen === "messages" ? (
           <MessagesScreen state={state} lang={lang} canWrite={writer} messages={managerNotes} api={messagesApi} />
+        ) : null}
+        {screen === "absences" ? (
+          <AbsenceScreen
+            lang={lang}
+            canWrite={writer}
+            manager
+            requests={absenceRequests}
+            people={state.emps.filter((employee) => employee.active !== false).map((employee) => ({ id: employee.id, name: employee.name }))}
+            api={absencesApi}
+          />
         ) : null}
         {screen === "business" ? (
           <BusinessScreen
