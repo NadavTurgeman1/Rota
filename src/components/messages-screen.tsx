@@ -1,4 +1,5 @@
 import { useMemo, useState } from "react";
+import { isSiteManager } from "../access/hierarchy";
 import { dayName, type Lang, type RotaState } from "../domain";
 import type { ManagerMessage, MessageAudience, MessageDeliver } from "../db/messages";
 import { copy } from "../i18n/copy";
@@ -21,6 +22,33 @@ export interface MessagesApi {
   remove: (messageId: string) => Promise<string | null>;
 }
 
+function PersonCheck({
+  employee,
+  picked,
+  disabled,
+  onToggle,
+}: {
+  employee: { id: string; name: string };
+  picked: string[];
+  disabled: boolean;
+  onToggle: (update: (current: string[]) => string[]) => void;
+}) {
+  return (
+    <label className="flex min-h-9 items-center gap-2 text-sm text-ink">
+      <input
+        type="checkbox"
+        data-testid={`message-person-${employee.id}`}
+        checked={picked.includes(employee.id)}
+        disabled={disabled}
+        onChange={() =>
+          onToggle((current) => (current.includes(employee.id) ? current.filter((id) => id !== employee.id) : [...current, employee.id]))
+        }
+      />
+      {employee.name}
+    </label>
+  );
+}
+
 function dueLabel(iso: string, lang: Lang): string {
   return new Intl.DateTimeFormat(lang === "he" ? "he-IL" : "en-GB", {
     timeZone: "Asia/Jerusalem",
@@ -39,15 +67,19 @@ export function MessagesScreen({
   canWrite,
   messages,
   api,
+  hideId = null,
 }: {
   state: RotaState;
   lang: Lang;
   canWrite: boolean;
   messages: ManagerMessage[];
   api: MessagesApi;
+  hideId?: string | null;
 }) {
   const t = copy[lang];
-  const people = state.emps.filter((employee) => employee.active !== false);
+  const people = state.emps.filter((employee) => employee.active !== false && employee.id !== hideId);
+  const staff = people.filter((employee) => !isSiteManager(employee));
+  const managers = people.filter((employee) => isSiteManager(employee));
   const [body, setBody] = useState("");
   const [audience, setAudience] = useState<MessageAudience>("all");
   const [deliver, setDeliver] = useState<MessageDeliver>("now");
@@ -65,7 +97,8 @@ export function MessagesScreen({
     () => Object.fromEntries(state.biz.shifts.map((shift) => [shift.id, shiftLabel(shift.name, lang)])),
     [state.biz.shifts, lang],
   );
-  const shownPeople = useMemo(() => filterNames(people, nameQuery), [people, nameQuery]);
+  const shownStaff = useMemo(() => filterNames(staff, nameQuery), [staff, nameQuery]);
+  const shownManagers = useMemo(() => filterNames(managers, nameQuery), [managers, nameQuery]);
   const needSlot = audience === "shift" || deliver === "shift_start";
 
   async function send() {
@@ -169,26 +202,30 @@ export function MessagesScreen({
                 className={field}
               />
               {people.length === 0 ? <p className="text-sm text-muted">{t.noEmployees}</p> : null}
-              {people.length > 0 && shownPeople.length === 0 ? (
+              {people.length > 0 && shownStaff.length + shownManagers.length === 0 ? (
                 <p className="text-sm text-muted">{t.noNameMatches}</p>
               ) : null}
-              <div className="grid max-h-40 gap-1 overflow-y-auto sm:grid-cols-2 lg:grid-cols-3">
-                {shownPeople.map((employee) => (
-                  <label key={employee.id} className="flex min-h-9 items-center gap-2 text-sm text-ink">
-                    <input
-                      type="checkbox"
-                      data-testid={`message-person-${employee.id}`}
-                      checked={picked.includes(employee.id)}
-                      disabled={!canWrite || busy}
-                      onChange={() =>
-                        setPicked((current) =>
-                          current.includes(employee.id) ? current.filter((id) => id !== employee.id) : [...current, employee.id],
-                        )
-                      }
-                    />
-                    {employee.name}
-                  </label>
-                ))}
+              <div className="flex max-h-56 flex-col gap-3 overflow-y-auto">
+                {shownStaff.length > 0 ? (
+                  <div>
+                    <p className="px-1 pb-1 text-xs font-medium text-muted">{t.staffGroup}</p>
+                    <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+                      {shownStaff.map((employee) => (
+                        <PersonCheck key={employee.id} employee={employee} picked={picked} disabled={!canWrite || busy} onToggle={setPicked} />
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+                {shownManagers.length > 0 ? (
+                  <div>
+                    <p className="px-1 pb-1 text-xs font-medium text-muted">{t.siteManagers}</p>
+                    <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+                      {shownManagers.map((employee) => (
+                        <PersonCheck key={employee.id} employee={employee} picked={picked} disabled={!canWrite || busy} onToggle={setPicked} />
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
               </div>
             </div>
           ) : null}

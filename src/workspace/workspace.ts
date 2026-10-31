@@ -1,4 +1,4 @@
-import type { RotaState } from "../domain";
+import type { Capabilities, RotaState } from "../domain";
 import { MANAGER, VIEWER, type Actor } from "../people/edit";
 
 /** `owner` writes and is the only one who manages users and the business name. */
@@ -47,8 +47,10 @@ export interface Workspace {
   sites: WorkspaceSite[];
   activeSiteId: string;
   users: WorkspaceUser[];
-  /** Roster employee linked to the signed-in user, when they are a simple employee. */
+  /** Roster employee linked to the signed-in user. A manager is an employee too. */
   selfEmployeeId?: string | null;
+  /** Permissions of the signed-in person. The owner holds every permission. */
+  selfCapabilities?: Capabilities;
   /** Answers the signed-in employee has not dismissed. */
   decisions?: StaffDecision[];
 }

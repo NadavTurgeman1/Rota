@@ -1,3 +1,4 @@
+import { capabilitiesOf } from "../access/hierarchy";
 import { cleanProfile } from "../domain/profile";
 import { HOUR_SPAN_GROUP } from "../domain/schedule";
 import type { CallOff, RotaState, Schedule, ScheduleVersion } from "../domain/types";
@@ -157,13 +158,19 @@ export async function saveSite(
   if (writePeople) {
   await writeRows(
     sql,
-    `insert into public.employees (
-       id, org_id, name, email, phone, job_title, weekly_shift_quota, max_weekly_hours, active, hourly_wage, home_site_id, constraint_limits,
-       observes_shabbat, observes_holidays
+    `with incoming as (
+       select id, name, email, phone, job_title, quota, max_hours, active, wage, home_site, limits, shabbat, holidays,
+              reports_to, opened_by, capabilities, schedulable, on_roster
+       from unnest($2::uuid[], $3::text[], $4::text[], $5::text[], $6::text[], $7::int[], $8::numeric[], $9::int[], $10::numeric[], $11::uuid[], $12::text[], $13::int[], $14::int[], $15::uuid[], $16::uuid[], $17::text[], $18::int[], $19::int[])
+         as t(id, name, email, phone, job_title, quota, max_hours, active, wage, home_site, limits, shabbat, holidays, reports_to, opened_by, capabilities, schedulable, on_roster)
      )
-     select id, $1, name, email, phone, job_title, quota, max_hours, active <> 0, wage, home_site, limits::jsonb, shabbat <> 0, holidays <> 0
-     from unnest($2::uuid[], $3::text[], $4::text[], $5::text[], $6::text[], $7::int[], $8::numeric[], $9::int[], $10::numeric[], $11::uuid[], $12::text[], $13::int[], $14::int[])
-       as t(id, name, email, phone, job_title, quota, max_hours, active, wage, home_site, limits, shabbat, holidays)
+     insert into public.employees (
+       id, org_id, name, email, phone, job_title, weekly_shift_quota, max_weekly_hours, active, hourly_wage, home_site_id, constraint_limits,
+       observes_shabbat, observes_holidays, reports_to, opened_by, capabilities, schedulable
+     )
+     select id, $1, name, email, phone, job_title, quota, max_hours, active <> 0, wage, home_site, limits::jsonb, shabbat <> 0, holidays <> 0,
+            reports_to, opened_by, capabilities::jsonb, schedulable <> 0
+     from incoming
      on conflict (id) do update set
        name = excluded.name,
        email = excluded.email,
@@ -176,7 +183,19 @@ export async function saveSite(
        home_site_id = excluded.home_site_id,
        constraint_limits = excluded.constraint_limits,
        observes_shabbat = excluded.observes_shabbat,
-       observes_holidays = excluded.observes_holidays
+       observes_holidays = excluded.observes_holidays,
+       reports_to = case
+         when (select on_roster from incoming where incoming.id = excluded.id) = 0 then public.employees.reports_to
+         when excluded.reports_to is null then public.employees.reports_to
+         else excluded.reports_to
+       end,
+       opened_by = case
+         when (select on_roster from incoming where incoming.id = excluded.id) = 0 then public.employees.opened_by
+         when excluded.opened_by is null then public.employees.opened_by
+         else excluded.opened_by
+       end,
+       capabilities = case when (select on_roster from incoming where incoming.id = excluded.id) <> 0 then excluded.capabilities else public.employees.capabilities end,
+       schedulable = case when (select on_roster from incoming where incoming.id = excluded.id) <> 0 then excluded.schedulable else public.employees.schedulable end
      where public.employees.org_id = excluded.org_id`,
     [orgId],
     [
@@ -194,6 +213,11 @@ export async function saveSite(
       people.map((person) => person.limits),
       people.map((person) => person.shabbat),
       people.map((person) => person.holidays),
+      people.map((person) => person.reportsTo),
+      people.map((person) => person.openedBy),
+      people.map((person) => person.capabilities),
+      people.map((person) => person.schedulable),
+      people.map((person) => (person.roster ? 1 : 0)),
     ],
   );
   await writeRows(
@@ -207,7 +231,7 @@ export async function saveSite(
     [orgId],
     [people.map((person) => person.id), people.map((person) => person.profile)],
   );
-  const rosterIds = people.filter((person) => person.roster).map((person) => person.id);
+  const rosterIds = people.filter((person) => person.roster && person.schedulable !== 0).map((person) => person.id);
   await writeRows(
     sql,
     `insert into public.employee_sites (org_id, employee_id, site_id)
@@ -222,6 +246,29 @@ export async function saveSite(
     `delete from public.employee_sites
      where site_id = $1 and not (employee_id = any($2::uuid[]))`,
     [siteId, rosterIds],
+  );
+  const presentIds = people.filter((person) => person.roster).map((person) => person.id);
+  const managedEmployees: string[] = [];
+  const managedSites: string[] = [];
+  for (const person of people) {
+    if (!person.roster) continue;
+    for (const managed of person.managedSiteIds) {
+      managedEmployees.push(person.id);
+      managedSites.push(managed);
+    }
+  }
+  await sql.query(
+    `delete from public.employee_managed_sites where org_id = $1 and employee_id = any($2::uuid[])`,
+    [orgId, presentIds],
+  );
+  await writeRows(
+    sql,
+    `insert into public.employee_managed_sites (org_id, employee_id, site_id)
+     select $1, employee_id, site_id
+     from unnest($2::uuid[], $3::uuid[]) as t(employee_id, site_id)
+     on conflict do nothing`,
+    [orgId],
+    [managedEmployees, managedSites],
   );
 
   await sql.query(
@@ -413,9 +460,12 @@ export async function deleteOrphanEmployees(sql: SqlClient, orgId: string): Prom
   await sql.query(
     `delete from public.employees e
      where e.org_id = $1
+       and e.schedulable
+       and e.user_id is null
        and not exists (select 1 from public.employee_sites es where es.employee_id = e.id)
        and not exists (select 1 from public.assignments a where a.employee_id = e.id)
-       and not exists (select 1 from public.schedule_calloffs c where c.employee_id = e.id)`,
+       and not exists (select 1 from public.schedule_calloffs c where c.employee_id = e.id)
+       and not exists (select 1 from public.employees child where child.reports_to = e.id or child.opened_by = e.id)`,
     [orgId],
   );
 }
@@ -433,6 +483,11 @@ interface KeptPerson {
   active: boolean;
   shabbat: number;
   holidays: number;
+  reportsTo: string | null;
+  openedBy: string | null;
+  capabilities: string;
+  schedulable: number;
+  managedSiteIds: string[];
   /** People on the team stay linked to the site. Deleted people are names on old weeks only. */
   roster: boolean;
   quals: string[];
@@ -485,6 +540,11 @@ function peopleToKeep(state: RotaState): KeptPerson[] {
       active: employee.active !== false,
       shabbat: employee.observesShabbat === true ? 1 : 0,
       holidays: employee.observesShabbat === true && employee.observesHolidays === true ? 1 : 0,
+      reportsTo: employee.reportsTo && UUID.test(employee.reportsTo) ? employee.reportsTo : null,
+      openedBy: employee.openedBy && UUID.test(employee.openedBy) ? employee.openedBy : null,
+      capabilities: JSON.stringify(capabilitiesOf(employee)),
+      schedulable: employee.schedulable === false ? 0 : 1,
+      managedSiteIds: (employee.managedSiteIds ?? []).filter((id) => UUID.test(id)),
       roster: true,
       quals: qualificationNames(employee.quals),
       pref: (employee.pref ?? []).filter((id) => UUID.test(id)),
@@ -519,6 +579,11 @@ function peopleToKeep(state: RotaState): KeptPerson[] {
       active: false,
       shabbat: 0,
       holidays: 0,
+      reportsTo: null,
+      openedBy: null,
+      capabilities: JSON.stringify(capabilitiesOf({})),
+      schedulable: 1,
+      managedSiteIds: [],
       roster: false,
       quals: [],
       pref: [],

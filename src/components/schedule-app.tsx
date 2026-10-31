@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { addDays, analyze, applyTrade, slots, sundayOnOrBefore, type Analysis, type Lang, type RotaState, type Schedule, type TradeMove, type TradeSeat } from "../domain";
+import { allCapabilities, grantable, holdsPeople, isSiteManager, managerCapabilities, staffCapabilities, transferTargets, type ReportNode } from "../access/hierarchy";
+import { addDays, analyze, applyTrade, slots, sundayOnOrBefore, type Analysis, type Capabilities, type Lang, type RotaState, type Schedule, type TradeMove, type TradeSeat } from "../domain";
 import type { VersionStamp } from "../domain/versions";
 import { peerDuties } from "../domain/peers";
 import { isRelief } from "../domain/relief";
@@ -96,7 +97,7 @@ import { remoteConfigured } from "../supabase/public-env";
 import { RailIcon } from "./rail-icon";
 import { WeekBoard } from "./schedule-board";
 import type { AttendanceRoster } from "../db/attendance";
-import type { AttendanceApi, AttendanceSnapshot } from "./attendance";
+import { AttendanceScreen, type AttendanceApi, type AttendanceSnapshot } from "./attendance";
 import { StaffHome } from "./staff-home";
 import { TeamScreen } from "./team-screen";
 import { memoryEmployeeForms, remoteEmployeeForms } from "./employee-forms";
@@ -165,7 +166,47 @@ function blankWorkspace(userId: string, email: string): Workspace {
   };
 }
 
-type Screen = "business" | "team" | "constraints" | "insights" | "messages" | "absences" | "schedule" | "approvals";
+type Screen = "business" | "team" | "constraints" | "insights" | "messages" | "absences" | "schedule" | "mine" | "approvals";
+
+function visibleScreens(caps: Capabilities, hasSelf: boolean, owner: boolean): Screen[] {
+  const screens: Screen[] = [];
+  if (caps.schedule_view || caps.schedule_edit) screens.push("schedule");
+  if (caps.people_edit || caps.people_site || caps.documents) screens.push("team");
+  if (caps.constraints || caps.schedule_edit || caps.people_edit) screens.push("constraints");
+  if (caps.insights) screens.push("insights");
+  if (caps.messages) screens.push("messages");
+  if (caps.absences || caps.people_edit) screens.push("absences");
+  if (caps.site_settings) screens.push("business");
+  if (!owner && hasSelf && caps.clock) screens.push("mine");
+  if (screens.length === 0) screens.push("schedule");
+  return screens;
+}
+
+function companyDirectory(
+  sites: { id: string; state: RotaState }[],
+  activeSiteId: string,
+  ownerId: string | null,
+  ownerName: string,
+): (ReportNode & { name: string })[] {
+  const ordered = [...sites.filter((site) => site.id !== activeSiteId), ...sites.filter((site) => site.id === activeSiteId)];
+  const byId = new Map<string, ReportNode & { name: string }>();
+  for (const site of ordered) {
+    for (const employee of site.state.emps) {
+      byId.set(employee.id, {
+        id: employee.id,
+        name: employee.name,
+        ...(employee.reportsTo ? { reportsTo: employee.reportsTo } : {}),
+        ...(employee.openedBy ? { openedBy: employee.openedBy } : {}),
+        ...(employee.capabilities ? { capabilities: employee.capabilities } : {}),
+        ...(employee.schedulable === false ? { schedulable: false } : {}),
+      });
+    }
+  }
+  if (ownerId && !byId.has(ownerId)) {
+    byId.set(ownerId, { id: ownerId, name: ownerName, capabilities: allCapabilities(), schedulable: false });
+  }
+  return [...byId.values()];
+}
 
 function todayIso(now = new Date()): string {
   const year = now.getFullYear();
@@ -293,6 +334,13 @@ export function ScheduleApp() {
   const actor = user ? actorFor(user, live.selfEmployeeId) : VIEWER;
   const writer = Boolean(user && hasWrite(user));
   const owner = Boolean(user && isOwner(user));
+  const editorCapabilities = owner ? allCapabilities() : (live.selfCapabilities ?? (writer ? managerCapabilities() : staffCapabilities()));
+  const allowedScreens = visibleScreens(editorCapabilities, Boolean(live.selfEmployeeId), owner);
+  const directory = companyDirectory(live.sites, live.activeSiteId, owner ? (live.selfEmployeeId ?? null) : null, user?.name ?? "");
+  useEffect(() => {
+    if (!user || user.access === "read" || screen === "approvals" || allowedScreens.includes(screen)) return;
+    setScreen(allowedScreens[0] ?? "schedule");
+  }, [allowedScreens, screen, user]);
   const hebrew = hebrewCalendarOn(live);
   const [trades, setTrades] = useState<{ trades: ShiftTrade[]; takeable: string[] }>({ trades: [], takeable: [] });
   const [staffNotes, setStaffNotes] = useState<ManagerMessage[]>([]);
@@ -1167,7 +1215,16 @@ export function ScheduleApp() {
     return true;
   }
 
-  async function inviteStaff(input: { employeeId: string; email: string }): Promise<boolean> {
+  async function openPerson(input: {
+    id: string;
+    name: string;
+    phone: string;
+    email: string;
+    schedulable: boolean;
+    capabilities: Record<string, boolean>;
+    workSiteId: string | null;
+    managedSiteIds: string[];
+  }): Promise<boolean> {
     const token = tokenRef.current;
     if (!token || !live.org.id) return false;
     const response = await fetch("/api/staff", {
@@ -1175,119 +1232,7 @@ export function ScheduleApp() {
       headers: authHeaders(true),
       body: JSON.stringify({ ...input, orgId: live.org.id }),
     });
-    if (!response.ok) return false;
-    const body = (await response.json().catch(() => null)) as { status?: string } | null;
-    const address = input.email.trim().toLowerCase();
-    const person = state.emps.find((employee) => employee.id === input.employeeId);
-    const confirmed = body?.status === "linked";
-    const link = (current: RotaState): RotaState => {
-      const employee = current.emps.find((item) => item.id === input.employeeId);
-      if (!employee || (employee.loginEmail === address && employee.loginConfirmed === confirmed && employee.contact === address)) {
-        return current;
-      }
-      return {
-        ...current,
-        emps: current.emps.map((item) =>
-          item.id === input.employeeId ? { ...item, loginEmail: address, loginConfirmed: confirmed, contact: address } : item,
-        ),
-      };
-    };
-    change(link);
-    setWorkspace((current) => {
-      const sites = current.sites.map((site) => (site.id === current.activeSiteId ? site : { ...site, state: link(site.state) }));
-      if (current.users.some((member) => member.email.toLowerCase() === address)) return { ...current, sites };
-      return {
-        ...current,
-        sites,
-        users: [
-          ...current.users,
-          {
-            id: crypto.randomUUID(),
-            name: person?.name || address,
-            email: address,
-            password: "",
-            access: "read",
-            siteId: current.activeSiteId,
-            pending: body?.status !== "linked",
-          },
-        ],
-      };
-    });
-    return true;
-  }
-
-  async function inviteManager(input: { fullName: string; email: string; siteIds: string[] }): Promise<boolean> {
-    const token = tokenRef.current;
-    if (!token || !live.org.id) return false;
-    const response = await fetch("/api/invitations", {
-      method: "POST",
-      headers: authHeaders(true),
-      body: JSON.stringify({ ...input, orgId: live.org.id }),
-    });
     return response.ok;
-  }
-
-  async function accessRequest(path: string, method: "PATCH" | "DELETE", body: Record<string, unknown>): Promise<boolean> {
-    if (!tokenRef.current || !live.org.id) return false;
-    const response = await fetch(path, {
-      method,
-      headers: authHeaders(true),
-      body: JSON.stringify({ ...body, orgId: live.org.id }),
-    });
-    return response.ok;
-  }
-
-  async function editManagerSites(email: string, siteIds: string[]): Promise<boolean> {
-    if (!(await accessRequest("/api/invitations", "PATCH", { email, siteIds }))) return false;
-    const address = email.toLowerCase();
-    setWorkspace((current) => {
-      const rows = current.users.filter((member) => member.email.toLowerCase() === address && member.access === "write");
-      const first = rows[0];
-      if (!first) return current;
-      return {
-        ...current,
-        users: [
-          ...current.users.filter((member) => !rows.includes(member)),
-          ...siteIds.map((siteId) => ({ ...first, siteId })),
-        ],
-      };
-    });
-    return true;
-  }
-
-  async function deleteManager(email: string): Promise<boolean> {
-    if (!(await accessRequest("/api/invitations", "DELETE", { email }))) return false;
-    const address = email.toLowerCase();
-    setWorkspace((current) => ({
-      ...current,
-      users: current.users.filter((member) => !(member.email.toLowerCase() === address && member.access === "write")),
-    }));
-    return true;
-  }
-
-  async function deleteStaffLogin(employeeId: string): Promise<boolean> {
-    const address = state.emps.find((employee) => employee.id === employeeId)?.loginEmail?.toLowerCase();
-    if (!(await accessRequest("/api/staff", "DELETE", { employeeId }))) return false;
-    const unlink = (current: RotaState): RotaState => {
-      if (!current.emps.some((employee) => employee.id === employeeId && employee.loginEmail)) return current;
-      return {
-        ...current,
-        emps: current.emps.map((employee) => {
-          if (employee.id !== employeeId) return employee;
-          const { loginEmail: _email, loginConfirmed: _confirmed, ...rest } = employee;
-          return rest;
-        }),
-      };
-    };
-    change(unlink);
-    setWorkspace((current) => ({
-      ...current,
-      sites: current.sites.map((site) => (site.id === current.activeSiteId ? site : { ...site, state: unlink(site.state) })),
-      users: address
-        ? current.users.filter((member) => !(member.email.toLowerCase() === address && member.access === "read"))
-        : current.users,
-    }));
-    return true;
   }
 
   async function enterCompany(orgId: string) {
@@ -1603,15 +1548,18 @@ export function ScheduleApp() {
     onToggleLock: (slotKey: string) => change((current) => toggleSlotLock(current, slotKey)),
   };
 
-  const tabs: { id: Exclude<Screen, "approvals">; label: string }[] = [
-    { id: "schedule", label: t.navSchedule },
-    { id: "team", label: t.navTeam },
-    { id: "constraints", label: t.navConstraints },
-    { id: "insights", label: t.navInsights },
-    { id: "messages", label: t.navMessages },
-    { id: "absences", label: t.navAbsences },
-    { id: "business", label: t.navBusiness },
-  ];
+  const tabs = (
+    [
+      { id: "schedule", label: t.navSchedule },
+      { id: "team", label: t.navTeam },
+      { id: "constraints", label: t.navConstraints },
+      { id: "insights", label: t.navInsights },
+      { id: "messages", label: t.navMessages },
+      { id: "absences", label: t.navAbsences },
+      { id: "business", label: t.navBusiness },
+      { id: "mine", label: t.navMine },
+    ] as const
+  ).filter((tab) => allowedScreens.includes(tab.id));
   const weekly = screen === "schedule" || screen === "constraints" || screen === "messages";
 
   return (
@@ -1918,6 +1866,7 @@ export function ScheduleApp() {
             </div>
           </div>
         ) : null}
+        {screen === "mine" ? <AttendanceScreen lang={lang} siteId={live.activeSiteId} api={attendanceApi} /> : null}
         {screen === "team" ? (
           <TeamScreen
             sharedAttendance={
@@ -1939,16 +1888,51 @@ export function ScheduleApp() {
             selectedId={selectedId}
             onSelect={(id) => setSelectedId((current) => (current === id ? null : id))}
             onUpdate={(employeeId, patch) => {
-              const next = updateEmployee(state, actor, employeeId, patch);
+              const guarded = patch.capabilities
+                ? { ...patch, capabilities: grantable(editorCapabilities, patch.capabilities, owner) }
+                : patch;
+              if (guarded.reportsTo && !transferTargets(directory, employeeId, live.selfEmployeeId, owner).includes(guarded.reportsTo)) return;
+              const next = updateEmployee(state, actor, employeeId, guarded);
               if (next === state) return;
               change(() => next);
               const person = next.emps.find((employee) => employee.id === employeeId);
               if (person) setWorkspace((current) => mirrorPerson(current, current.activeSiteId, person));
             }}
-            onAdd={(name) => {
+            onCreate={(person) => {
               const id = crypto.randomUUID();
-              change((current) => addEmployeeRecord(current, actor, { id, name }));
-              setSelectedId(id);
+              const reportsTo = live.selfEmployeeId ?? undefined;
+              const schedulable = person.place !== "lead";
+              const capabilities = grantable(editorCapabilities, person.capabilities, owner);
+              const managedSiteIds = person.place === "work" ? [] : person.managedSiteIds;
+              const workSiteId = schedulable ? live.activeSiteId : null;
+              void (async () => {
+                if (remote) {
+                  const ok = await openPerson({
+                    id,
+                    name: person.name,
+                    phone: person.phone,
+                    email: person.email,
+                    schedulable,
+                    capabilities,
+                    workSiteId,
+                    managedSiteIds,
+                  });
+                  if (!ok) return;
+                }
+                change((current) =>
+                  addEmployeeRecord(current, actor, {
+                    id,
+                    name: person.name,
+                    phone: person.phone,
+                    email: person.email,
+                    ...(reportsTo ? { reportsTo } : {}),
+                    capabilities,
+                    schedulable,
+                    managedSiteIds,
+                  }),
+                );
+                setSelectedId(id);
+              })();
             }}
             onAgreement={(employeeId, dayIndex, shiftId, allowed) =>
               applyConstraints(setAgreement(state, actor, employeeId, dayIndex, shiftId, allowed))
@@ -1962,6 +1946,7 @@ export function ScheduleApp() {
               setSelectedId(null);
             }}
             deletionBlock={(employeeId) => {
+              if (holdsPeople(directory, employeeId)) return t.reportsBlock;
               const weeks = deletionBlockedBy(state, employeeId, currentWeek);
               return weeks.length > 0 ? deleteEmployeeBlocked(lang, weeks.map((week) => formatWeekRange(week, lang)).join(", ")) : null;
             }}
@@ -1984,6 +1969,10 @@ export function ScheduleApp() {
             }
             loadAttendance={attendanceApi.employee}
             forms={employeeForms}
+            editorId={live.selfEmployeeId ?? null}
+            editorCapabilities={editorCapabilities}
+            owner={owner}
+            directory={directory}
           />
         ) : null}
         {screen === "constraints" ? (
@@ -2013,7 +2002,14 @@ export function ScheduleApp() {
           <ApprovalsScreen bare lang={lang} toolbar={null} load={loadCompanies} onApprove={approveEmail} onStatus={setCompanyStatus} onEnter={(orgId) => void enterCompany(orgId)} />
         ) : null}
         {screen === "messages" ? (
-          <MessagesScreen state={state} lang={lang} canWrite={writer} messages={managerNotes} api={messagesApi} />
+          <MessagesScreen
+            state={state}
+            lang={lang}
+            canWrite={writer}
+            messages={managerNotes}
+            api={messagesApi}
+            hideId={owner ? live.selfEmployeeId : null}
+          />
         ) : null}
         {screen === "absences" ? (
           <AbsenceScreen
@@ -2021,7 +2017,9 @@ export function ScheduleApp() {
             canWrite={writer}
             manager
             requests={absenceRequests}
-            people={state.emps.filter((employee) => employee.active !== false).map((employee) => ({ id: employee.id, name: employee.name }))}
+            people={state.emps
+              .filter((employee) => employee.active !== false && employee.id !== (owner ? live.selfEmployeeId : null))
+              .map((employee) => ({ id: employee.id, name: employee.name, manager: isSiteManager(employee) }))}
             api={absencesApi}
           />
         ) : null}
@@ -2052,24 +2050,6 @@ export function ScheduleApp() {
             onRequirement={(shiftId, dayIndex, count) => change((current) => setShiftRequirement(current, actor, shiftId, dayIndex, count))}
             onAddShift={(name) => change((current) => addShift(current, actor, { id: crypto.randomUUID(), name }))}
             onRemoveShift={(shiftId) => change((current) => removeShift(current, actor, shiftId))}
-            hideUserId={supportOrg ? user?.id : undefined}
-            siteUsers={live.users
-              .filter((member) => member.access === "owner" || member.pending || !member.siteId || member.siteId === live.activeSiteId)
-              .map((member) => ({
-                id: member.id,
-                name: member.name,
-                email: member.email,
-                access: member.access,
-                pending: member.pending,
-                siteIds: live.users
-                  .filter((row) => row.id === member.id && row.siteId)
-                  .map((row) => row.siteId as string),
-              }))}
-            onInvite={remote && owner ? inviteManager : undefined}
-            onInviteStaff={remote && writer ? inviteStaff : undefined}
-            onEditManagerSites={remote && owner ? editManagerSites : undefined}
-            onDeleteManager={remote && owner ? deleteManager : undefined}
-            onDeleteStaffLogin={remote && writer ? deleteStaffLogin : undefined}
             onBackupJson={operator ? exportJson : undefined}
             onRestoreJson={operator ? restoreJson : undefined}
           />

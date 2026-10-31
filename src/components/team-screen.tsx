@@ -12,6 +12,10 @@ import { EmployeeAttendance, type AttendanceApi, type AttendanceSnapshot } from 
 import { EmployeeForms, type EmployeeFormsApi } from "./employee-forms";
 import { DayDates } from "./day-dates";
 import { NameRail } from "./name-rail";
+import type { Capabilities } from "../domain";
+import { EmployeeAuthority } from "./employee-authority";
+import { CreatePerson, type NewPerson } from "./create-person";
+import { isSchedulable, isSiteManager, type ReportNode } from "../access/hierarchy";
 import { button, card, cardHint, cardTitle, field, label as labelClass, labelText, select, surface } from "./ui";
 
 export function TeamScreen({
@@ -21,7 +25,7 @@ export function TeamScreen({
   selectedId,
   onSelect,
   onUpdate,
-  onAdd,
+  onCreate,
   onAgreement,
   onPreference,
   onWholeAgreement,
@@ -35,6 +39,10 @@ export function TeamScreen({
   loadAttendance,
   sharedAttendance,
   forms,
+  editorId,
+  editorCapabilities,
+  owner,
+  directory,
 }: {
   state: RotaState;
   lang: Lang;
@@ -42,7 +50,7 @@ export function TeamScreen({
   selectedId: string | null;
   onSelect: (employeeId: string) => void;
   onUpdate: (employeeId: string, patch: EmployeePatch) => void;
-  onAdd: (name: string) => void;
+  onCreate: (person: NewPerson) => void;
   onAgreement: (employeeId: string, day: number, shiftId: string, allowed: boolean) => void;
   onPreference: (employeeId: string, shiftId: string, preferred: boolean) => void;
   onWholeAgreement: (employeeId: string, allowed: boolean) => void;
@@ -58,15 +66,22 @@ export function TeamScreen({
   /** Punches for the open site, loaded once. `null` while that request is in flight. */
   sharedAttendance?: (employeeId: string) => AttendanceSnapshot | null;
   forms: EmployeeFormsApi;
+  editorId: string | null;
+  editorCapabilities: Capabilities;
+  owner: boolean;
+  directory: (ReportNode & { name: string })[];
 }) {
   const t = copy[lang];
-  const mainRoster = state.emps.filter((item) => !isRelief(item, siteId));
-  const employee = mainRoster.find((item) => item.id === selectedId) ?? null;
-  const [newName, setNewName] = useState("");
+  const [creating, setCreating] = useState(false);
+  const hideSelf = owner && editorId ? editorId : null;
+  const workers = state.emps.filter((item) => isSchedulable(item) && !isSiteManager(item) && !isRelief(item, siteId) && item.id !== hideSelf);
+  const leads = state.emps.filter((item) => isSiteManager(item) && !isRelief(item, siteId) && item.id !== hideSelf);
+  const visible = [...workers, ...leads];
+  const employee = visible.find((item) => item.id === selectedId) ?? null;
   const railPerson = (item: (typeof state.emps)[number]) => ({
     id: item.id,
     name: item.name,
-    hint: item.active ? item.role : t.inactive,
+    hint: isSiteManager(item) ? (isSchedulable(item) ? t.personBoth : t.personLead) : item.active ? item.role : t.inactive,
   });
   return (
     <div className="flex flex-col gap-6">
@@ -77,32 +92,32 @@ export function TeamScreen({
             testId="employee"
             selectedId={employee?.id ?? null}
             onSelect={onSelect}
-            people={mainRoster.map(railPerson)}
+            title={workers.length > 0 && leads.length > 0 ? t.staffGroup : undefined}
+            people={workers.map(railPerson)}
+            groups={leads.length > 0 ? [{ title: t.siteManagers, people: leads.map(railPerson) }] : []}
           />
           {canWrite ? (
-          <form
-            className="mt-2 flex gap-2 border-t border-line p-2 pt-4"
-            onSubmit={(event) => {
-              event.preventDefault();
-              const name = newName.trim();
-              if (!name) return;
-              onAdd(name);
-              setNewName("");
-            }}
-          >
-            <input
-              aria-label={t.employeeName}
-              value={newName}
-              onChange={(event) => setNewName(event.target.value)}
-              className={field}
-            />
-            <button type="submit" data-testid="add-person" className={`${button.primary} h-10`} disabled={!newName.trim()}>
-              {t.addPerson}
+            <button type="button" data-testid="add-person" className={`${button.quiet} m-2 mt-3 w-[calc(100%-1rem)]`} onClick={() => setCreating(true)}>
+              {t.createPerson}
             </button>
-          </form>
           ) : null}
         </section>
-      {employee ? (
+      {creating && canWrite ? (
+        <section className={card}>
+          <CreatePerson
+            lang={lang}
+            sites={sites.map((site) => ({ id: site.id, name: site.name }))}
+            siteId={siteId}
+            editorCapabilities={editorCapabilities}
+            owner={owner}
+            onCancel={() => setCreating(false)}
+            onCreate={(person) => {
+              onCreate(person);
+              setCreating(false);
+            }}
+          />
+        </section>
+      ) : employee ? (
         <EmployeeCard
           key={employee.id}
           state={state}
@@ -124,6 +139,10 @@ export function TeamScreen({
           loadAttendance={loadAttendance}
           sharedAttendance={sharedAttendance}
           forms={forms}
+          editorId={editorId}
+          editorCapabilities={editorCapabilities}
+          owner={owner}
+          directory={directory}
         />
       ) : (
         <p className={`${card} text-sm text-muted`}>{t.pickEmployee}</p>
@@ -153,6 +172,10 @@ function EmployeeCard({
   loadAttendance,
   sharedAttendance,
   forms,
+  editorId,
+  editorCapabilities,
+  owner,
+  directory,
 }: {
   state: RotaState;
   lang: Lang;
@@ -173,6 +196,10 @@ function EmployeeCard({
   loadAttendance: AttendanceApi["employee"];
   sharedAttendance?: (employeeId: string) => AttendanceSnapshot | null;
   forms: EmployeeFormsApi;
+  editorId: string | null;
+  editorCapabilities: Capabilities;
+  owner: boolean;
+  directory: (ReportNode & { name: string })[];
 }) {
   const t = copy[lang];
   const employee = state.emps.find((item) => item.id === employeeId)!;
@@ -193,8 +220,12 @@ function EmployeeCard({
           hourCapNone={t.hourCapNone}
           blockHome={blockHome}
           onUpdate={(patch) => onUpdate(employeeId, patch)}
+          people={directory}
+          editorId={editorId}
+          editorCapabilities={editorCapabilities}
+          owner={owner}
         />
-        {sites.length > 0 ? (
+        {sites.length > 0 && employee.schedulable !== false ? (
           <div className="mt-6 border-t border-line pt-6">
             <h3 className="text-sm font-medium text-ink">{t.employeeSites}</h3>
             {(() => {
@@ -260,6 +291,32 @@ function EmployeeCard({
             })()}
             <p className="mt-3 text-xs leading-5 text-muted">{t.employeeSitesHint}</p>
           </div>
+        ) : sites.length > 0 ? (
+          <div className="mt-6 border-t border-line pt-6">
+            <h3 className="text-sm font-medium text-ink">{t.managedSites}</h3>
+            <div className="mt-3 flex flex-col gap-2">
+              {sites.map((site) => {
+                const checked = (employee.managedSiteIds ?? []).includes(site.id);
+                return (
+                  <label key={site.id} className="flex items-center gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      className="h-4 w-4"
+                      checked={checked}
+                      disabled={!canEditAgreement}
+                      onChange={() => {
+                        const current = employee.managedSiteIds ?? [];
+                        onUpdate(employeeId, {
+                          managedSiteIds: checked ? current.filter((id) => id !== site.id) : [...current, site.id],
+                        });
+                      }}
+                    />
+                    <span>{siteLabel(site.name, lang)}</span>
+                  </label>
+                );
+              })}
+            </div>
+          </div>
         ) : null}
         {canEditAgreement ? (
           <div className="mt-6 flex flex-wrap items-center gap-3 border-t border-line pt-5">
@@ -287,6 +344,12 @@ function EmployeeCard({
 
       <EmployeeAttendance employeeId={employeeId} lang={lang} load={loadAttendance} shared={sharedAttendance?.(employeeId)} />
 
+      {employee.schedulable === false ? (
+        <section className={card}>
+          <h2 className={cardTitle}>{t.personLead}</h2>
+          <p className={cardHint}>{t.managerNotScheduled}</p>
+        </section>
+      ) : (
       <section className={card}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -365,6 +428,7 @@ function EmployeeCard({
           onToggle={(day, shiftId, checked) => onAgreement(employeeId, day, shiftId, checked)}
         />
       </section>
+      )}
     </div>
   );
 }
@@ -566,6 +630,10 @@ function EmployeeDetails({
   hourCapNone,
   blockHome,
   onUpdate,
+  people,
+  editorId,
+  editorCapabilities,
+  owner,
 }: {
   lang: Lang;
   employee: Employee;
@@ -574,6 +642,10 @@ function EmployeeDetails({
   hourCapNone: string;
   blockHome: { biz: Business; name: string; away: boolean } | null;
   onUpdate: (patch: EmployeePatch) => void;
+  people: (ReportNode & { name: string })[];
+  editorId: string | null;
+  editorCapabilities: Capabilities;
+  owner: boolean;
 }) {
   const t = copy[lang];
   const profile = employeeProfile(employee);
@@ -725,6 +797,17 @@ function EmployeeDetails({
             />
           ) : null}
         </div>
+        <EmployeeAuthority
+          lang={lang}
+          people={people}
+          employee={employee}
+          editorId={editorId}
+          editorCapabilities={editorCapabilities}
+          owner={owner}
+          readOnly={readOnly}
+          onCapabilities={(capabilities) => onUpdate({ capabilities })}
+          onReportsTo={(reportsTo) => onUpdate({ reportsTo })}
+        />
         {blockHome?.biz.blockLimit === true ? (
           <div className="mt-5 border-t border-line pt-5">
             <div className="flex flex-wrap items-start justify-between gap-4">

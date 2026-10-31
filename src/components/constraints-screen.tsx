@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { addDays, type Business, type Lang, type RotaState } from "../domain";
 import { isRelief } from "../domain/relief";
+import { isSchedulable, isSiteManager } from "../access/hierarchy";
 import { copy } from "../i18n/copy";
 import type { LineOverride } from "../parser";
 import { overBucketIds } from "../people/blocks";
@@ -46,9 +47,11 @@ export function ConstraintsScreen({
 }) {
   const t = copy[lang];
   const ordered = [...state.emps.filter((employee) => employee.active), ...state.emps.filter((employee) => !employee.active)];
-  const people = ordered.filter((employee) => !isRelief(employee, siteId));
-  const relief = ordered.filter((employee) => isRelief(employee, siteId));
-  const everyone = [...people, ...relief];
+  const home = ordered.filter((employee) => !isRelief(employee, siteId) && isSchedulable(employee));
+  const people = home.filter((employee) => !isSiteManager(employee));
+  const managers = home.filter((employee) => isSiteManager(employee));
+  const relief = ordered.filter((employee) => isRelief(employee, siteId) && isSchedulable(employee));
+  const everyone = [...people, ...managers, ...relief];
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [refused, setRefused] = useState<string[]>([]);
   const selected = everyone.find((employee) => employee.id === selectedId) ?? null;
@@ -76,11 +79,11 @@ export function ConstraintsScreen({
     else delete weekRows[employeeId];
     return { ...state, avail: { ...state.avail, [state.week]: weekRows } };
   }
-  const submitted = people.filter((employee) => availabilitySubmitted(state, employee.id)).length;
+  const submitted = home.filter((employee) => availabilitySubmitted(state, employee.id)).length;
   const pending = requests.filter((request) => {
     if (request.week !== state.week) return false;
     const person = state.emps.find((employee) => employee.id === request.employeeId);
-    return Boolean(person && !isRelief(person, siteId));
+    return Boolean(person && !isRelief(person, siteId) && isSchedulable(person));
   });
 
   return (
@@ -94,6 +97,7 @@ export function ConstraintsScreen({
             setRefused([]);
             setSelectedId((current) => (current === id ? null : id));
           }}
+          title={people.length > 0 && managers.length > 0 ? t.staffGroup : undefined}
           people={people.map((item) => ({
             id: item.id,
             name: item.name,
@@ -102,6 +106,23 @@ export function ConstraintsScreen({
               availabilitySubmitted(state, item.id) ||
               requests.some((request) => request.employeeId === item.id && request.week === state.week),
           }))}
+          groups={
+            managers.length > 0
+              ? [
+                  {
+                    title: t.siteManagers,
+                    people: managers.map((item) => ({
+                      id: item.id,
+                      name: item.name,
+                      hint: item.active ? t.personBoth : t.inactive,
+                      submitted:
+                        availabilitySubmitted(state, item.id) ||
+                        requests.some((request) => request.employeeId === item.id && request.week === state.week),
+                    })),
+                  },
+                ]
+              : []
+          }
           trailing={{
             title: t.reliefRoster,
             people: relief.map((item) => ({
@@ -116,7 +137,7 @@ export function ConstraintsScreen({
         {canWrite ? <ConstraintPaste state={state} lang={lang} aiEnabled={aiEnabled} onApply={onApply} /> : null}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-muted">
           <span data-testid="submitted-count" className="font-semibold tabular-nums text-ink">
-            {submitted}/{people.length} {t.submittedCount}
+            {submitted}/{home.length} {t.submittedCount}
           </span>
           <span>{t.availabilityLocked}</span>
           <ul className="flex flex-wrap gap-2">

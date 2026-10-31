@@ -61,7 +61,7 @@ function AbsenceForm({
 }: {
   lang: Lang;
   canWrite: boolean;
-  people?: { id: string; name: string }[];
+  people?: { id: string; name: string; manager?: boolean }[];
   api: AbsencesApi;
 }) {
   const t = copy[lang];
@@ -71,6 +71,8 @@ function AbsenceForm({
   const [end, setEnd] = useState("");
   const [note, setNote] = useState("");
   const [employeeId, setEmployeeId] = useState(people?.[0]?.id ?? "");
+  const staff = people?.filter((person) => !person.manager) ?? [];
+  const managers = people?.filter((person) => person.manager) ?? [];
   const [files, setFiles] = useState<File[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -119,11 +121,24 @@ function AbsenceForm({
             <label className={label}>
               <span className={labelText}>{t.absencesPerson}</span>
               <select className={select} data-testid="absence-employee" value={employeeId} disabled={!canWrite || busy} onChange={(event) => setEmployeeId(event.target.value)}>
-                {people.map((person) => (
-                  <option key={person.id} value={person.id}>
-                    {person.name}
-                  </option>
-                ))}
+                {staff.length > 0 ? (
+                  <optgroup label={t.staffGroup}>
+                    {staff.map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null}
+                {managers.length > 0 ? (
+                  <optgroup label={t.siteManagers}>
+                    {managers.map((person) => (
+                      <option key={person.id} value={person.id}>
+                        {person.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ) : null}
               </select>
             </label>
           ) : null}
@@ -286,7 +301,7 @@ export function AbsenceScreen({
   canWrite: boolean;
   manager: boolean;
   requests: AbsenceRequest[];
-  people?: { id: string; name: string }[];
+  people?: { id: string; name: string; manager?: boolean }[];
   api: AbsencesApi;
 }) {
   const t = copy[lang];

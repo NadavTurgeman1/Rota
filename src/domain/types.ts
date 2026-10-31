@@ -38,6 +38,36 @@ export interface EmployeeProfile {
   bankAccount: string;
 }
 
+export const CAPABILITY_KEYS = [
+  "clock",
+  "constraints",
+  "absences",
+  "trades",
+  "schedule_view",
+  "schedule_edit",
+  "site_settings",
+  "people_site",
+  "people_edit",
+  "messages",
+  "insights",
+  "documents",
+] as const;
+
+export type Capability = (typeof CAPABILITY_KEYS)[number];
+
+/** What this person may do. An ancestor can still act on everyone below them. */
+export type Capabilities = Record<Capability, boolean>;
+
+export const MANAGEMENT_CAPABILITIES = [
+  "schedule_edit",
+  "site_settings",
+  "people_site",
+  "people_edit",
+  "messages",
+  "insights",
+  "documents",
+] as const satisfies readonly Capability[];
+
 export interface Employee {
   id: string;
   name: string;
@@ -82,6 +112,16 @@ export interface Employee {
   grid?: string[][];
   allowed?: string[];
   blocked?: number[];
+  /** Direct manager. Omitted for the most senior person in the company. */
+  reportsTo?: string;
+  /** The person who opened this account. They can move direct management to a manager under them. */
+  openedBy?: string;
+  /** Chosen by the person who opened the account, from the permissions they hold. */
+  capabilities?: Capabilities;
+  /** When false, this person manages and is not placed on shifts or listed as a site worker. */
+  schedulable?: boolean;
+  /** Sites this person manages without having to work there. */
+  managedSiteIds?: string[];
 }
 
 export interface Business {

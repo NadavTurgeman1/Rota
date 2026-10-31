@@ -1,3 +1,4 @@
+import { allCapabilities, managerCapabilities, normalizeCapabilities, staffCapabilities } from "../access/hierarchy";
 import {
   NEW_SITE_MAX_HOURS,
   NEW_SITE_MIN_REST,
@@ -85,16 +86,26 @@ export async function loadStoredWorkspace(sql: SqlClient, week: string): Promise
       ];
     }
   }
-  const self = await sql.query<{ id: string }>(
-    `select id from public.employees where user_id = (select auth.uid()) and org_id = $1 limit 1`,
+  const self = await sql.query<{ id: string; capabilities: unknown }>(
+    `select id, capabilities from public.employees where user_id = (select auth.uid()) and org_id = $1 limit 1`,
     [org.id],
   );
+  const selfCapabilities = self[0]
+    ? active.role === "owner"
+      ? allCapabilities()
+      : normalizeCapabilities(self[0].capabilities)
+    : active.role === "owner"
+      ? allCapabilities()
+      : active.role === "manager"
+        ? managerCapabilities()
+        : staffCapabilities();
   return {
     org: { id: org.id, name: org.name, type: org.kind, hebrewCalendar: org.hebrew_calendar !== false },
     sites: ensurePrimarySites(loaded),
     activeSiteId: loaded[0]?.id ?? "",
     users,
     selfEmployeeId: self[0]?.id ?? null,
+    selfCapabilities,
     decisions: await loadDecisions(
       sql,
       loaded.map((site) => ({ id: site.id, name: site.state.biz.name })),
@@ -426,6 +437,44 @@ export async function approveFounder(sql: SqlClient, input: { fullName: string; 
     const message = error instanceof Error ? error.message : "";
     if (/not allowed|42501/i.test(message)) throw new SaveError("forbidden");
     if (/invalid|23514|duplicate|unique/i.test(message)) throw new SaveError("approval");
+    throw error;
+  }
+}
+
+export async function openPerson(
+  sql: SqlClient,
+  input: {
+    orgId: string;
+    id: string;
+    name: string;
+    phone: string;
+    email: string;
+    schedulable: boolean;
+    capabilities: Record<string, boolean>;
+    workSiteId: string | null;
+    managedSiteIds: string[];
+  },
+): Promise<string> {
+  try {
+    const rows = await sql.query<{ status: string }>(
+      `select public.open_person($1, $2, $3, $4, $5, $6, $7, $8, $9::uuid[]) as status`,
+      [
+        input.orgId,
+        input.id,
+        input.name,
+        input.phone,
+        input.email,
+        input.schedulable,
+        JSON.stringify(input.capabilities),
+        input.workSiteId,
+        input.managedSiteIds,
+      ],
+    );
+    return rows[0]?.status ?? "saved";
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    if (/not allowed|42501|not authenticated|28000/i.test(message)) throw new SaveError("forbidden");
+    if (/invalid|23514|duplicate|unique/i.test(message)) throw new SaveError("invitation");
     throw error;
   }
 }

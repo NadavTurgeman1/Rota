@@ -67,6 +67,11 @@ export interface EmployeeRow {
   on_roster: boolean;
   observes_shabbat: boolean;
   observes_holidays: boolean;
+  reports_to: string | null;
+  opened_by: string | null;
+  capabilities: unknown;
+  schedulable: boolean;
+  managed_site_ids: string[] | null;
 }
 
 export interface QualificationRow {

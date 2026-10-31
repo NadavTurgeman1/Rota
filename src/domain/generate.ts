@@ -28,7 +28,7 @@ export function generate(state: RotaState, week: string, random?: () => number):
   const previous = schedule.assign;
   const originalLocked = [...(schedule.locked ?? [])];
   const openSlots = slots(state, week);
-  const employees = state.emps.filter((employee) => employee.active);
+  const employees = state.emps.filter((employee) => employee.active && employee.schedulable !== false);
   const automatic = employees.filter((employee) => !isRelief(employee, state.siteId));
   const assign: Record<string, string[]> = {};
   const mine: Record<string, Slot[]> = {};

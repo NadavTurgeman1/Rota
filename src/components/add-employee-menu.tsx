@@ -1,22 +1,24 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
+import { isSiteManager } from "../access/hierarchy";
 import { formatReason, type Lang, type Reason, type RotaState, type Slot } from "../domain";
 import { copy } from "../i18n/copy";
 import { localizeShiftNames } from "../schedule/display";
 import { canPlace, placementIssue } from "../schedule/edit";
 
-type Candidate = { id: string; name: string; reason: Reason | null };
+type Candidate = { id: string; name: string; reason: Reason | null; manager: boolean };
 
 function candidatesFor(state: RotaState, slot: Slot, lang: Lang): { open: Candidate[]; closed: Candidate[] } {
   const assigned = new Set(state.sched[state.week]?.assign[slot.key] ?? []);
   const people = state.emps
-    .filter((employee) => !assigned.has(employee.id))
+    .filter((employee) => employee.schedulable !== false && !assigned.has(employee.id))
     .map((employee) => ({
       id: employee.id,
       name: employee.name,
       reason: placementIssue(state, slot, employee.id, lang),
+      manager: isSiteManager(employee),
     }));
   const byName = (left: Candidate, right: Candidate) => left.name.localeCompare(right.name, "he");
   const open = people
@@ -24,6 +26,38 @@ function candidatesFor(state: RotaState, slot: Slot, lang: Lang): { open: Candid
     .sort((left, right) => Number(left.reason !== null) - Number(right.reason !== null) || byName(left, right));
   const closed = people.filter((person) => !canPlace(person.reason)).sort(byName);
   return { open, closed };
+}
+
+function CandidateGroups({
+  people,
+  staffLabel,
+  managerLabel,
+  render,
+}: {
+  people: Candidate[];
+  staffLabel: string;
+  managerLabel: string;
+  render: (person: Candidate) => ReactNode;
+}) {
+  const staff = people.filter((person) => !person.manager);
+  const managers = people.filter((person) => person.manager);
+  const split = staff.length > 0 && managers.length > 0;
+  return (
+    <>
+      {staff.length > 0 ? (
+        <div>
+          {split ? <p className="px-2 pb-1 pt-1 text-xs font-medium text-muted">{staffLabel}</p> : null}
+          {staff.map(render)}
+        </div>
+      ) : null}
+      {managers.length > 0 ? (
+        <div>
+          {split ? <p className="px-2 pb-1 pt-1 text-xs font-medium text-muted">{managerLabel}</p> : null}
+          {managers.map(render)}
+        </div>
+      ) : null}
+    </>
+  );
 }
 
 /** The plus on a shift. Available people come first. Anyone who cannot take it follows, dimmed, with the reason. */
@@ -123,35 +157,45 @@ export function AddEmployeeMenu({
               {available.length > 0 ? (
                 <div role="group" aria-label={t.availableForShift}>
                   <p className="px-2 pb-1 pt-1.5 text-xs font-medium text-muted">{t.availableForShift}</p>
-                  {available.map((person) => (
-                    <button
-                      key={person.id}
-                      type="button"
-                      role="option"
-                      aria-selected={false}
-                      data-testid={`${testId}-option-${person.id}`}
-                      className="block w-full rounded-lg px-2 py-1.5 text-start hover:bg-well"
-                      onClick={() => choose(person.id)}
-                    >
-                      <span className="block text-sm font-medium text-ink">{person.name}</span>
-                      {person.reason ? (
-                        <span className="mt-0.5 block text-xs leading-4 text-muted">{localizeShiftNames(formatReason(person.reason, lang), lang)}</span>
-                      ) : null}
-                    </button>
-                  ))}
+                  <CandidateGroups
+                    people={available}
+                    staffLabel={t.staffGroup}
+                    managerLabel={t.siteManagers}
+                    render={(person) => (
+                      <button
+                        key={person.id}
+                        type="button"
+                        role="option"
+                        aria-selected={false}
+                        data-testid={`${testId}-option-${person.id}`}
+                        className="block w-full rounded-lg px-2 py-1.5 text-start hover:bg-well"
+                        onClick={() => choose(person.id)}
+                      >
+                        <span className="block text-sm font-medium text-ink">{person.name}</span>
+                        {person.reason ? (
+                          <span className="mt-0.5 block text-xs leading-4 text-muted">{localizeShiftNames(formatReason(person.reason, lang), lang)}</span>
+                        ) : null}
+                      </button>
+                    )}
+                  />
                 </div>
               ) : null}
               {closed.length > 0 ? (
                 <div role="group" aria-label={t.unavailableForShift}>
                   <p className="px-2 pb-1 pt-1.5 text-xs font-medium text-muted">{t.unavailableForShift}</p>
-                  {closed.map((person) => (
-                    <div key={person.id} role="option" aria-disabled="true" aria-selected={false} data-testid={`${testId}-closed-${person.id}`} className="px-2 py-1.5">
-                      <span className="block text-sm text-muted">{person.name}</span>
-                      <span className="mt-0.5 block text-xs leading-4 text-ink-soft">
-                        {person.reason ? localizeShiftNames(formatReason(person.reason, lang), lang) : ""}
-                      </span>
-                    </div>
-                  ))}
+                  <CandidateGroups
+                    people={closed}
+                    staffLabel={t.staffGroup}
+                    managerLabel={t.siteManagers}
+                    render={(person) => (
+                      <div key={person.id} role="option" aria-disabled="true" aria-selected={false} data-testid={`${testId}-closed-${person.id}`} className="px-2 py-1.5">
+                        <span className="block text-sm text-muted">{person.name}</span>
+                        <span className="mt-0.5 block text-xs leading-4 text-ink-soft">
+                          {person.reason ? localizeShiftNames(formatReason(person.reason, lang), lang) : ""}
+                        </span>
+                      </div>
+                    )}
+                  />
                 </div>
               ) : null}
             </div>,

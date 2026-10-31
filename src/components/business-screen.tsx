@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
 import { dayName, type Lang, type RotaState } from "../domain";
 import type { BusinessPatch, ShiftPatch } from "../business/edit";
-import { confirmDeleteManager, confirmDeleteSite, confirmDeleteStaffLogin, copy } from "../i18n/copy";
+import { confirmDeleteSite, copy } from "../i18n/copy";
 import { orgTypeLabel, shiftLabel, siteLabel } from "../schedule/display";
 import { BlockNumberFields, BlockSplitPicker, blockSplitOf } from "./block-limit";
 
-import { accessLabel } from "./users-panel";
 import { button, card, cardHint, cardTitle, field, label, labelText, select } from "./ui";
 
 const cell = field.replace("h-10", "h-9");
@@ -160,15 +159,8 @@ export function BusinessScreen({
   onRequirement,
   onAddShift,
   onRemoveShift,
-  siteUsers,
-  hideUserId,
-  onInvite,
-  onInviteStaff,
   onBackupJson,
   onRestoreJson,
-  onEditManagerSites,
-  onDeleteManager,
-  onDeleteStaffLogin,
 }: {
   state: RotaState;
   lang: Lang;
@@ -187,35 +179,15 @@ export function BusinessScreen({
   onRequirement: (shiftId: string, day: number, count: number) => void;
   onAddShift: (name: string) => void;
   onRemoveShift: (shiftId: string) => void;
-  siteUsers?: { id: string; name: string; email: string; access: "owner" | "write" | "read"; pending?: boolean; siteIds?: string[] }[];
-  hideUserId?: string;
-  onInvite?: (input: { fullName: string; email: string; siteIds: string[] }) => Promise<boolean>;
-  onInviteStaff?: (input: { employeeId: string; email: string }) => Promise<boolean>;
   onBackupJson?: () => void;
   onRestoreJson?: (raw: string) => boolean;
-  onEditManagerSites?: (email: string, siteIds: string[]) => Promise<boolean>;
-  onDeleteManager?: (email: string) => Promise<boolean>;
-  onDeleteStaffLogin?: (employeeId: string) => Promise<boolean>;
 }) {
   const t = copy[lang];
   const biz = state.biz;
   const readOnly = !canWrite;
   const [newSite, setNewSite] = useState("");
   const [siteError, setSiteError] = useState(false);
-  const [inviteName, setInviteName] = useState("");
-  const [inviteEmail, setInviteEmail] = useState("");
-  const [inviteSites, setInviteSites] = useState<string[]>(activeSiteId ? [activeSiteId] : []);
-  const [inviteNote, setInviteNote] = useState<"saved" | "failed" | null>(null);
-  const [staffId, setStaffId] = useState(state.emps[0]?.id ?? "");
-  const [staffEmail, setStaffEmail] = useState("");
-  const [staffNote, setStaffNote] = useState<"saved" | "failed" | null>(null);
   const [backupNote, setBackupNote] = useState<"restored" | "invalid" | null>(null);
-  const [editing, setEditing] = useState<{ email: string; siteIds: string[] } | null>(null);
-  const [accessNote, setAccessNote] = useState<"failed" | "sites" | null>(null);
-  const managers = (siteUsers ?? []).filter((member) => member.access === "write" && member.id !== hideUserId && !member.pending);
-  const staffLogins = state.emps.filter((employee) => employee.loginEmail);
-  const chosenStaff = state.emps.find((employee) => employee.id === staffId);
-  const existingLogin = chosenStaff?.loginEmail;
   const numbers: { key: "minRest" | "maxHours" | "maxShift" | "maxDayHours"; label: string }[] = [
     { key: "minRest", label: t.minRest },
     { key: "maxHours", label: t.maxHours },
@@ -534,251 +506,6 @@ export function BusinessScreen({
         </div>
       </section>
 
-      {onInvite || (onInviteStaff && biz.staffAccess !== false) ? (
-        <section className={card}>
-          {onInvite ? (
-          <>
-          <h2 className={cardTitle}>{t.usersTitle}</h2>
-          <p className={cardHint}>{t.inviteHint}</p>
-          {managers.length === 0 ? <p className="mt-4 text-sm text-muted">{t.noShiftManagers}</p> : null}
-          <ul className="mt-4 flex flex-col gap-2 text-sm">
-            {managers.map((member) => {
-              const open = editing?.email === member.email;
-              return (
-                <li key={member.id} data-testid={`manager-${member.email}`} className="flex flex-col gap-2">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <span className="flex items-center gap-6">
-                      <span className="font-medium">{member.name}</span>
-                      <span dir="ltr" className="text-muted">
-                        {member.email}
-                      </span>
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <span className="text-muted">{accessLabel(lang, member.access)}</span>
-                      {onEditManagerSites ? (
-                        <button
-                          type="button"
-                          data-testid={`edit-manager-${member.email}`}
-                          className={button.small}
-                          onClick={() => {
-                            setAccessNote(null);
-                            setEditing(open ? null : { email: member.email, siteIds: member.siteIds ?? [] });
-                          }}
-                        >
-                          {t.editAccess}
-                        </button>
-                      ) : null}
-                      {onDeleteManager ? (
-                        <button
-                          type="button"
-                          data-testid={`delete-manager-${member.email}`}
-                          className={`${button.danger} h-8 px-3`}
-                          onClick={() => {
-                            if (!window.confirm(confirmDeleteManager(lang, member.name))) return;
-                            setAccessNote(null);
-                            void onDeleteManager(member.email).then((ok) => setAccessNote(ok ? null : "failed"));
-                          }}
-                        >
-                          {t.deleteAccess}
-                        </button>
-                      ) : null}
-                    </span>
-                  </div>
-                  {open && editing && onEditManagerSites ? (
-                    <div className="rounded-xl border border-line bg-well p-3">
-                      <p className={labelText}>{t.sitesTitle}</p>
-                      <div className="mt-2 flex flex-wrap gap-x-5 gap-y-2">
-                        {sites.map((site) => (
-                          <label key={site.id} className="flex items-center gap-2">
-                            <input
-                              type="checkbox"
-                              checked={editing.siteIds.includes(site.id)}
-                              onChange={() =>
-                                setEditing({
-                                  ...editing,
-                                  siteIds: editing.siteIds.includes(site.id)
-                                    ? editing.siteIds.filter((id) => id !== site.id)
-                                    : [...editing.siteIds, site.id],
-                                })
-                              }
-                            />
-                            <span>{siteLabel(site.name, lang)}</span>
-                          </label>
-                        ))}
-                      </div>
-                      <div className="mt-3 flex gap-2">
-                        <button
-                          type="button"
-                          data-testid={`save-manager-${member.email}`}
-                          className={button.primary}
-                          onClick={() => {
-                            if (editing.siteIds.length === 0) {
-                              setAccessNote("sites");
-                              return;
-                            }
-                            void onEditManagerSites(member.email, editing.siteIds).then((ok) => {
-                              setAccessNote(ok ? null : "failed");
-                              if (ok) setEditing(null);
-                            });
-                          }}
-                        >
-                          {t.saveAccess}
-                        </button>
-                        <button type="button" className={button.quiet} onClick={() => setEditing(null)}>
-                          {t.cancelEdit}
-                        </button>
-                      </div>
-                    </div>
-                  ) : null}
-                </li>
-              );
-            })}
-          </ul>
-          {accessNote ? (
-            <p role="alert" className="mt-2 text-sm text-danger-text">
-              {accessNote === "sites" ? t.managerSitesRequired : t.saveFailed}
-            </p>
-          ) : null}
-          <form
-            className="mt-4 grid gap-3 sm:grid-cols-2"
-            onSubmit={(event) => {
-              event.preventDefault();
-              if (!onInvite) return;
-              void (async () => {
-                const ok = await onInvite({ fullName: inviteName, email: inviteEmail, siteIds: inviteSites });
-                setInviteNote(ok ? "saved" : "failed");
-                if (ok) {
-                  setInviteName("");
-                  setInviteEmail("");
-                }
-              })();
-            }}
-          >
-            <label className={label}>
-              <span className={labelText}>{t.fullName}</span>
-              <input className={field} value={inviteName} onChange={(event) => setInviteName(event.target.value)} />
-            </label>
-            <label className={label}>
-              <span className={labelText}>{t.email}</span>
-              <input dir="ltr" type="email" className={field} value={inviteEmail} onChange={(event) => setInviteEmail(event.target.value)} />
-            </label>
-            <fieldset className={`${label} sm:col-span-2`}>
-              <legend className={labelText}>{t.sitesTitle}</legend>
-              <div className="mt-2 flex flex-col gap-2">
-                {sites.map((site) => (
-                  <label key={site.id} className="flex items-center gap-3 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={inviteSites.includes(site.id)}
-                      onChange={() =>
-                        setInviteSites((current) =>
-                          current.includes(site.id) ? current.filter((id) => id !== site.id) : [...current, site.id],
-                        )
-                      }
-                    />
-                    <span>{siteLabel(site.name, lang)}</span>
-                  </label>
-                ))}
-              </div>
-            </fieldset>
-            <div className="flex items-end">
-              <button type="submit" className={`${button.primary} h-10`} disabled={!inviteName.trim() || !inviteEmail.trim() || inviteSites.length === 0}>
-                {t.inviteUser}
-              </button>
-            </div>
-            {inviteNote === "saved" ? <p className="text-sm text-muted sm:col-span-2">{t.inviteSaved}</p> : null}
-            {inviteNote === "failed" ? (
-              <p role="alert" className="text-sm text-danger-text sm:col-span-2">
-                {t.saveFailed}
-              </p>
-            ) : null}
-          </form>
-          </>
-          ) : null}
-          {onInviteStaff && biz.staffAccess !== false ? (
-            <form
-              className={`${onInvite ? "mt-6 border-t border-line pt-6" : ""} grid gap-3 sm:grid-cols-2`}
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (existingLogin) return;
-                void (async () => {
-                  const ok = await onInviteStaff({ employeeId: staffId, email: staffEmail });
-                  setStaffNote(ok ? "saved" : "failed");
-                  if (ok) setStaffEmail("");
-                })();
-              }}
-            >
-              <h3 className={`${cardTitle} sm:col-span-2`}>{t.addEmployeesTitle}</h3>
-              <p className={`${cardHint} sm:col-span-2`}>{t.inviteStaffHint}</p>
-              {staffLogins.length === 0 ? <p className="text-sm text-muted sm:col-span-2">{t.noStaffLogins}</p> : null}
-              <ul className="flex flex-col gap-2 text-sm sm:col-span-2">
-                {staffLogins.map((employee) => (
-                  <li key={employee.id} data-testid={`staff-login-${employee.loginEmail}`} className="flex flex-wrap items-center justify-between gap-3">
-                    <span className="flex items-center gap-6">
-                      <span className="font-medium">{employee.name}</span>
-                      <span dir="ltr" className="text-muted">
-                        {employee.loginEmail}
-                      </span>
-                    </span>
-                    <span className="flex items-center gap-2">
-                      <span className="text-muted">{employee.loginConfirmed ? employee.role || t.accessRead : t.loginPending}</span>
-                      {onDeleteStaffLogin ? (
-                        <button
-                          type="button"
-                          data-testid={`delete-staff-login-${employee.loginEmail}`}
-                          className={`${button.danger} h-8 px-3`}
-                          onClick={() => {
-                            if (!window.confirm(confirmDeleteStaffLogin(lang, employee.name))) return;
-                            void onDeleteStaffLogin(employee.id).then((ok) => setStaffNote(ok ? null : "failed"));
-                          }}
-                        >
-                          {t.deleteAccess}
-                        </button>
-                      ) : null}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <label className={label}>
-                <span className={labelText}>{t.summaryEmployee}</span>
-                <select className={select} value={staffId} onChange={(event) => setStaffId(event.target.value)}>
-                  {state.emps.map((employee) => (
-                    <option key={employee.id} value={employee.id}>
-                      {employee.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className={label}>
-                <span className={labelText}>{t.email}</span>
-                <input
-                  dir="ltr"
-                  type="email"
-                  className={field}
-                  value={staffEmail}
-                  onChange={(event) => setStaffEmail(event.target.value)}
-                />
-              </label>
-              {existingLogin ? (
-                <p role="alert" data-testid="login-already-open" className="text-sm font-medium text-danger-text sm:col-span-2">
-                  {t.loginAlreadyOpen(existingLogin)}
-                </p>
-              ) : null}
-              <div className="flex items-end">
-                <button type="submit" className={`${button.primary} h-10`} disabled={!staffId || !staffEmail.trim() || Boolean(existingLogin)}>
-                  {t.inviteStaff}
-                </button>
-              </div>
-              {staffNote === "saved" ? <p className="text-sm text-muted sm:col-span-2">{t.inviteSaved}</p> : null}
-              {staffNote === "failed" ? (
-                <p role="alert" className="text-sm text-danger-text sm:col-span-2">
-                  {t.saveFailed}
-                </p>
-              ) : null}
-            </form>
-          ) : null}
-        </section>
-      ) : null}
 
       <section className={card}>
         <h2 className={cardTitle}>{t.shiftsTitle}</h2>

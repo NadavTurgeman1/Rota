@@ -16,6 +16,9 @@ export function mirrorPerson(workspace: Workspace, exceptSiteId: string, person:
     hourlyWage: person.hourlyWage ?? 0,
     active: person.active,
     customBlocks: person.customBlocks ?? null,
+    ...(person.reportsTo ? { reportsTo: person.reportsTo } : {}),
+    ...(person.capabilities ? { capabilities: person.capabilities } : {}),
+    schedulable: person.schedulable !== false,
   };
   let changed = false;
   const sites = workspace.sites.map((site) => {

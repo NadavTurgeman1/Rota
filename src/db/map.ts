@@ -1,3 +1,4 @@
+import { normalizeCapabilities } from "../access/hierarchy";
 import { cleanProfile } from "../domain/profile";
 import { HOUR_SPAN_GROUP } from "../domain/schedule";
 import { normalizeCustom } from "../people/blocks";
@@ -74,6 +75,14 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
         ...(employee.login_email
           ? { loginEmail: employee.login_email, loginConfirmed: employee.login_confirmed === true }
           : {}),
+        ...(employee.reports_to ? { reportsTo: employee.reports_to } : {}),
+        ...(employee.opened_by ? { openedBy: employee.opened_by } : {}),
+        capabilities: normalizeCapabilities(employee.capabilities),
+        ...(employee.schedulable === false ? { schedulable: false } : {}),
+        ...(() => {
+          const managed = idList(employee.managed_site_ids);
+          return managed.length ? { managedSiteIds: managed } : {};
+        })(),
       };
     });
 
@@ -268,4 +277,14 @@ function scheduleFromBundle(
     ...(calloffs.length ? { calloffs } : {}),
     ...(Object.keys(staffing).length ? { staffing } : {}),
   };
+}
+
+function idList(value: unknown): string[] {
+  if (Array.isArray(value)) return value.filter((item): item is string => typeof item === "string" && item.length > 0);
+  if (typeof value !== "string" || value.length < 2) return [];
+  return value
+    .replace(/^\{|\}$/g, "")
+    .split(",")
+    .map((item) => item.trim())
+    .filter(Boolean);
 }

@@ -1,4 +1,4 @@
-import { inviteStaffLogin, removeStaffLogin } from "../../../db/workspace-store";
+import { inviteStaffLogin, openPerson, removeStaffLogin } from "../../../db/workspace-store";
 import { SaveError } from "../../../db/save";
 import { supportOrgFrom, withUserDb } from "../../../supabase/database";
 import { userIdFromAuthorization } from "../../../supabase/user";
@@ -12,11 +12,42 @@ export async function POST(request: Request) {
     orgId?: unknown;
     employeeId?: unknown;
     email?: unknown;
+    id?: unknown;
+    name?: unknown;
+    phone?: unknown;
+    schedulable?: unknown;
+    capabilities?: unknown;
+    workSiteId?: unknown;
+    managedSiteIds?: unknown;
   } | null;
   const orgId = typeof body?.orgId === "string" ? body.orgId : "";
-  const employeeId = typeof body?.employeeId === "string" ? body.employeeId : "";
   const email = typeof body?.email === "string" ? body.email : "";
   try {
+    if (typeof body?.name === "string" && typeof body.id === "string") {
+      const capabilities =
+        body.capabilities && typeof body.capabilities === "object" ? (body.capabilities as Record<string, boolean>) : {};
+      const managedSiteIds = Array.isArray(body.managedSiteIds)
+        ? body.managedSiteIds.filter((item): item is string => typeof item === "string")
+        : [];
+      const status = await withUserDb(
+        userId,
+        (sql) =>
+          openPerson(sql, {
+            orgId,
+            id: body.id as string,
+            name: body.name as string,
+            phone: typeof body.phone === "string" ? body.phone : "",
+            email,
+            schedulable: body.schedulable !== false,
+            capabilities,
+            workSiteId: typeof body.workSiteId === "string" ? body.workSiteId : null,
+            managedSiteIds,
+          }),
+        supportOrgFrom(request),
+      );
+      return Response.json({ ok: true, status });
+    }
+    const employeeId = typeof body?.employeeId === "string" ? body.employeeId : "";
     const status = await withUserDb(
       userId,
       (sql) => inviteStaffLogin(sql, { orgId, employeeId, email }),

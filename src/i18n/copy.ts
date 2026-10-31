@@ -83,6 +83,37 @@ export interface Copy {
   english: string;
   navSchedule: string;
   navTeam: string;
+  navMine: string;
+  authorityTitle: string;
+  authorityHint: string;
+  directManager: string;
+  directManagerEmpty: string;
+  transferManager: string;
+  reportsBlock: string;
+  capClock: string;
+  capConstraints: string;
+  capAbsences: string;
+  capTrades: string;
+  capScheduleView: string;
+  capScheduleEdit: string;
+  capSiteSettings: string;
+  capPeopleSite: string;
+  capPeopleEdit: string;
+  capMessages: string;
+  capInsights: string;
+  capDocuments: string;
+  createPerson: string;
+  personWorker: string;
+  personLead: string;
+  personBoth: string;
+  personWorkerHint: string;
+  personLeadHint: string;
+  personBothHint: string;
+  siteManagers: string;
+  staffGroup: string;
+  managerNotScheduled: string;
+  managedSites: string;
+  personEmail: string;
   employeeName: string;
   contact: string;
   phone: string;
@@ -631,6 +662,37 @@ export const copy: Record<Lang, Copy> = {
     english: "English",
     navSchedule: "סידור שבועי",
     navTeam: "ניהול עובדים",
+    navMine: "המשמרת שלי",
+    authorityTitle: "ניהול והרשאות",
+    authorityHint: "המנהל הישיר הוא מי שפתח את המשתמש. אפשר להעביר את הניהול הישיר לכל מנהל אתר בחברה. מי שמעליו בשרשרת רואה את העובד ויכול לפעול עליו.",
+    directManager: "מנהל ישיר",
+    directManagerEmpty: "האדם הבכיר בחברה",
+    transferManager: "העברת ניהול",
+    reportsBlock: "יש עובדים תחתיו. מעבירים אותם למנהל אתר אחר לפני המחיקה.",
+    capClock: "כניסה ויציאה ממשמרת",
+    capConstraints: "הגשת אילוצים שבועיים",
+    capAbsences: "הגשת בקשת היעדרות",
+    capTrades: "בקשת החלפת משמרת",
+    capScheduleView: "צפייה בסידור העבודה",
+    capScheduleEdit: "עריכת סידור העבודה",
+    capSiteSettings: "עריכת הגדרות האתר",
+    capPeopleSite: "צפייה ברשימת העובדים באתר",
+    capPeopleEdit: "עריכת פרטי העובדים שבניהולו",
+    capMessages: "שליחת הודעות",
+    capInsights: "צפייה בסיכום השבוע",
+    capDocuments: "צפייה ועריכה בטפסי העובד",
+    createPerson: "אדם חדש",
+    personWorker: "עובד משובץ",
+    personLead: "מנהל אתר",
+    personBoth: "עובד ומנהל אתר",
+    personWorkerHint: "מופיע בצוות האתר ואפשר לשבץ אותו למשמרות.",
+    personLeadHint: "מנהל את האתר ואת האנשים, בלי שיבוץ למשמרות.",
+    personBothHint: "מנהל את האתר, ואפשר גם לשבץ אותו למשמרות.",
+    siteManagers: "מנהלי אתר",
+    staffGroup: "עובדים",
+    managerNotScheduled: "מנהל אתר בלי שיבוץ. הוא לא מופיע בסידור ולא ברשימת העובדים של האתר.",
+    managedSites: "אתרים בניהול",
+    personEmail: "אימייל לכניסה",
     employeeName: "שם",
     contact: "אימייל",
     phone: "טלפון",
@@ -1191,6 +1253,37 @@ export const copy: Record<Lang, Copy> = {
     english: "English",
     navSchedule: "Weekly schedule",
     navTeam: "Employees",
+    navMine: "My shift",
+    authorityTitle: "Management and permissions",
+    authorityHint: "The direct manager is the person who opened the account. Direct management can move to any site manager in the company. Anyone above them can see the employee and act for them.",
+    directManager: "Direct manager",
+    directManagerEmpty: "Most senior person in the company",
+    transferManager: "Move management",
+    reportsBlock: "People report to this employee. Move them to another site manager before deleting.",
+    capClock: "Clock in and out of a shift",
+    capConstraints: "Submit weekly constraints",
+    capAbsences: "Submit an absence request",
+    capTrades: "Request a shift swap",
+    capScheduleView: "View the work schedule",
+    capScheduleEdit: "Edit the work schedule",
+    capSiteSettings: "Edit site settings",
+    capPeopleSite: "View the site employee list",
+    capPeopleEdit: "Edit details of people they manage",
+    capMessages: "Send messages",
+    capInsights: "View the weekly summary",
+    capDocuments: "View and edit employee forms",
+    createPerson: "New person",
+    personWorker: "Scheduled employee",
+    personLead: "Site manager",
+    personBoth: "Employee and site manager",
+    personWorkerHint: "Appears on the site team and can be placed on shifts.",
+    personLeadHint: "Manages the site and its people, without being placed on shifts.",
+    personBothHint: "Manages the site, and can also be placed on shifts.",
+    siteManagers: "Site managers",
+    staffGroup: "Employees",
+    managerNotScheduled: "A site manager without shifts. They are not on the schedule and not in the site's employee list.",
+    managedSites: "Sites they manage",
+    personEmail: "Email for sign-in",
     employeeName: "Name",
     contact: "Email",
     phone: "Phone",

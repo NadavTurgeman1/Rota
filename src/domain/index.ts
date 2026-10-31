@@ -7,6 +7,8 @@ export type {
   CoveragePart,
   Employee,
   EmployeeProfile,
+  Capabilities,
+  Capability,
   ExtraShiftOption,
   Reason,
   RotaState,
@@ -40,6 +42,7 @@ export {
   staticReason,
 } from "./rules";
 export type { Lang } from "./rules";
+export { CAPABILITY_KEYS, MANAGEMENT_CAPABILITIES } from "./types";
 export { generate } from "./generate";
 export type { DroppedLock, GenerateResult } from "./generate";
 export { deleteVersion, diffIsEmpty, diffSchedules, recordVersion, restoreVersion, weekVersions } from "./versions";

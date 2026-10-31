@@ -3,6 +3,8 @@ import { absenceOnWeekDay } from "../domain/absence";
 import { isRelief } from "../domain/relief";
 import { shabbatBlocks, shiftRest, staffedCount } from "../domain/rest";
 import { cleanProfile, employeeProfile } from "../domain/profile";
+import { capabilitiesOf, holdsPeople, normalizeCapabilities, staffCapabilities } from "../access/hierarchy";
+import type { Capabilities } from "../domain/types";
 import { constraintDraftWritable, parseConstraints, type LineOverride } from "../parser/parse";
 import { blockedCells, blockBuckets, normalizeCustom } from "./blocks";
 
@@ -27,6 +29,10 @@ export interface EmployeePatch {
   profile?: Partial<EmployeeProfile>;
   /** `null` clears a personal override and returns the person to the primary site's numbers. */
   customBlocks?: Employee["customBlocks"] | null;
+  reportsTo?: string | null;
+  capabilities?: Capabilities;
+  schedulable?: boolean;
+  managedSiteIds?: string[];
 }
 
 function cloneState(state: RotaState): RotaState {
@@ -196,6 +202,19 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
       next.customBlocks = cleaned;
     }
   }
+  if (patch.reportsTo !== undefined) {
+    if (patch.reportsTo) next.reportsTo = patch.reportsTo;
+    else delete next.reportsTo;
+  }
+  if (patch.capabilities !== undefined) next.capabilities = normalizeCapabilities(patch.capabilities);
+  if (patch.schedulable !== undefined) {
+    if (patch.schedulable) delete next.schedulable;
+    else next.schedulable = false;
+  }
+  if (patch.managedSiteIds !== undefined) {
+    next.managedSiteIds = patch.managedSiteIds;
+    if (next.managedSiteIds.length === 0) delete next.managedSiteIds;
+  }
   if (patch.profile !== undefined) {
     const cleaned = cleanProfile({ ...employeeProfile(employee), ...patch.profile });
     if (cleaned) next.profile = cleaned;
@@ -213,6 +232,10 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
     next.active === employee.active &&
     (next.observesShabbat === true) === (employee.observesShabbat === true) &&
     (next.observesHolidays === true) === (employee.observesHolidays === true) &&
+    (next.reportsTo ?? null) === (employee.reportsTo ?? null) &&
+    (next.schedulable === false) === (employee.schedulable === false) &&
+    JSON.stringify(next.managedSiteIds ?? []) === JSON.stringify(employee.managedSiteIds ?? []) &&
+    JSON.stringify(capabilitiesOf(next)) === JSON.stringify(capabilitiesOf(employee)) &&
     JSON.stringify(next.customBlocks ?? null) === JSON.stringify(employee.customBlocks ?? null) &&
     JSON.stringify(cleanProfile(next.profile) ?? null) === JSON.stringify(cleanProfile(employee.profile) ?? null)
   ) {
@@ -229,7 +252,20 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
   return draft;
 }
 
-export function addEmployeeRecord(state: RotaState, actor: Actor, input: { id: string; name: string }): RotaState {
+export function addEmployeeRecord(
+  state: RotaState,
+  actor: Actor,
+  input: {
+    id: string;
+    name: string;
+    phone?: string;
+    email?: string;
+    reportsTo?: string;
+    capabilities?: Capabilities;
+    schedulable?: boolean;
+    managedSiteIds?: string[];
+  },
+): RotaState {
   if (!canEditRoster(actor)) return state;
   const name = input.name.trim();
   if (!name || !input.id || findEmployee(state, input.id)) return state;
@@ -237,7 +273,8 @@ export function addEmployeeRecord(state: RotaState, actor: Actor, input: { id: s
   draft.emps.push({
     id: input.id,
     name,
-    contact: "",
+    contact: input.email?.trim() ?? "",
+    phone: input.phone?.trim() ?? "",
     role: "",
     quals: "",
     perWeek: DEFAULT_SHIFTS_PER_WEEK,
@@ -246,7 +283,11 @@ export function addEmployeeRecord(state: RotaState, actor: Actor, input: { id: s
     pref: [],
     active: true,
     grid: openGrid(state),
-    ...(state.siteId ? { homeSiteId: state.siteId } : {}),
+    ...(input.schedulable !== false && state.siteId ? { homeSiteId: state.siteId } : {}),
+    ...(input.reportsTo ? { reportsTo: input.reportsTo, openedBy: input.reportsTo } : {}),
+    capabilities: input.capabilities ?? staffCapabilities(),
+    ...(input.schedulable === false ? { schedulable: false } : {}),
+    ...(input.managedSiteIds && input.managedSiteIds.length > 0 ? { managedSiteIds: input.managedSiteIds } : {}),
   });
   draft.emps.sort((left, right) => left.name.localeCompare(right.name, "en"));
   return draft;
@@ -273,7 +314,9 @@ export function deletionBlockedBy(state: RotaState, employeeId: string, currentW
 export function removeEmployeeRecord(state: RotaState, actor: Actor, employeeId: string, currentWeek: string): RotaState {
   if (!canEditRoster(actor)) return state;
   const employee = findEmployee(state, employeeId);
-  if (!employee || deletionBlockedBy(state, employeeId, currentWeek).length > 0) return state;
+  if (!employee || holdsPeople(state.emps, employeeId) || deletionBlockedBy(state, employeeId, currentWeek).length > 0) {
+    return state;
+  }
 
   const draft = cloneState(state);
   draft.emps = draft.emps.filter((item) => item.id !== employeeId);

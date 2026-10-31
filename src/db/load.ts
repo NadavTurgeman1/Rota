@@ -105,12 +105,17 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
                 e.max_weekly_hours::float8 as max_weekly_hours, e.active,
                 e.hourly_wage::float8 as hourly_wage,
                 e.observes_shabbat, e.observes_holidays,
+                e.reports_to, e.opened_by, e.capabilities, e.schedulable,
+                coalesce((
+                  select array_agg(ms.site_id order by ms.site_id)
+                  from public.employee_managed_sites ms
+                  where ms.employee_id = e.id
+                ), '{}') as managed_site_ids,
                 coalesce(p.email, open_invite.email, '') as login_email,
                 (e.user_id is not null) as login_confirmed,
                 true as on_roster,
                 ep.profile as profile
          from public.employees e
-         join public.employee_sites es on es.employee_id = e.id
          left join public.employee_profiles ep on ep.employee_id = e.id
          left join public.profiles p on p.user_id = e.user_id
          left join lateral (
@@ -119,7 +124,13 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
            where i.kind = 'staff' and i.employee_id = e.id and i.consumed_at is null
            limit 1
          ) open_invite on true
-         where es.site_id = $1
+         where exists (
+           select 1 from public.employee_sites es
+           where es.employee_id = e.id and es.site_id = $1
+         ) or exists (
+           select 1 from public.employee_managed_sites ms
+           where ms.employee_id = e.id and ms.site_id = $1
+         )
          order by e.name`,
         [siteId],
       ),
@@ -128,6 +139,8 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
                 e.max_weekly_hours::float8 as max_weekly_hours, e.active,
                 e.hourly_wage::float8 as hourly_wage,
                 e.observes_shabbat, e.observes_holidays,
+                e.reports_to, e.opened_by, e.capabilities, true as schedulable,
+                '{}'::uuid[] as managed_site_ids,
                 '' as login_email,
                 false as login_confirmed,
                 false as on_roster,

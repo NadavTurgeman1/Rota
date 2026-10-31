@@ -275,7 +275,8 @@ export function goToWeek(state: RotaState, isoDate: string): RotaState {
 
 export function addEmployee(state: RotaState, slotKey: string, employeeId: string): RotaState {
   if (isPublished(state)) return state;
-  if (!state.emps.some((employee) => employee.id === employeeId)) return state;
+  const person = state.emps.find((employee) => employee.id === employeeId);
+  if (!person || person.schedulable === false) return state;
   const assigned = state.sched[state.week]?.assign[slotKey] ?? [];
   if (assigned.includes(employeeId)) return state;
   if (assignmentBlocked(state, slotKey, employeeId)) return state;
