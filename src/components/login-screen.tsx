@@ -19,6 +19,65 @@ const authLabel = "flex flex-col gap-2 text-sm font-semibold text-ink";
 const authButton =
   "inline-flex h-12 w-full items-center justify-center rounded-full bg-brand px-4 text-base font-semibold text-on-brand hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50";
 
+function PasswordField({
+  testId,
+  id,
+  name,
+  autoComplete,
+  defaultValue,
+  onInput,
+  showLabel,
+  hideLabel,
+}: {
+  testId: string;
+  id?: string;
+  name: string;
+  autoComplete: string;
+  defaultValue?: string;
+  onInput?: (value: string) => void;
+  showLabel: string;
+  hideLabel: string;
+}) {
+  const [visible, setVisible] = useState(false);
+  return (
+    <span className="relative block">
+      <input
+        data-testid={testId}
+        id={id}
+        name={name}
+        type={visible ? "text" : "password"}
+        autoComplete={autoComplete}
+        className={`${authField} pe-12`}
+        defaultValue={defaultValue}
+        onInput={onInput ? (event) => onInput(event.currentTarget.value) : undefined}
+      />
+      <button
+        type="button"
+        data-testid={`${testId}-toggle`}
+        aria-label={visible ? hideLabel : showLabel}
+        aria-pressed={visible}
+        className="absolute end-2 top-1/2 grid h-8 w-8 -translate-y-1/2 place-items-center rounded-full text-muted hover:bg-well hover:text-ink"
+        onMouseDown={(event) => event.preventDefault()}
+        onClick={() => setVisible((current) => !current)}
+      >
+        {visible ? (
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.75]">
+            <path d="M3 3l18 18" />
+            <path d="M10.5 10.7A3 3 0 0 0 12 15a3 3 0 0 0 2.3-1" />
+            <path d="M9.9 5.2A10.8 10.8 0 0 1 12 5c5.5 0 9.5 4.2 11 7-1 1.8-2.6 3.6-4.6 5" />
+            <path d="M6.1 6.4C4.2 7.6 2.7 9.3 1 12c1.5 2.8 5.5 7 11 7 1.2 0 2.3-.2 3.3-.6" />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" aria-hidden="true" className="h-5 w-5 fill-none stroke-current stroke-[1.75]">
+            <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z" />
+            <circle cx="12" cy="12" r="3" />
+          </svg>
+        )}
+      </button>
+    </span>
+  );
+}
+
 /** Form on the start side, calendar on the other. Settings sit on the opposite edge from the wordmark. */
 function AuthSplit({ toolbar, children }: { toolbar: ReactNode; children: ReactNode }) {
   return (
@@ -130,15 +189,15 @@ export function LoginScreen({
         {forgot ? null : (
           <label className={`${authLabel} mt-5`}>
             <span>{t.password}</span>
-            <input
-              data-testid="login-password"
+            <PasswordField
+              testId="login-password"
               id="current-password"
               name="password"
-              type="password"
               autoComplete="current-password"
-              className={authField}
               defaultValue={password}
-              onInput={(event) => setPassword(event.currentTarget.value)}
+              onInput={setPassword}
+              showLabel={t.showPassword}
+              hideLabel={t.hidePassword}
             />
           </label>
         )}
@@ -290,12 +349,12 @@ export function SignupScreen({
         </label>
         <label className={`${authLabel} mt-5`}>
           <span>{t.password}</span>
-          <input
-            data-testid="signup-password"
+          <PasswordField
+            testId="signup-password"
             name="password"
-            type="password"
             autoComplete="new-password"
-            className={authField}
+            showLabel={t.showPassword}
+            hideLabel={t.hidePassword}
           />
         </label>
         {short ? <p role="alert" className="mt-4 text-sm text-danger-text">{t.passwordTooShort}</p> : null}
@@ -433,12 +492,12 @@ export function NewPasswordScreen({
         <p className="mt-3 text-sm leading-6 text-muted">{t.newPasswordHint}</p>
         <label className={`${authLabel} mt-8`}>
           <span>{t.password}</span>
-          <input
-            data-testid="new-password"
+          <PasswordField
+            testId="new-password"
             name="password"
-            type="password"
             autoComplete="new-password"
-            className={authField}
+            showLabel={t.showPassword}
+            hideLabel={t.hidePassword}
           />
         </label>
         {short ? <p role="alert" className="mt-4 text-sm text-danger-text">{t.passwordTooShort}</p> : null}

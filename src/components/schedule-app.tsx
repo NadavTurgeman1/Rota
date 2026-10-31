@@ -110,7 +110,7 @@ import { closeExtraSubmissionWindow, millisUntilConstraintWindowChange, settleCl
 import { WeekPicker } from "./week-picker";
 import { WeekSummary } from "./week-summary";
 import { LaborAsk, PublishAsk } from "./publish-ask";
-import { button } from "./ui";
+import { button, card, cardHint, cardTitle } from "./ui";
 import { downloadBlob, downloadWeekPng } from "./week-png";
 
 const EMPTY: Analysis = { violations: [], labor: [], overQuota: [], unfilled: [], coverage: [], under: [], hours: {}, counts: {} };
@@ -346,6 +346,29 @@ export function ScheduleApp() {
   const [staffNotes, setStaffNotes] = useState<ManagerMessage[]>([]);
   const [managerNotes, setManagerNotes] = useState<ManagerMessage[]>([]);
   const [absenceRequests, setAbsenceRequests] = useState<AbsenceRequest[]>([]);
+  const draftRef = useRef<{ dirty: boolean; save: () => void; discard: () => void } | null>(null);
+  const [draftDirty, setDraftDirty] = useState(false);
+  const [leaveAction, setLeaveAction] = useState<(() => void) | null>(null);
+  const rememberDraft = useCallback((draft: { dirty: boolean; save: () => void; discard: () => void } | null) => {
+    draftRef.current = draft;
+    setDraftDirty(draft?.dirty === true);
+  }, []);
+  function guardLeave(go: () => void) {
+    if (!draftRef.current?.dirty) {
+      go();
+      return;
+    }
+    setLeaveAction(() => go);
+  }
+  useEffect(() => {
+    if (!draftDirty) return;
+    function block(event: BeforeUnloadEvent) {
+      event.preventDefault();
+      event.returnValue = "";
+    }
+    window.addEventListener("beforeunload", block);
+    return () => window.removeEventListener("beforeunload", block);
+  }, [draftDirty]);
   const [rosterLog, setRosterLog] = useState<(AttendanceRoster & { siteId: string }) | null>(null);
   const [rosterSite, setRosterSite] = useState<string | null>(null);
   const approvedSeen = useRef<Set<string> | null>(null);
@@ -1585,7 +1608,7 @@ export function ScheduleApp() {
                 }`}
                 onClick={() => {
                   setSelection(null);
-                  setScreen(tab.id);
+                  guardLeave(() => setScreen(tab.id));
                 }}
               >
                 <RailIcon name={tab.id} />
@@ -1602,6 +1625,16 @@ export function ScheduleApp() {
       ) : null}
       {supportOrg ? <p className="px-6 pt-4 text-sm text-ink-soft sm:px-8">{t.supportBanner}</p> : null}
       <main className={`flex flex-col gap-8 px-6 py-6 sm:px-8 ${selection ? "pb-28" : ""}`}>
+        {draftDirty ? (
+          <div className="sticky top-0 z-20 -mx-6 flex flex-wrap items-center gap-2 border-b border-line bg-paper px-6 py-3 sm:-mx-8 sm:px-8">
+            <button type="button" className={button.primary} data-testid="save-changes" onClick={() => draftRef.current?.save()}>
+              {t.unsavedSave}
+            </button>
+            <button type="button" className={button.quiet} data-testid="cancel-changes" onClick={() => draftRef.current?.discard()}>
+              {t.unsavedDiscard}
+            </button>
+          </div>
+        ) : null}
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
           <div className="min-w-0">
             <h1 className="text-[2rem] font-semibold leading-none tracking-[-0.03em] text-ink">
@@ -1617,7 +1650,7 @@ export function ScheduleApp() {
                 aria-label={t.site}
                 className={`${button.quiet} max-w-44 px-3`}
                 value={live.activeSiteId}
-                onChange={(event) => switchSite(event.target.value)}
+                onChange={(event) => guardLeave(() => switchSite(event.target.value))}
               >
                 {live.sites.map((site) => (
                   <option key={site.id} value={site.id}>
@@ -1886,7 +1919,8 @@ export function ScheduleApp() {
             lang={lang}
             canWrite={writer}
             selectedId={selectedId}
-            onSelect={(id) => setSelectedId((current) => (current === id ? null : id))}
+            onSelect={(id) => guardLeave(() => setSelectedId((current) => (current === id ? null : id)))}
+            onDraft={rememberDraft}
             onUpdate={(employeeId, patch) => {
               const guarded = patch.capabilities
                 ? { ...patch, capabilities: grantable(editorCapabilities, patch.capabilities, owner) }
@@ -2040,7 +2074,7 @@ export function ScheduleApp() {
               return !shownTwice && renameSiteAllowed(live, siteId ?? "", name);
             }}
             onOrg={(patch) => changeWorkspace((current) => updateOrg(current, user, patch))}
-            onSelectSite={switchSite}
+            onSelectSite={(siteId) => guardLeave(() => switchSite(siteId))}
             onAddSite={(name) =>
               changeWorkspace((current) => addSite(current, user, { id: crypto.randomUUID(), name, newId: () => crypto.randomUUID() }))
             }
@@ -2052,6 +2086,7 @@ export function ScheduleApp() {
             onRemoveShift={(shiftId) => change((current) => removeShift(current, actor, shiftId))}
             onBackupJson={operator ? exportJson : undefined}
             onRestoreJson={operator ? restoreJson : undefined}
+            onDraft={rememberDraft}
           />
         ) : null}
         {screen === "insights" ? <InsightsScreen state={state} lang={lang} /> : null}
@@ -2077,6 +2112,45 @@ export function ScheduleApp() {
           onPublish={confirmProblems}
           onStay={() => setPublishAsk(false)}
         />
+      ) : null}
+      {leaveAction ? (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-ink/30 p-4" role="dialog" aria-modal="true" aria-labelledby="unsaved-title">
+          <div className={`${card} w-full max-w-md`}>
+            <h2 id="unsaved-title" className={cardTitle}>{t.unsavedTitle}</h2>
+            <p className={cardHint}>{t.unsavedBody}</p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <button
+                type="button"
+                className={button.primary}
+                data-testid="unsaved-save"
+                onClick={() => {
+                  draftRef.current?.save();
+                  const go = leaveAction;
+                  setLeaveAction(null);
+                  go();
+                }}
+              >
+                {t.unsavedSave}
+              </button>
+              <button
+                type="button"
+                className={button.quiet}
+                data-testid="unsaved-discard"
+                onClick={() => {
+                  draftRef.current?.discard();
+                  const go = leaveAction;
+                  setLeaveAction(null);
+                  go();
+                }}
+              >
+                {t.unsavedDiscard}
+              </button>
+              <button type="button" className={button.quiet} data-testid="unsaved-stay" onClick={() => setLeaveAction(null)}>
+                {t.unsavedStay}
+              </button>
+            </div>
+          </div>
+        </div>
       ) : null}
       {laborAsk ? (
         <LaborAsk

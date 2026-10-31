@@ -33,6 +33,7 @@ export interface EmployeePatch {
   capabilities?: Capabilities;
   schedulable?: boolean;
   managedSiteIds?: string[];
+  homeSiteId?: string;
 }
 
 function cloneState(state: RotaState): RotaState {
@@ -211,6 +212,7 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
     if (patch.schedulable) delete next.schedulable;
     else next.schedulable = false;
   }
+  if (patch.homeSiteId) next.homeSiteId = patch.homeSiteId;
   if (patch.managedSiteIds !== undefined) {
     next.managedSiteIds = patch.managedSiteIds;
     if (next.managedSiteIds.length === 0) delete next.managedSiteIds;
@@ -234,6 +236,7 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
     (next.observesHolidays === true) === (employee.observesHolidays === true) &&
     (next.reportsTo ?? null) === (employee.reportsTo ?? null) &&
     (next.schedulable === false) === (employee.schedulable === false) &&
+    (next.homeSiteId ?? null) === (employee.homeSiteId ?? null) &&
     JSON.stringify(next.managedSiteIds ?? []) === JSON.stringify(employee.managedSiteIds ?? []) &&
     JSON.stringify(capabilitiesOf(next)) === JSON.stringify(capabilitiesOf(employee)) &&
     JSON.stringify(next.customBlocks ?? null) === JSON.stringify(employee.customBlocks ?? null) &&

@@ -114,8 +114,20 @@ export interface Copy {
   managerNotScheduled: string;
   managedSites: string;
   personEmail: string;
+  personSchedulable: string;
+  personSchedulableHint: string;
   employeeName: string;
   contact: string;
+  loginEmailHint: string;
+  saveChanges: string;
+  cancelChanges: string;
+  unsavedTitle: string;
+  unsavedBody: string;
+  unsavedSave: string;
+  unsavedDiscard: string;
+  unsavedStay: string;
+  showPassword: string;
+  hidePassword: string;
   phone: string;
   profilePersonal: string;
   profileContact: string;
@@ -693,8 +705,20 @@ export const copy: Record<Lang, Copy> = {
     managerNotScheduled: "מנהל אתר בלי שיבוץ. הוא לא מופיע בסידור ולא ברשימת העובדים של האתר.",
     managedSites: "אתרים בניהול",
     personEmail: "אימייל לכניסה",
+    personSchedulable: "ניתן לשיבוץ",
+    personSchedulableHint: "מנהל אתר שאפשר גם לשבץ למשמרות. כיבוי מחזיר אותו לניהול בלבד.",
     employeeName: "שם",
     contact: "אימייל",
+    loginEmailHint: "האימייל הזה הוא גם הכניסה למערכת.",
+    saveChanges: "שמירת שינויים",
+    cancelChanges: "ביטול",
+    unsavedTitle: "לשמור את השינויים?",
+    unsavedBody: "יש שינויים שלא נשמרו.",
+    unsavedSave: "שמור שינויים",
+    unsavedDiscard: "ביטול שינויים",
+    unsavedStay: "להישאר",
+    showPassword: "הצגת סיסמה",
+    hidePassword: "הסתרת סיסמה",
     phone: "טלפון",
     profilePersonal: "פרטים אישיים",
     profileContact: "פרטי קשר וכתובת",
@@ -1284,8 +1308,20 @@ export const copy: Record<Lang, Copy> = {
     managerNotScheduled: "A site manager without shifts. They are not on the schedule and not in the site's employee list.",
     managedSites: "Sites they manage",
     personEmail: "Email for sign-in",
+    personSchedulable: "Can be scheduled",
+    personSchedulableHint: "A site manager who can also be placed on shifts. Turning this off leaves them as management only.",
     employeeName: "Name",
     contact: "Email",
+    loginEmailHint: "This email is also the sign-in address.",
+    saveChanges: "Save changes",
+    cancelChanges: "Cancel",
+    unsavedTitle: "Save the changes?",
+    unsavedBody: "There are unsaved changes.",
+    unsavedSave: "Save changes",
+    unsavedDiscard: "Cancel changes",
+    unsavedStay: "Stay",
+    showPassword: "Show password",
+    hidePassword: "Hide password",
     phone: "Phone",
     profilePersonal: "Personal details",
     profileContact: "Contact and address",

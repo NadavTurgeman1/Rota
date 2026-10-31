@@ -222,12 +222,10 @@ export async function saveSite(
   );
   await writeRows(
     sql,
-    `insert into public.employee_profiles (employee_id, org_id, profile)
-     select id, $1, profile::jsonb
+    `update public.employees e
+     set profile = t.profile::jsonb
      from unnest($2::uuid[], $3::text[]) as t(id, profile)
-     on conflict (employee_id) do update set
-       profile = excluded.profile
-     where public.employee_profiles.org_id = excluded.org_id`,
+     where e.org_id = $1 and e.id = t.id`,
     [orgId],
     [people.map((person) => person.id), people.map((person) => person.profile)],
   );

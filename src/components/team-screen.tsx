@@ -5,7 +5,7 @@ import { isRelief } from "../domain/relief";
 import { confirmDeleteEmployee, copy } from "../i18n/copy";
 import { columnIsToday, shiftLabel, siteLabel } from "../schedule/display";
 import { absenceOnWeekDay } from "../domain/absence";
-import { agreementCell, availabilityCell, type EmployeePatch } from "../people/edit";
+import { MANAGER, agreementCell, availabilityCell, updateEmployee, type EmployeePatch } from "../people/edit";
 import { blockSplitOf, customFromSite } from "../people/blocks";
 import { BlockNumberFields } from "./block-limit";
 import { EmployeeAttendance, type AttendanceApi, type AttendanceSnapshot } from "./attendance";
@@ -43,6 +43,7 @@ export function TeamScreen({
   editorCapabilities,
   owner,
   directory,
+  onDraft,
 }: {
   state: RotaState;
   lang: Lang;
@@ -70,6 +71,7 @@ export function TeamScreen({
   editorCapabilities: Capabilities;
   owner: boolean;
   directory: (ReportNode & { name: string })[];
+  onDraft?: (draft: { dirty: boolean; save: () => void; discard: () => void } | null) => void;
 }) {
   const t = copy[lang];
   const [creating, setCreating] = useState(false);
@@ -143,6 +145,7 @@ export function TeamScreen({
           editorCapabilities={editorCapabilities}
           owner={owner}
           directory={directory}
+          onDraft={onDraft}
         />
       ) : (
         <p className={`${card} text-sm text-muted`}>{t.pickEmployee}</p>
@@ -176,6 +179,7 @@ function EmployeeCard({
   editorCapabilities,
   owner,
   directory,
+  onDraft,
 }: {
   state: RotaState;
   lang: Lang;
@@ -200,6 +204,7 @@ function EmployeeCard({
   editorCapabilities: Capabilities;
   owner: boolean;
   directory: (ReportNode & { name: string })[];
+  onDraft?: (draft: { dirty: boolean; save: () => void; discard: () => void } | null) => void;
 }) {
   const t = copy[lang];
   const employee = state.emps.find((item) => item.id === employeeId)!;
@@ -220,6 +225,8 @@ function EmployeeCard({
           hourCapNone={t.hourCapNone}
           blockHome={blockHome}
           onUpdate={(patch) => onUpdate(employeeId, patch)}
+          onDraft={onDraft}
+          siteId={siteId}
           people={directory}
           editorId={editorId}
           editorCapabilities={editorCapabilities}
@@ -622,14 +629,38 @@ function ObservanceSwitch({
   );
 }
 
+function detailKey(person: Employee): string {
+  return JSON.stringify({
+    name: person.name,
+    contact: person.contact,
+    phone: person.phone ?? "",
+    role: person.role,
+    quals: person.quals,
+    perWeek: person.perWeek,
+    maxHours: person.maxHours,
+    hourlyWage: person.hourlyWage ?? 0,
+    active: person.active,
+    shabbat: person.observesShabbat === true,
+    holidays: person.observesHolidays === true,
+    profile: employeeProfile(person),
+    capabilities: person.capabilities ?? null,
+    reportsTo: person.reportsTo ?? null,
+    customBlocks: person.customBlocks ?? null,
+    schedulable: person.schedulable !== false,
+    homeSiteId: person.homeSiteId ?? null,
+  });
+}
+
 function EmployeeDetails({
   lang,
-  employee,
+  employee: saved,
+  siteId,
   readOnly,
   hourCapHint,
   hourCapNone,
   blockHome,
   onUpdate,
+  onDraft,
   people,
   editorId,
   editorCapabilities,
@@ -637,25 +668,81 @@ function EmployeeDetails({
 }: {
   lang: Lang;
   employee: Employee;
+  siteId: string;
   readOnly: boolean;
   hourCapHint: string;
   hourCapNone: string;
   blockHome: { biz: Business; name: string; away: boolean } | null;
   onUpdate: (patch: EmployeePatch) => void;
+  onDraft?: (draft: { dirty: boolean; save: () => void; discard: () => void } | null) => void;
   people: (ReportNode & { name: string })[];
   editorId: string | null;
   editorCapabilities: Capabilities;
   owner: boolean;
 }) {
   const t = copy[lang];
+  const [employee, setEmployee] = useState(saved);
+  const savedKey = detailKey(saved);
+  useEffect(() => setEmployee(saved), [savedKey]);
+  function edit(patch: EmployeePatch) {
+    setEmployee((current) => {
+      const next = updateEmployee({ week: savedKey, biz: { name: "", type: "", minRest: 0, maxHours: 0, maxShift: 0, assume: true, shifts: [] }, emps: [current], avail: {}, sched: {}, closed: {} }, MANAGER, current.id, patch);
+      return next.emps.find((item) => item.id === current.id) ?? current;
+    });
+  }
+  const dirty = detailKey(employee) !== savedKey;
+  function save() {
+    if (!dirty) return;
+    onUpdate({
+      name: employee.name,
+      contact: employee.contact,
+      phone: employee.phone ?? "",
+      role: employee.role,
+      quals: employee.quals,
+      perWeek: employee.perWeek,
+      maxHours: employee.maxHours,
+      hourlyWage: employee.hourlyWage ?? 0,
+      active: employee.active,
+      observesShabbat: employee.observesShabbat === true,
+      observesHolidays: employee.observesHolidays === true,
+      profile: employeeProfile(employee),
+      capabilities: employee.capabilities,
+      reportsTo: employee.reportsTo ?? null,
+      customBlocks: employee.customBlocks ?? null,
+      schedulable: employee.schedulable !== false,
+      ...(employee.homeSiteId ? { homeSiteId: employee.homeSiteId } : {}),
+    });
+  }
+  function discard() {
+    setEmployee(saved);
+  }
+  useEffect(() => {
+    onDraft?.({ dirty, save, discard });
+  });
+  useEffect(() => () => onDraft?.(null), [onDraft]);
   const profile = employeeProfile(employee);
-  const setProfile = (patch: Partial<typeof profile>) => onUpdate({ profile: patch });
+  const setProfile = (patch: Partial<typeof profile>) => edit({ profile: patch });
   return (
     <div data-testid="employee-profile" className="flex flex-col gap-6">
+      {isSiteManager(saved) ? (
+        <ObservanceSwitch
+          label={t.personSchedulable}
+          hint={t.personSchedulableHint}
+          checked={employee.schedulable !== false}
+          testId="person-schedulable"
+          disabled={readOnly}
+          onClick={() =>
+            edit({
+              schedulable: employee.schedulable === false,
+              ...(employee.schedulable === false && !employee.homeSiteId && siteId ? { homeSiteId: siteId } : {}),
+            })
+          }
+        />
+      ) : null}
       <div>
         <h3 className="text-sm font-medium text-ink">{t.profilePersonal}</h3>
         <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <TextField label={t.employeeName} value={employee.name} readOnly={readOnly} onCommit={(name) => onUpdate({ name })} />
+          <TextField label={t.employeeName} value={employee.name} readOnly={readOnly} onCommit={(name) => edit({ name })} />
           <TextField
             label={t.nationalId}
             value={profile.nationalId}
@@ -700,14 +787,15 @@ function EmployeeDetails({
       <div className="border-t border-line pt-6">
         <h3 className="text-sm font-medium text-ink">{t.profileContact}</h3>
         <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <TextField label={t.contact} value={employee.contact} readOnly={readOnly} onCommit={(contact) => onUpdate({ contact })} />
+          <TextField label={t.contact} value={employee.contact} readOnly={readOnly} onCommit={(contact) => edit({ contact })} />
+          <p className="text-xs leading-5 text-muted sm:col-span-2 lg:col-span-3">{t.loginEmailHint}</p>
           <TextField
             label={t.phone}
             value={employee.phone ?? ""}
             readOnly={readOnly}
             ltr
             testId="employee-phone"
-            onCommit={(phone) => onUpdate({ phone })}
+            onCommit={(phone) => edit({ phone })}
           />
           <TextField label={t.city} value={profile.city} readOnly={readOnly} onCommit={(city) => setProfile({ city })} />
           <TextField label={t.street} value={profile.street} readOnly={readOnly} onCommit={(street) => setProfile({ street })} />
@@ -732,9 +820,9 @@ function EmployeeDetails({
             testId="employee-number"
             onCommit={(employeeNumber) => setProfile({ employeeNumber })}
           />
-          <TextField label={t.role} value={employee.role} readOnly={readOnly} onCommit={(role) => onUpdate({ role })} />
+          <TextField label={t.role} value={employee.role} readOnly={readOnly} onCommit={(role) => edit({ role })} />
           <TextField label={t.department} value={profile.department} readOnly={readOnly} onCommit={(department) => setProfile({ department })} />
-          <TextField label={t.qualifications} value={employee.quals} readOnly={readOnly} onCommit={(quals) => onUpdate({ quals })} />
+          <TextField label={t.qualifications} value={employee.quals} readOnly={readOnly} onCommit={(quals) => edit({ quals })} />
           <DateField
             label={t.startedOn}
             value={profile.startedOn}
@@ -743,13 +831,13 @@ function EmployeeDetails({
             onCommit={(startedOn) => setProfile({ startedOn })}
           />
           <DateField label={t.endedOn} value={profile.endedOn} readOnly={readOnly} onCommit={(endedOn) => setProfile({ endedOn })} />
-          <NumberField label={t.quota} value={employee.perWeek} readOnly={readOnly} onCommit={(perWeek) => onUpdate({ perWeek })} />
+          <NumberField label={t.quota} value={employee.perWeek} readOnly={readOnly} onCommit={(perWeek) => edit({ perWeek })} />
           <NumberField
             label={t.hourlyWage}
             value={employee.hourlyWage ?? 0}
             readOnly={readOnly}
             testId="hourly-wage"
-            onCommit={(hourlyWage) => onUpdate({ hourlyWage })}
+            onCommit={(hourlyWage) => edit({ hourlyWage })}
           />
           <NumberField
             label={t.hourCap}
@@ -757,7 +845,7 @@ function EmployeeDetails({
             noneLabel={hourCapNone}
             value={employee.maxHours}
             readOnly={readOnly}
-            onCommit={(maxHours) => onUpdate({ maxHours })}
+            onCommit={(maxHours) => edit({ maxHours })}
           />
           <label className="flex h-10 items-center gap-2 self-end text-sm font-medium">
             <input
@@ -766,7 +854,7 @@ function EmployeeDetails({
               className="h-4 w-4"
               checked={employee.active}
               disabled={readOnly}
-              onChange={(event) => onUpdate({ active: event.target.checked })}
+              onChange={(event) => edit({ active: event.target.checked })}
             />
             {employee.active ? t.active : t.inactive}
           </label>
@@ -779,7 +867,7 @@ function EmployeeDetails({
             testId="observes-shabbat"
             disabled={readOnly}
             onClick={() =>
-              onUpdate(
+              edit(
                 employee.observesShabbat === true
                   ? { observesShabbat: false, observesHolidays: false }
                   : { observesShabbat: true, observesHolidays: true },
@@ -793,7 +881,7 @@ function EmployeeDetails({
               checked={employee.observesHolidays === true}
               testId="observes-holidays"
               disabled={readOnly}
-              onClick={() => onUpdate({ observesHolidays: employee.observesHolidays !== true })}
+              onClick={() => edit({ observesHolidays: employee.observesHolidays !== true })}
             />
           ) : null}
         </div>
@@ -805,8 +893,8 @@ function EmployeeDetails({
           editorCapabilities={editorCapabilities}
           owner={owner}
           readOnly={readOnly}
-          onCapabilities={(capabilities) => onUpdate({ capabilities })}
-          onReportsTo={(reportsTo) => onUpdate({ reportsTo })}
+          onCapabilities={(capabilities) => edit({ capabilities })}
+          onReportsTo={(reportsTo) => edit({ reportsTo })}
         />
         {blockHome?.biz.blockLimit === true ? (
           <div className="mt-5 border-t border-line pt-5">
@@ -824,7 +912,7 @@ function EmployeeDetails({
                 data-testid="custom-blocks"
                 disabled={readOnly}
                 className={`relative h-8 w-12 shrink-0 rounded-full disabled:opacity-50 ${employee.customBlocks ? "bg-brand" : "bg-well"}`}
-                onClick={() => onUpdate({ customBlocks: employee.customBlocks ? null : customFromSite(blockHome.biz) })}
+                onClick={() => edit({ customBlocks: employee.customBlocks ? null : customFromSite(blockHome.biz) })}
               >
                 <span
                   className={`absolute top-1 start-1 h-6 w-6 rounded-full bg-card shadow-sm motion-safe:transition-transform motion-safe:duration-200 ${
@@ -844,11 +932,11 @@ function EmployeeDetails({
                 shiftCaps={employee.customBlocks.shifts}
                 readOnly={readOnly}
                 idPrefix="custom-"
-                onMax={(max) => onUpdate({ customBlocks: { ...employee.customBlocks!, max } })}
-                onWeekday={(weekday) => onUpdate({ customBlocks: { ...employee.customBlocks!, weekday } })}
-                onWeekend={(weekend) => onUpdate({ customBlocks: { ...employee.customBlocks!, weekend } })}
+                onMax={(max) => edit({ customBlocks: { ...employee.customBlocks!, max } })}
+                onWeekday={(weekday) => edit({ customBlocks: { ...employee.customBlocks!, weekday } })}
+                onWeekend={(weekend) => edit({ customBlocks: { ...employee.customBlocks!, weekend } })}
                 onShift={(shiftId, value) =>
-                  onUpdate({ customBlocks: { ...employee.customBlocks!, shifts: { ...employee.customBlocks!.shifts, [shiftId]: value } } })
+                  edit({ customBlocks: { ...employee.customBlocks!, shifts: { ...employee.customBlocks!.shifts, [shiftId]: value } } })
                 }
               />
             ) : null}

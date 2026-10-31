@@ -190,13 +190,14 @@ describe("saving a site", () => {
     await saveSite(sql, { orgId: sentinel, siteId: headquarters, state: draft });
     await db.exec("commit");
     const stored = await sql.query<{ profile: { city?: string } }>(
-      `select profile from public.employee_profiles where employee_id = '${person.id}'`,
+      `select private.employee_form('${person.id}'::uuid) as profile`,
     );
     expect(stored[0]?.profile.city).toBe("חיפה");
     await asRole(db, "authenticated", "dddddddd-dddd-4ddd-8ddd-ddddddddddd1");
-    const hidden = await sql.query(`select employee_id from public.employee_profiles`);
-    expect(hidden).toEqual([]);
+    const hidden = await sql.query<{ profile: unknown }>(`select private.employee_form('${person.id}'::uuid) as profile`);
+    expect(hidden[0]?.profile).toBeNull();
     await db.exec("reset role");
+    await db.query(`select set_config('request.jwt.claim.sub', '', false)`);
     const loaded = await loadSiteWeek(sql, headquarters, nextWeek);
     const inactive = loaded.emps.find((employee) => employee.id === person.id);
     expect(inactive?.active).toBe(false);
@@ -280,11 +281,11 @@ describe("saving a site", () => {
       withSite.org.id,
       siteId,
       "Dana Levy",
-      "dana@example.com",
+      "dana.levy@example.com",
     ]);
     await db.exec("reset role");
     await db.exec(
-      `insert into auth.users (id, email, raw_user_meta_data) values ('${invited}', 'dana@example.com', '{"name":"Dana Levy"}')`,
+      `insert into auth.users (id, email, raw_user_meta_data) values ('${invited}', 'dana.levy@example.com', '{"name":"Dana Levy"}')`,
     );
     const link = await client(db).query<{ site_id: string; role: string }>(
       `select sm.site_id, m.role
@@ -318,12 +319,12 @@ describe("saving a site", () => {
     const south = second[0]?.id;
     if (!south) throw new Error("site");
     await db.exec("reset role");
-    await db.exec(`insert into auth.users (id, email, raw_user_meta_data) values ('${invited}', 'dana@example.com', '{"name":"Dana Levy"}')`);
+    await db.exec(`insert into auth.users (id, email, raw_user_meta_data) values ('${invited}', 'dana.levy@example.com', '{"name":"Dana Levy"}')`);
     await asRole(db, "authenticated", founder);
     await client(db).query(`select public.assign_shift_manager($1, $2, $3, $4::uuid[])`, [
       withSite.org.id,
       "Dana Levy",
-      "dana@example.com",
+      "dana.levy@example.com",
       [first, south],
     ]);
     await asRole(db, "authenticated", invited);

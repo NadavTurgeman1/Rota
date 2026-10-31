@@ -161,6 +161,7 @@ export function BusinessScreen({
   onRemoveShift,
   onBackupJson,
   onRestoreJson,
+  onDraft,
 }: {
   state: RotaState;
   lang: Lang;
@@ -181,6 +182,7 @@ export function BusinessScreen({
   onRemoveShift: (shiftId: string) => void;
   onBackupJson?: () => void;
   onRestoreJson?: (raw: string) => boolean;
+  onDraft?: (draft: { dirty: boolean; save: () => void; discard: () => void } | null) => void;
 }) {
   const t = copy[lang];
   const biz = state.biz;
@@ -195,6 +197,39 @@ export function BusinessScreen({
     { key: "maxDayHours", label: t.maxDayHours },
   ];
   const activeName = sites.find((site) => site.id === activeSiteId)?.name ?? biz.name;
+  const [orgPatch, setOrgPatch] = useState<{ name?: string; type?: string; hebrewCalendar?: boolean }>({});
+  const [sitePatch, setSitePatch] = useState<BusinessPatch>({});
+  const orgView = { name: orgPatch.name ?? org.name, type: orgPatch.type ?? org.type, hebrewCalendar: orgPatch.hebrewCalendar ?? org.hebrewCalendar };
+  const siteView = { ...biz, ...sitePatch };
+  const calendarOn = org.hebrewCalendar !== false;
+  const orgChanged =
+    (orgPatch.name !== undefined && orgPatch.name !== org.name) ||
+    (orgPatch.type !== undefined && orgPatch.type !== org.type) ||
+    (orgPatch.hebrewCalendar !== undefined && orgPatch.hebrewCalendar !== calendarOn);
+  const siteChanged = (Object.keys(sitePatch) as (keyof BusinessPatch)[]).some(
+    (key) => JSON.stringify(sitePatch[key]) !== JSON.stringify(biz[key as keyof typeof biz]),
+  );
+  const dirty = orgChanged || siteChanged;
+  function editOrg(patch: { name?: string; type?: string; hebrewCalendar?: boolean }) {
+    setOrgPatch((current) => ({ ...current, ...patch }));
+  }
+  function editSite(patch: BusinessPatch) {
+    setSitePatch((current) => ({ ...current, ...patch }));
+  }
+  function saveDetails() {
+    if (orgChanged) onOrg(orgPatch);
+    if (siteChanged) onBusiness(sitePatch);
+    setOrgPatch({});
+    setSitePatch({});
+  }
+  function discardDetails() {
+    setOrgPatch({});
+    setSitePatch({});
+  }
+  useEffect(() => {
+    onDraft?.({ dirty, save: saveDetails, discard: discardDetails });
+  });
+  useEffect(() => () => onDraft?.(null), [onDraft]);
 
   return (
     <div data-testid="business-screen" className="flex flex-col gap-6">
@@ -204,16 +239,16 @@ export function BusinessScreen({
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <label className={label}>
             <span className={labelText}>{t.orgName}</span>
-            <CommitInput shown={org.name} label={t.orgName} testId="org-name" readOnly={!canEditOrg} onCommit={(name) => onOrg({ name })} />
+            <CommitInput shown={orgView.name} label={t.orgName} testId="org-name" readOnly={!canEditOrg} onCommit={(name) => editOrg({ name })} />
           </label>
           <label className={label}>
             <span className={labelText}>{t.bizType}</span>
             <CommitInput
-              shown={orgTypeLabel(org.type, lang)}
+              shown={orgTypeLabel(orgView.type, lang)}
               label={t.bizType}
               testId="org-type"
               readOnly={!canEditOrg}
-              onCommit={(type) => onOrg({ type })}
+              onCommit={(type) => editOrg({ type })}
             />
           </label>
         </div>
@@ -224,20 +259,20 @@ export function BusinessScreen({
               <button
                 type="button"
                 data-testid="hebrew-calendar-off"
-                aria-pressed={org.hebrewCalendar === false}
+                aria-pressed={orgView.hebrewCalendar === false}
                 disabled={!canEditOrg}
-                className={`h-8 rounded-full px-3 text-xs font-semibold ${org.hebrewCalendar === false ? "bg-card text-ink shadow-card" : "text-muted"}`}
-                onClick={() => onOrg({ hebrewCalendar: false })}
+                className={`h-8 rounded-full px-3 text-xs font-semibold ${orgView.hebrewCalendar === false ? "bg-card text-ink shadow-card" : "text-muted"}`}
+                onClick={() => editOrg({ hebrewCalendar: false })}
               >
                 OFF
               </button>
               <button
                 type="button"
                 data-testid="hebrew-calendar-on"
-                aria-pressed={org.hebrewCalendar !== false}
+                aria-pressed={orgView.hebrewCalendar !== false}
                 disabled={!canEditOrg}
-                className={`h-8 rounded-full px-3 text-xs font-semibold ${org.hebrewCalendar !== false ? "bg-brand text-on-brand shadow-card" : "text-muted"}`}
-                onClick={() => onOrg({ hebrewCalendar: true })}
+                className={`h-8 rounded-full px-3 text-xs font-semibold ${orgView.hebrewCalendar !== false ? "bg-brand text-on-brand shadow-card" : "text-muted"}`}
+                onClick={() => editOrg({ hebrewCalendar: true })}
               >
                 ON
               </button>
@@ -331,12 +366,12 @@ export function BusinessScreen({
           <label className={label}>
             <span className={labelText}>{t.siteName}</span>
             <CommitInput
-              shown={siteLabel(biz.name, lang)}
+              shown={siteLabel(siteView.name, lang)}
               label={t.siteName}
               testId="site-name"
               readOnly={readOnly}
               onCommit={(name) => {
-                if (siteNameAllowed(name, activeSiteId)) onBusiness({ name });
+                if (siteNameAllowed(name, activeSiteId)) editSite({ name });
               }}
             />
           </label>
@@ -345,11 +380,11 @@ export function BusinessScreen({
               <span className={labelText}>{label}</span>
               <CommitInput
                 type="number"
-                shown={String(biz[key] ?? 0)}
+                shown={String(siteView[key] ?? 0)}
                 label={label}
                 testId={`biz-${key}`}
                 readOnly={readOnly}
-                onCommit={(value) => onBusiness({ [key]: Number(value) })}
+                onCommit={(value) => editSite({ [key]: Number(value) })}
               />
             </label>
           ))}
@@ -361,27 +396,27 @@ export function BusinessScreen({
               <button
                 type="button"
                 data-testid="staff-access-off"
-                aria-pressed={biz.staffAccess === false}
+                aria-pressed={siteView.staffAccess === false}
                 disabled={readOnly}
-                className={`h-8 rounded-full px-3 text-xs font-semibold ${biz.staffAccess === false ? "bg-card text-ink shadow-card" : "text-muted"}`}
-                onClick={() => onBusiness({ staffAccess: false })}
+                className={`h-8 rounded-full px-3 text-xs font-semibold ${siteView.staffAccess === false ? "bg-card text-ink shadow-card" : "text-muted"}`}
+                onClick={() => editSite({ staffAccess: false })}
               >
                 OFF
               </button>
               <button
                 type="button"
                 data-testid="staff-access"
-                aria-pressed={biz.staffAccess !== false}
+                aria-pressed={siteView.staffAccess !== false}
                 disabled={readOnly}
-                className={`h-8 rounded-full px-3 text-xs font-semibold ${biz.staffAccess !== false ? "bg-brand text-on-brand shadow-card" : "text-muted"}`}
-                onClick={() => onBusiness({ staffAccess: true })}
+                className={`h-8 rounded-full px-3 text-xs font-semibold ${siteView.staffAccess !== false ? "bg-brand text-on-brand shadow-card" : "text-muted"}`}
+                onClick={() => editSite({ staffAccess: true })}
               >
                 ON
               </button>
             </div>
           </div>
           <p className="mt-2 text-sm leading-6 text-muted">{t.staffAccessHint}</p>
-          {biz.staffAccess !== false ? (
+          {siteView.staffAccess !== false ? (
             <div className="mt-4">
               <p className="text-sm font-medium text-ink">{t.constraintWindow}</p>
               <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -390,9 +425,9 @@ export function BusinessScreen({
                   <select
                     className={select}
                     data-testid="constraint-start-day"
-                    value={biz.constraintStartDay ?? 0}
+                    value={siteView.constraintStartDay ?? 0}
                     disabled={readOnly}
-                    onChange={(event) => onBusiness({ constraintStartDay: Number(event.target.value) })}
+                    onChange={(event) => editSite({ constraintStartDay: Number(event.target.value) })}
                   >
                     {[0, 1, 2, 3, 4, 5, 6].map((day) => (
                       <option key={day} value={day}>
@@ -408,9 +443,9 @@ export function BusinessScreen({
                     dir="ltr"
                     data-testid="constraint-opens"
                     className={field}
-                    value={(biz.constraintOpens ?? "00:00").slice(0, 5)}
+                    value={(siteView.constraintOpens ?? "00:00").slice(0, 5)}
                     disabled={readOnly}
-                    onChange={(event) => onBusiness({ constraintOpens: event.target.value.slice(0, 5) })}
+                    onChange={(event) => editSite({ constraintOpens: event.target.value.slice(0, 5) })}
                   />
                 </label>
                 <label className={label}>
@@ -418,9 +453,9 @@ export function BusinessScreen({
                   <select
                     className={select}
                     data-testid="constraint-end-day"
-                    value={biz.constraintEndDay ?? 6}
+                    value={siteView.constraintEndDay ?? 6}
                     disabled={readOnly}
-                    onChange={(event) => onBusiness({ constraintEndDay: Number(event.target.value) })}
+                    onChange={(event) => editSite({ constraintEndDay: Number(event.target.value) })}
                   >
                     {[0, 1, 2, 3, 4, 5, 6].map((day) => (
                       <option key={day} value={day}>
@@ -436,9 +471,9 @@ export function BusinessScreen({
                     dir="ltr"
                     data-testid="constraint-closes"
                     className={field}
-                    value={(biz.constraintCloses ?? "23:59").slice(0, 5)}
+                    value={(siteView.constraintCloses ?? "23:59").slice(0, 5)}
                     disabled={readOnly}
-                    onChange={(event) => onBusiness({ constraintCloses: event.target.value.slice(0, 5) })}
+                    onChange={(event) => editSite({ constraintCloses: event.target.value.slice(0, 5) })}
                   />
                 </label>
               </div>
@@ -450,55 +485,55 @@ export function BusinessScreen({
                 type="checkbox"
                 data-testid="block-limit"
                 className="h-4 w-4"
-                checked={biz.blockLimit === true}
+                checked={siteView.blockLimit === true}
                 disabled={readOnly}
-                onChange={(event) => onBusiness({ blockLimit: event.target.checked })}
+                onChange={(event) => editSite({ blockLimit: event.target.checked })}
               />
               <span className="text-sm font-medium text-ink">{t.blockLimitTitle}</span>
             </label>
             <p className="mt-2 text-sm leading-6 text-muted">{t.blockLimitHint}</p>
-            {biz.blockLimit === true ? (
+            {siteView.blockLimit === true ? (
               <>
                 <BlockSplitPicker
                   lang={lang}
-                  split={blockSplitOf(biz)}
+                  split={blockSplitOf(siteView)}
                   readOnly={readOnly}
                   onChoose={(split) => {
                     if (split === "weekday") {
-                      const empty = (biz.weekdayBlocks ?? 0) === 0 && (biz.weekendBlocks ?? 0) === 0;
-                      const seed = biz.maxBlocks ?? 0;
-                      onBusiness({
+                      const empty = (siteView.weekdayBlocks ?? 0) === 0 && (siteView.weekendBlocks ?? 0) === 0;
+                      const seed = siteView.maxBlocks ?? 0;
+                      editSite({
                         blockSplit: split,
-                        weekdayBlocks: empty ? seed : (biz.weekdayBlocks ?? 0),
-                        weekendBlocks: empty ? seed : (biz.weekendBlocks ?? 0),
+                        weekdayBlocks: empty ? seed : (siteView.weekdayBlocks ?? 0),
+                        weekendBlocks: empty ? seed : (siteView.weekendBlocks ?? 0),
                       });
                       return;
                     }
                     if (split === "shift") {
-                      const caps = { ...(biz.shiftBlocks ?? {}) };
+                      const caps = { ...(siteView.shiftBlocks ?? {}) };
                       const empty = biz.shifts.every((shift) => (caps[shift.id] ?? 0) === 0);
-                      const seed = biz.maxBlocks ?? 0;
+                      const seed = siteView.maxBlocks ?? 0;
                       if (empty) for (const shift of biz.shifts) caps[shift.id] = seed;
-                      onBusiness({ blockSplit: split, shiftBlocks: caps });
+                      editSite({ blockSplit: split, shiftBlocks: caps });
                       return;
                     }
-                    onBusiness({ blockSplit: "general" });
+                    editSite({ blockSplit: "general" });
                   }}
                 />
                 <BlockNumberFields
                   lang={lang}
-                  split={blockSplitOf(biz)}
+                  split={blockSplitOf(siteView)}
                   shifts={biz.shifts}
-                  max={biz.maxBlocks ?? 0}
-                  weekday={biz.weekdayBlocks ?? 0}
-                  weekend={biz.weekendBlocks ?? 0}
-                  shiftCaps={biz.shiftBlocks ?? {}}
+                  max={siteView.maxBlocks ?? 0}
+                  weekday={siteView.weekdayBlocks ?? 0}
+                  weekend={siteView.weekendBlocks ?? 0}
+                  shiftCaps={siteView.shiftBlocks ?? {}}
                   readOnly={readOnly}
                   idPrefix=""
-                  onMax={(maxBlocks) => onBusiness({ maxBlocks })}
-                  onWeekday={(weekdayBlocks) => onBusiness({ weekdayBlocks })}
-                  onWeekend={(weekendBlocks) => onBusiness({ weekendBlocks })}
-                  onShift={(shiftId, value) => onBusiness({ shiftBlocks: { ...(biz.shiftBlocks ?? {}), [shiftId]: value } })}
+                  onMax={(maxBlocks) => editSite({ maxBlocks })}
+                  onWeekday={(weekdayBlocks) => editSite({ weekdayBlocks })}
+                  onWeekend={(weekendBlocks) => editSite({ weekendBlocks })}
+                  onShift={(shiftId, value) => editSite({ shiftBlocks: { ...(siteView.shiftBlocks ?? {}), [shiftId]: value } })}
                 />
               </>
             ) : null}

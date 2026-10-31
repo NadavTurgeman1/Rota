@@ -111,19 +111,11 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
                   from public.employee_managed_sites ms
                   where ms.employee_id = e.id
                 ), '{}') as managed_site_ids,
-                coalesce(p.email, open_invite.email, '') as login_email,
+                e.email as login_email,
                 (e.user_id is not null) as login_confirmed,
                 true as on_roster,
-                ep.profile as profile
+                private.employee_form(e.id) as profile
          from public.employees e
-         left join public.employee_profiles ep on ep.employee_id = e.id
-         left join public.profiles p on p.user_id = e.user_id
-         left join lateral (
-           select i.email
-           from public.invitations i
-           where i.kind = 'staff' and i.employee_id = e.id and i.consumed_at is null
-           limit 1
-         ) open_invite on true
          where exists (
            select 1 from public.employee_sites es
            where es.employee_id = e.id and es.site_id = $1
@@ -141,12 +133,11 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
                 e.observes_shabbat, e.observes_holidays,
                 e.reports_to, e.opened_by, e.capabilities, true as schedulable,
                 '{}'::uuid[] as managed_site_ids,
-                '' as login_email,
-                false as login_confirmed,
+                e.email as login_email,
+                (e.user_id is not null) as login_confirmed,
                 false as on_roster,
-                ep.profile as profile
+                private.employee_form(e.id) as profile
          from public.employees e
-         left join public.employee_profiles ep on ep.employee_id = e.id
          where e.id in (
            select a.employee_id
            from public.assignments a
