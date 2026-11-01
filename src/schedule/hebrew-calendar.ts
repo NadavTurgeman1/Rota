@@ -8,8 +8,8 @@ export interface Holiday {
 }
 
 const SHOWN = flags.CHAG | flags.EREV | flags.CHOL_HAMOED | flags.MAJOR_FAST | flags.MINOR_FAST;
-const NAMED = /^(Chanukah|Tu BiShvat|Purim$|Shushan Purim$|Lag BaOmer|Yom HaShoah|Yom HaZikaron$|Yom HaAtzma|Yom Yerushalayim)/;
-const SKIPPED = /^(Ta.anit Bechorot|Erev Purim)/;
+const NAMED = /^(Chanukah|Tu BiShvat|Tu B.Av|Purim$|Shushan Purim$|Lag BaOmer|Sigd|Yom HaAliyah$|Yom HaShoah|Yom HaZikaron$|Yom HaAtzma|Yom Yerushalayim)/;
+const SKIPPED = /^Erev Purim/;
 
 function localDate(iso: string): Date {
   const [year, month, day] = iso.split("-").map(Number);
@@ -27,14 +27,93 @@ function plain(text: string): string {
   return text.replace(/\u05BE/g, "-").replace(/[\u0591-\u05C7]/g, "");
 }
 
+function candles(count: string): string {
+  const number = Number(count);
+  if (number === 1) return "свеча";
+  if (number >= 2 && number <= 4) return "свечи";
+  return "свечей";
+}
+
+/** Hebcal has no Russian locale. Known names are translated; anything new stays in English. */
+function russianHoliday(name: string): string {
+  name = name.replace(/[’‘ʼ]/g, "'");
+  const candle = name.match(/^Chanukah: (\d+) Candles$/);
+  if (candle) return `Ханука: ${candle[1]} ${candles(candle[1])}`;
+  if (name === "Chanukah: 8th Day") return "Ханука: 8-й день";
+  const exact: Record<string, string> = {
+    "Erev Rosh Hashana": "Канун Рош ха-Шана",
+    "Rosh Hashana": "Рош ха-Шана",
+    "Rosh Hashana II": "Рош ха-Шана II",
+    "Tzom Gedaliah": "Пост Гедальи",
+    "Erev Yom Kippur": "Канун Йом Кипура",
+    "Yom Kippur": "Йом Кипур",
+    "Erev Sukkot": "Канун Суккота",
+    "Sukkot I": "Суккот I",
+    "Sukkot II (CH’’M)": "Суккот II (хол ха-моэд)",
+    "Sukkot III (CH’’M)": "Суккот III (хол ха-моэд)",
+    "Sukkot IV (CH’’M)": "Суккот IV (хол ха-моэд)",
+    "Sukkot V (CH’’M)": "Суккот V (хол ха-моэд)",
+    "Sukkot VI (CH’’M)": "Суккот VI (хол ха-моэд)",
+    "Sukkot VII (Hoshana Raba)": "Суккот VII (Ошана раба)",
+    "Shmini Atzeret": "Шмини Ацерет",
+    "Chanukah": "Ханука",
+    "Asara B’Tevet": "Десятое тевета",
+    "Tu BiShvat": "Ту би-Шват",
+    "Tu B'Av": "Ту бе-Ав",
+    Sigd: "Сигд",
+    "Yom HaAliyah": "Йом ха-Алия",
+    "Ta'anit Bechorot": "Пост первенцев",
+    Purim: "Пурим",
+    "Shushan Purim": "Шушан Пурим",
+    "Erev Pesach": "Канун Песаха",
+    "Pesach I": "Песах I",
+    "Pesach II (CH’’M)": "Песах II (хол ха-моэд)",
+    "Pesach III (CH’’M)": "Песах III (хол ха-моэд)",
+    "Pesach IV (CH’’M)": "Песах IV (хол ха-моэд)",
+    "Pesach V (CH’’M)": "Песах V (хол ха-моэд)",
+    "Pesach VI (CH’’M)": "Песах VI (хол ха-моэд)",
+    "Pesach VII": "Песах VII",
+    "Pesach Sheni": "Песах шени",
+    "Lag BaOmer": "Лаг ба-Омер",
+    "Erev Shavuot": "Канун Шавуота",
+    Shavuot: "Шавуот",
+    "Tzom Tammuz": "Пост таммуза",
+    "Erev Tish’a B’Av": "Канун Девятого ава",
+    "Tish’a B’Av": "Девятое ава",
+    "Yom HaShoah": "Йом ха-Шоа",
+    "Yom HaZikaron": "Йом ха-Зикарон",
+    "Yom HaAtzma’ut": "Йом ха-Ацмаут",
+    "Yom Yerushalayim": "Йом Йерушалаим",
+  };
+  return exact[name] ?? name.replaceAll("CH’’M", "хол ха-моэд").replace(/^Erev /, "Канун ");
+}
+
 function shown(event: Event): boolean {
   const desc = event.getDesc();
   if (SKIPPED.test(desc)) return false;
   return (event.getFlags() & SHOWN) !== 0 || NAMED.test(desc);
 }
 
+const RU_MONTH: Record<string, string> = {
+  Nisan: "Нисан",
+  Iyyar: "Ияр",
+  Sivan: "Сиван",
+  Tamuz: "Тамуз",
+  Av: "Ав",
+  Elul: "Элул",
+  Tishrei: "Тишрей",
+  Cheshvan: "Хешван",
+  Kislev: "Кислев",
+  Tevet: "Тевет",
+  "Sh'vat": "Шват",
+  Adar: "Адар",
+  "Adar I": "Адар I",
+  "Adar II": "Адар II",
+};
+
 function monthName(date: HDate, lang: Lang): string {
   if (lang === "en") return date.getMonthName();
+  if (lang === "ru") return RU_MONTH[date.getMonthName()] ?? date.getMonthName();
   return plain(date.render("he", false).split(" ").slice(1).join(" "));
 }
 
@@ -45,11 +124,11 @@ export function hebrewDay(iso: string, lang: Lang): string {
 }
 
 function dayNumber(date: HDate, lang: Lang): string {
-  return lang === "en" ? String(date.getDate()) : gematriya(date.getDate());
+  return lang === "he" ? gematriya(date.getDate()) : String(date.getDate());
 }
 
 function yearNumber(date: HDate, lang: Lang): string {
-  return lang === "en" ? String(date.getFullYear()) : gematriya(date.getFullYear());
+  return lang === "he" ? gematriya(date.getFullYear()) : String(date.getFullYear());
 }
 
 /** Sunday to Saturday in the Hebrew calendar, like ט״ז–כ״ב תשרי תשפ״ז or ל׳ תשרי – ו׳ חשון תשפ״ז. */
@@ -93,7 +172,7 @@ export function hebrewMonthSpan(year: number, month: number, lang: Lang): string
   const first = new HDate(new Date(year, month - 1, 1));
   const last = new HDate(new Date(year, month, 0));
   const name = (date: HDate) => monthName(date, lang);
-  const yearOf = (date: HDate) => (lang === "en" ? String(date.getFullYear()) : gematriya(date.getFullYear()));
+  const yearOf = (date: HDate) => (lang === "he" ? gematriya(date.getFullYear()) : String(date.getFullYear()));
   const months = name(first) === name(last) ? name(first) : `${name(first)}–${name(last)}`;
   const years = first.getFullYear() === last.getFullYear() ? yearOf(last) : `${yearOf(first)}–${yearOf(last)}`;
   return `${months} ${years}`;
@@ -112,7 +191,8 @@ export function holidaysBetween(startIso: string, endIso: string, lang: Lang): M
   for (const event of events) {
     if (!shown(event)) continue;
     const iso = isoOf(event.getDate().greg());
-    const name = (lang === "he" ? plain(event.render("he")) : event.render("en")).replace(/\s\d{4}$/, "");
+    const english = event.render("en").replace(/\s\d{4}$/, "");
+    const name = lang === "he" ? plain(event.render("he")).replace(/\s\d{4}$/, "") : lang === "ru" ? russianHoliday(english) : english;
     const list = days.get(iso) ?? [];
     list.push({ name, rest: (event.getFlags() & flags.CHAG) !== 0 });
     days.set(iso, list);

@@ -3,7 +3,7 @@ import { staffedCount } from "../domain/rest";
 import { calendarTitle, shiftsIcs, type CalendarShift } from "./calendar";
 import { clockLabel } from "./edit";
 import { formatDayDate, formatWeekRange, shiftLabel, siteLabel } from "./display";
-import { hebrewWeek, hebrewWeekRange } from "./hebrew-calendar";
+import { resolveCalendars, weekHebrewRange, weekMarks, type CalendarPrefs } from "./shown-calendars";
 
 export interface ExportPerson {
   name: string;
@@ -61,10 +61,12 @@ function nameMap(state: RotaState): Map<string, string> {
 }
 
 /** The published week as a table for the PNG. A draft is never exported. `hebrew` off leaves Gregorian dates only. */
-export function weekExport(state: RotaState, lang: Lang, org: string, hebrew = true): WeekExport | null {
+export function weekExport(state: RotaState, lang: Lang, org: string, hebrew: boolean | CalendarPrefs = true): WeekExport | null {
   const schedule = state.sched[state.week];
   if (!schedule || schedule.status !== "published") return null;
   const names = nameMap(state);
+  const prefs = resolveCalendars(hebrew);
+  const marks = weekMarks(state.week, lang, prefs);
   const weekSlots = slots(state, state.week);
   let open = 0;
   let extended = 0;
@@ -99,9 +101,9 @@ export function weekExport(state: RotaState, lang: Lang, org: string, hebrew = t
     dir: lang === "he" ? "rtl" : "ltr",
     title: `${org} · ${siteLabel(state.biz.name, lang)}`,
     subtitle: formatWeekRange(state.week, lang),
-    hebrewSubtitle: hebrew ? hebrewWeekRange(state.week, lang) : "",
+    hebrewSubtitle: weekHebrewRange(state.week, lang, prefs),
     days: [0, 1, 2, 3, 4, 5, 6].map((day) => {
-      const info = hebrew ? hebrewWeek(state.week, lang)[day] : null;
+      const info = marks[day];
       return {
         name: dayName(day, lang),
         date: formatDayDate(state.week, day, lang),
@@ -116,13 +118,13 @@ export function weekExport(state: RotaState, lang: Lang, org: string, hebrew = t
 }
 
 /** Flat list of published shift assignments, optionally filtered to one employee. */
-export function publishedAssignments(state: RotaState, lang: Lang, onlyEmployeeId?: string, hebrew = true): AssignmentEntry[] {
+export function publishedAssignments(state: RotaState, lang: Lang, onlyEmployeeId?: string, hebrew: boolean | CalendarPrefs = true): AssignmentEntry[] {
   const schedule = state.sched[state.week];
   if (!schedule || schedule.status !== "published") return [];
   const names = nameMap(state);
   const site = siteLabel(state.biz.name, lang);
   const entries: AssignmentEntry[] = [];
-  const calendar = hebrew ? hebrewWeek(state.week, lang) : null;
+  const calendar = weekMarks(state.week, lang, resolveCalendars(hebrew));
   for (let day = 0; day < 7; day += 1) {
     const date = addDays(state.week, day);
     const dayLabel = dayName(day, lang);
@@ -166,21 +168,25 @@ function csvCell(value: string | number): string {
 }
 
 /** UTF-8 CSV (with BOM for Excel) of published assignments across one or more sites. */
-export function weekCsv(sites: RotaState | RotaState[], lang: Lang, onlyEmployeeId?: string, hebrew = true): string | null {
+export function weekCsv(sites: RotaState | RotaState[], lang: Lang, onlyEmployeeId?: string, hebrew: boolean | CalendarPrefs = true): string | null {
   const list = Array.isArray(sites) ? sites : [sites];
   const published = list.filter((site) => site.sched[site.week]?.status === "published");
   if (published.length === 0) return null;
   const rows = published.flatMap((site) => publishedAssignments(site, lang, onlyEmployeeId, hebrew));
-  const hebrewHeaders = lang === "he" ? ["תאריך עברי", "חג"] : ["Hebrew date", "Holiday"];
+  const prefs = resolveCalendars(hebrew);
+  const showHoliday = prefs.hebrew || prefs.christian || prefs.muslim;
+  const dateHeaders =
+    lang === "he" ? ["תאריך עברי", "חג"] : lang === "ru" ? ["Еврейская дата", "Праздник"] : ["Hebrew date", "Holiday"];
   const headers = [
-    ...(lang === "he" ? ["אתר", "תאריך"] : ["Site", "Date"]),
-    ...(hebrew ? hebrewHeaders : []),
-    ...(lang === "he" ? ["יום", "משמרת", "שעות", "עובד", "שעות משמרת"] : ["Day", "Shift", "Hours", "Employee", "Shift hours"]),
+    ...(lang === "he" ? ["אתר", "תאריך"] : lang === "ru" ? ["Объект", "Дата"] : ["Site", "Date"]),
+    ...(prefs.hebrew ? [dateHeaders[0]] : []),
+    ...(showHoliday ? [dateHeaders[1]] : []),
+    ...(lang === "he" ? ["יום", "משמרת", "שעות", "עובד", "שעות משמרת"] : lang === "ru" ? ["День", "Смена", "Часы", "Сотрудник", "Часы смены"] : ["Day", "Shift", "Hours", "Employee", "Shift hours"]),
   ];
   const lines = [
     headers.map(csvCell).join(","),
     ...rows.map((row) =>
-      [row.site, row.date, ...(hebrew ? [row.hebrewDate, row.holiday] : []), row.day, row.shift, row.hours, row.employee, row.duration].map(csvCell).join(","),
+      [row.site, row.date, ...(prefs.hebrew ? [row.hebrewDate] : []), ...(showHoliday ? [row.holiday] : []), row.day, row.shift, row.hours, row.employee, row.duration].map(csvCell).join(","),
     ),
   ];
   return `\uFEFF${lines.join("\r\n")}\r\n`;
@@ -267,7 +273,7 @@ export function weekExcelXml(
   lang: Lang,
   org: string,
   onlyEmployeeId?: string,
-  hebrew = true,
+  hebrew: boolean | CalendarPrefs = true,
   layout: ExcelLayout = "written",
 ): string | null {
   const list = Array.isArray(sites) ? sites : [sites];
@@ -276,7 +282,35 @@ export function weekExcelXml(
 
   const rtl = lang === "he" ? ' ss:RightToLeft="1"' : "";
   const labels =
-    lang === "he"
+    lang === "ru"
+      ? {
+          board: "Обычный график",
+          byEmployee: "По сотрудникам",
+          hours: "Часы по сотрудникам",
+          standard: "Норма и график по объектам",
+          shift: "Смена",
+          closed: "Закрыто",
+          open: "Открыто",
+          covered: "Покрыто продлением",
+          employee: "Сотрудник",
+          shiftsCount: "Смены",
+          totalHours: "Всего часов",
+          required: "Норма",
+          assigned: "Назначено",
+          result: "Результат",
+          role: "Роль",
+          met: "Норма",
+          short: (count: number) => `Нехватка ${count}`,
+          over: (count: number) => `Избыток ${count}`,
+          site: "Объект",
+          date: "Дата",
+          hebrewDate: "Еврейская дата",
+          holiday: "Праздник",
+          day: "День",
+          hoursRange: "Часы",
+          duration: "Длительность (ч)",
+        }
+      : lang === "he"
       ? {
           board: "סידור רגיל",
           byEmployee: "סידור לפי עובד",
@@ -469,7 +503,7 @@ export function weekExcelXml(
 }
 
 /** Formatted plain text ready for WhatsApp / messages. */
-export function weekText(sites: RotaState | RotaState[], lang: Lang, org: string, onlyEmployeeId?: string, hebrew = true): string | null {
+export function weekText(sites: RotaState | RotaState[], lang: Lang, org: string, onlyEmployeeId?: string, hebrew: boolean | CalendarPrefs = true): string | null {
   const list = Array.isArray(sites) ? sites : [sites];
   const published = list.filter((site) => site.sched[site.week]?.status === "published");
   if (published.length === 0) return null;
@@ -477,7 +511,7 @@ export function weekText(sites: RotaState | RotaState[], lang: Lang, org: string
   if (onlyEmployeeId) {
     const entries = published.flatMap((site) => publishedAssignments(site, lang, onlyEmployeeId, hebrew));
     const week = published[0].week;
-    const header = [`*${org}* · ${formatWeekRange(week, lang)}`, hebrew ? hebrewWeekRange(week, lang) : ""].filter(Boolean).join("\n");
+    const header = [`*${org}* · ${formatWeekRange(week, lang)}`, weekHebrewRange(week, lang, resolveCalendars(hebrew))].filter(Boolean).join("\n");
     if (entries.length === 0) return header;
     const lines = entries.map((entry) => {
       const dateLabel = [formatDayDate(week, entry.dayIndex, lang), entry.hebrewDate].filter(Boolean).join(" · ");

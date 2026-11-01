@@ -2,14 +2,16 @@ import { absenceOnWeekDay } from "./absence";
 import { addDays, durationHours, gapBetween, parseClock } from "./time";
 import { effectiveSlot, shiftById } from "./schedule";
 import { shabbatBlocks, shiftRest, staffedCount } from "./rest";
+import { tx } from "./text";
 import type { Employee, Reason, RotaState, Slot } from "./types";
 
 const DAY_NAMES = {
   he: ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"],
   en: ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"],
+  ru: ["воскресенье", "понедельник", "вторник", "среда", "четверг", "пятница", "суббота"],
 } as const;
 
-export type Lang = "he" | "en";
+export type Lang = "he" | "en" | "ru";
 
 export function dayName(day: number, lang: Lang = "he"): string {
   return DAY_NAMES[lang][day] ?? "";
@@ -215,12 +217,8 @@ export function dynamicReason(
     const gap = gapBetween(slot, other);
     const when =
       other.weekOffset > 0
-        ? lang === "he"
-          ? "השבוע הבא"
-          : "next week"
-        : lang === "he"
-          ? "השבוע הקודם"
-          : "previous week";
+        ? tx(lang, "השבוע הבא", "next week", "следующая неделя")
+        : tx(lang, "השבוע הקודם", "previous week", "прошлая неделя");
     const label = `${slotLabel(state, other, lang)} (${when})`;
     if (gap < 0) return { code: "overlap", label };
     if (gap < state.biz.minRest) return { code: "rest", hours: gap, label };
@@ -231,12 +229,8 @@ export function dynamicReason(
     const needed = Math.max(state.biz.minRest, peer.minRest);
     const when =
       peer.weekOffset > 0
-        ? lang === "he"
-          ? "השבוע הבא"
-          : "next week"
-        : lang === "he"
-          ? "השבוע הקודם"
-          : "previous week";
+        ? tx(lang, "השבוע הבא", "next week", "следующая неделя")
+        : tx(lang, "השבוע הקודם", "previous week", "прошлая неделя");
     if (gap < 0) return { code: "overlap", label: `${peer.label} (${when})` };
     if (gap < needed) return { code: "rest", hours: gap, label: `${peer.label} (${when})` };
   }
@@ -272,54 +266,76 @@ function hourCount(hours: number): string {
   return Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(1);
 }
 
-export function formatReason(reason: Reason, lang: "en" | "he" = "he"): string {
+export function formatReason(reason: Reason, lang: Lang = "he"): string {
+  const day = "day" in reason ? dayName(reason.day, lang) : "";
   switch (reason.code) {
     case "inactive":
-      return lang === "he" ? "העובד לא פעיל" : "Inactive";
+      return tx(lang, "העובד לא פעיל", "Inactive", "Сотрудник неактивен");
     case "agreement":
-      return lang === "he"
-        ? `ההסכם לא כולל משמרת ${reason.shiftName} ביום ${dayName(reason.day, lang)}`
-        : `The agreement does not include ${dayName(reason.day, lang)} ${reason.shiftName}`;
+      return tx(
+        lang,
+        `ההסכם לא כולל משמרת ${reason.shiftName} ביום ${day}`,
+        `The agreement does not include ${day} ${reason.shiftName}`,
+        `Соглашение не включает смену ${reason.shiftName} в день ${day}`,
+      );
     case "role":
-      return lang === "he" ? `אין הסמכה למשמרת הזו (${reason.role})` : `Missing the qualification for this shift (${reason.role})`;
+      return tx(
+        lang,
+        `אין את התפקיד הנדרש למשמרת הזו (${reason.role})`,
+        `Does not hold this shift's role (${reason.role})`,
+        `Нет нужной роли для этой смены (${reason.role})`,
+      );
     case "unavailable":
-      return lang === "he"
-        ? `סומן באילוצים כלא זמין למשמרת ${reason.shiftName} ביום ${dayName(reason.day, lang)}`
-        : `Marked unavailable for ${dayName(reason.day, lang)} ${reason.shiftName}`;
+      return tx(
+        lang,
+        `סומן באילוצים כלא זמין למשמרת ${reason.shiftName} ביום ${day}`,
+        `Marked unavailable for ${day} ${reason.shiftName}`,
+        `В ограничениях отмечен как недоступный на смену ${reason.shiftName} в день ${day}`,
+      );
     case "absent": {
-      const kind = reason.kind === "sick" ? (lang === "he" ? "מחלה" : "sick leave") : lang === "he" ? "חופשה" : "vacation";
-      return lang === "he" ? `${kind} ביום ${dayName(reason.day, lang)}` : `${kind} on ${dayName(reason.day, lang)}`;
+      const kind = reason.kind === "sick" ? tx(lang, "מחלה", "sick leave", "больничный") : tx(lang, "חופשה", "vacation", "отпуск");
+      return tx(lang, `${kind} ביום ${day}`, `${kind} on ${day}`, `${kind}, день ${day}`);
     }
     case "overlap":
-      return lang === "he" ? `כבר משובץ באותו זמן: ${reason.label}` : `Already working at the same time: ${reason.label}`;
+      return tx(lang, `כבר משובץ באותו זמן: ${reason.label}`, `Already working at the same time: ${reason.label}`, `Уже работает в это время: ${reason.label}`);
     case "rest": {
       const hours = hourCount(reason.hours);
-      if (lang === "he") return hours === "0" ? `אין מנוחה ליד ${reason.label}` : `רק ${hours} שעות מנוחה ליד ${reason.label}`;
-      return hours === "0" ? `No rest next to ${reason.label}` : `Only ${hours}h rest next to ${reason.label}`;
+      return hours === "0"
+        ? tx(lang, `אין מנוחה ליד ${reason.label}`, `No rest next to ${reason.label}`, `Нет отдыха рядом с ${reason.label}`)
+        : tx(lang, `רק ${hours} שעות מנוחה ליד ${reason.label}`, `Only ${hours}h rest next to ${reason.label}`, `Только ${hours} ч отдыха рядом с ${reason.label}`);
     }
     case "weekly_hours":
-      return lang === "he" ? `עובר את ${reason.cap} השעות המותרות השבוע` : `Over the weekly limit of ${reason.cap}h`;
+      return tx(lang, `עובר את ${reason.cap} השעות המותרות השבוע`, `Over the weekly limit of ${reason.cap}h`, `Больше недельного предела в ${reason.cap} ч`);
     case "daily_hours":
-      return lang === "he" ? `עובר את ${reason.cap} השעות המותרות ביום` : `Over the daily limit of ${reason.cap}h`;
+      return tx(lang, `עובר את ${reason.cap} השעות המותרות ביום`, `Over the daily limit of ${reason.cap}h`, `Больше дневного предела в ${reason.cap} ч`);
     case "weekly_shifts":
-      return lang === "he" ? `כבר הגיע ל־${reason.agreed} המשמרות שבהסכם` : `Already at the agreed ${reason.agreed} shifts`;
+      return tx(lang, `כבר הגיע ל־${reason.agreed} המשמרות שבהסכם`, `Already at the agreed ${reason.agreed} shifts`, `Уже набранные ${reason.agreed} смен по соглашению`);
     case "shift_length":
-      return lang === "he" ? `המשמרת ארוכה מ־${reason.cap} שעות` : `Longer than the ${reason.cap}h limit`;
+      return tx(lang, `המשמרת ארוכה מ־${reason.cap} שעות`, `Longer than the ${reason.cap}h limit`, `Смена длиннее предела в ${reason.cap} ч`);
     case "home_schedule":
-      return lang === "he" ? "הסידור באתר הראשי עוד לא מוכן" : "The home site's week is not ready to publish";
+      return tx(lang, "הסידור באתר הראשי עוד לא מוכן", "The home site's week is not ready to publish", "График основного объекта ещё не готов к публикации");
     case "shabbat":
-      return lang === "he"
-        ? "שומר שבת: אין שיבוץ מיום שישי ב-15:00 עד מוצאי שבת ב-21:00"
-        : "Observes Shabbat: no shift from Friday 15:00 until Saturday 21:00";
+      return tx(
+        lang,
+        "שומר שבת: אין שיבוץ מיום שישי ב-15:00 עד מוצאי שבת ב-21:00",
+        "Observes Shabbat: no shift from Friday 15:00 until Saturday 21:00",
+        "Соблюдает шабат: нет смены с пятницы 15:00 до субботы 21:00",
+      );
     case "holiday":
-      return lang === "he"
-        ? "שומר חג: אין שיבוץ מ-15:00 בערב החג עד 21:00 במוצאי החג"
-        : "Observes the festival: no shift from 15:00 the day before until 21:00 on the festival day";
+      return tx(
+        lang,
+        "שומר חג: אין שיבוץ מ-15:00 בערב החג עד 21:00 במוצאי החג",
+        "Observes the festival: no shift from 15:00 the day before until 21:00 on the festival day",
+        "Соблюдает праздник: нет смены с 15:00 накануне до 21:00 в день праздника",
+      );
     case "consecutive_days": {
       const span = `${dotDate(reason.from)}–${dotDate(reason.to)}`;
-      return lang === "he"
-        ? `${reason.days} ימים ברצף (${span}). אסור לעבוד שבעה ימים ברצף`
-        : `${reason.days} days in a row (${span}). Seven days in a row is not allowed`;
+      return tx(
+        lang,
+        `${reason.days} ימים ברצף (${span}). אסור לעבוד שבעה ימים ברצף`,
+        `${reason.days} days in a row (${span}). Seven days in a row is not allowed`,
+        `${reason.days} дней подряд (${span}). Семь дней подряд работать нельзя`,
+      );
     }
   }
 }

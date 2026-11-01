@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { GPS_WAIT_MS, TARGET_ACCURACY_METERS, clockProblem, deviceOffsetMinutes } from "../attendance/clock";
 import { followFix, type Fix, type LockState } from "../attendance/locate";
 import { formatDuration, formatLiveDuration, formatPunchStamp, formatWhen, pairPunches, type AttendancePunch } from "../attendance/sessions";
-import type { Lang } from "../domain";
+import { localeOf, type Lang } from "../domain";
 import { copy, type Copy } from "../i18n/copy";
 import { button, card, cardHint, cardTitle, pill } from "./ui";
 
@@ -245,7 +245,7 @@ export function AttendanceScreen({
   const skew = snapshot && serverNow ? clockProblem({ deviceNow: now, serverNow, timeZone: snapshot.timeZone }) : null;
   const newest = snapshot ? [...snapshot.punches].sort((left, right) => right.punchedAt.localeCompare(left.punchedAt))[0] : undefined;
   const open = newest?.kind === "in";
-  const locale = lang === "he" ? "he-IL" : "en-GB";
+  const locale = localeOf(lang);
   const clock = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(now);
   const date = new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(now);
 

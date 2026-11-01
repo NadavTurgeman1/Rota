@@ -47,6 +47,7 @@ export {
   staticReason,
 } from "./rules";
 export type { Lang } from "./rules";
+export { localeOf, tx } from "./text";
 export { CAPABILITY_KEYS, MANAGEMENT_CAPABILITIES } from "./types";
 export { generate } from "./generate";
 export type { DroppedLock, GenerateResult } from "./generate";

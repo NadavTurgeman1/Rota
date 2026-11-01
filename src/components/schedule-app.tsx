@@ -72,7 +72,6 @@ import {
   activeSite,
   addSite,
   canWrite as hasWrite,
-  hebrewCalendarOn,
   isOwner,
   removeSite,
   renameSiteAllowed,
@@ -107,6 +106,7 @@ import { memoryEmployeeForms, remoteEmployeeForms } from "./employee-forms";
 import { HebrewCalendarContext } from "./day-dates";
 import { ManagerTradePrompt, tradeStillHeld, useSetAside, type ShiftTrade, type TradeApi, type TradeSite } from "./trades";
 import { useAiEnabled } from "./use-ai";
+import { CALENDARS_OFF, type CalendarPrefs } from "../schedule/shown-calendars";
 import { SettingsMenu, type Theme } from "./settings-menu";
 import { VersionsPanel } from "./versions-panel";
 import { closeExtraSubmissionWindow, millisUntilConstraintWindowChange, settleClosedConstraintWindow, staffCanSubmitConstraints, withConstraintExtension } from "../schedule/constraint-window";
@@ -118,6 +118,7 @@ import { downloadBlob, downloadWeekPng } from "./week-png";
 
 const EMPTY: Analysis = { violations: [], labor: [], overQuota: [], unfilled: [], coverage: [], under: [], hours: {}, counts: {} };
 const THEME_KEY = "rota.theme";
+const CALENDARS_KEY = "rota.calendars";
 const SUPPORT_KEY = "rota.supportOrg";
 
 function persistable(workspace: Workspace) {
@@ -253,6 +254,7 @@ export function ScheduleApp() {
   const { state, setHistory, update, undoHistory, redoHistory, canUndo, canRedo } = useHistory(emptyState());
   const [lang, setLang] = useState<Lang>("he");
   const [theme, setTheme] = useState<Theme>("light");
+  const [calendars, setCalendars] = useState<CalendarPrefs>(CALENDARS_OFF);
   const [hydrated, setHydrated] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
   const [operator, setOperator] = useState(false);
@@ -348,7 +350,6 @@ export function ScheduleApp() {
     if (!user || user.access === "read" || screen === "approvals" || allowedScreens.includes(screen)) return;
     if (allowedScreens[0]) setScreen(allowedScreens[0]);
   }, [allowedScreens, screen, user]);
-  const hebrew = hebrewCalendarOn(live);
   const [trades, setTrades] = useState<{ trades: ShiftTrade[]; takeable: string[] }>({ trades: [], takeable: [] });
   const [staffNotes, setStaffNotes] = useState<ManagerMessage[]>([]);
   const [managerNotes, setManagerNotes] = useState<ManagerMessage[]>([]);
@@ -741,6 +742,15 @@ export function ScheduleApp() {
     if (savedTheme === "dark" || (savedTheme === null && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
       setTheme("dark");
     }
+    const savedCalendars = window.localStorage.getItem(CALENDARS_KEY);
+    if (savedCalendars) {
+      try {
+        const parsed = JSON.parse(savedCalendars) as Partial<CalendarPrefs>;
+        setCalendars({ hebrew: parsed.hebrew === true, christian: parsed.christian === true, muslim: parsed.muslim === true });
+      } catch {
+        setCalendars(CALENDARS_OFF);
+      }
+    }
     setCurrentWeek(sundayOnOrBefore(todayIso()));
     if (!remote) {
       setHydrated(true);
@@ -810,9 +820,10 @@ export function ScheduleApp() {
     root.classList.add("theme-switching");
     root.classList.toggle("dark", theme === "dark");
     window.localStorage.setItem(THEME_KEY, theme);
+    window.localStorage.setItem(CALENDARS_KEY, JSON.stringify(calendars));
     const frame = requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("theme-switching")));
     return () => cancelAnimationFrame(frame);
-  }, [hydrated, theme]);
+  }, [hydrated, theme, calendars]);
 
   useEffect(() => {
     setNowHours(hoursSinceWeek(state.week, new Date()));
@@ -1311,7 +1322,7 @@ export function ScheduleApp() {
   }
 
   function savePng(source: RotaState) {
-    const data = weekExport(source, lang, live.org.name, hebrew);
+    const data = weekExport(source, lang, live.org.name, calendars);
     if (!data) return;
     downloadWeekPng(
       data,
@@ -1371,7 +1382,7 @@ export function ScheduleApp() {
           return source.week === week ? source : { ...source, week };
         })
       : [state];
-    const xml = weekExcelXml(sites, lang, live.org.name, undefined, hebrew, state.biz.excelLayout === "shifts" ? "shifts" : "written");
+    const xml = weekExcelXml(sites, lang, live.org.name, undefined, calendars, state.biz.excelLayout === "shifts" ? "shifts" : "written");
     if (!xml) return;
     downloadBlob(
       new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" }),
@@ -1380,7 +1391,7 @@ export function ScheduleApp() {
   }
 
   function exportCsv() {
-    const csv = weekCsv(state, lang, undefined, hebrew);
+    const csv = weekCsv(state, lang, undefined, calendars);
     if (!csv) return;
     downloadBlob(
       new Blob([csv], { type: "text/csv;charset=utf-8" }),
@@ -1398,7 +1409,7 @@ export function ScheduleApp() {
   }
 
   async function exportText() {
-    const text = weekText(state, lang, live.org.name, undefined, hebrew);
+    const text = weekText(state, lang, live.org.name, undefined, calendars);
     if (!text) return;
     if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
       await navigator.clipboard.writeText(text);
@@ -1423,7 +1434,15 @@ export function ScheduleApp() {
   }
 
   const settings = (
-    <SettingsMenu lang={lang} theme={theme} onLang={setLang} onTheme={setTheme} onSignOut={user ? signOut : undefined} />
+    <SettingsMenu
+      lang={lang}
+      theme={theme}
+      calendars={calendars}
+      onLang={setLang}
+      onTheme={setTheme}
+      onCalendar={(key, on) => setCalendars((current) => ({ ...current, [key]: on }))}
+      onSignOut={user ? signOut : undefined}
+    />
   );
 
   if (!hydrated) return <div className="min-h-screen" />;
@@ -1509,7 +1528,7 @@ export function ScheduleApp() {
 
   if (user.access === "read") {
     return (
-      <HebrewCalendarContext.Provider value={hebrew}>
+      <HebrewCalendarContext.Provider value={calendars}>
       <StaffHome
         state={state}
         lang={lang}
@@ -1641,7 +1660,7 @@ export function ScheduleApp() {
         : "loading";
 
   return (
-    <HebrewCalendarContext.Provider value={hebrew}>
+    <HebrewCalendarContext.Provider value={calendars}>
     <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang} className="shell min-h-dvh bg-page text-ink">
       <div className="flex min-h-dvh flex-col md:flex-row">
         <aside className="sticky top-0 z-30 flex w-full shrink-0 flex-col border-b border-line bg-paper md:h-dvh md:w-56 md:self-start md:border-e md:border-b-0">

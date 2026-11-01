@@ -1,11 +1,11 @@
 import { useState } from "react";
-import type { Lang } from "../domain";
+import { localeOf, type Lang } from "../domain";
 import type { ManagerMessage } from "../db/messages";
 import { copy } from "../i18n/copy";
 import { button, card, cardHint, cardTitle } from "./ui";
 
 function dueLabel(iso: string, lang: Lang): string {
-  return new Intl.DateTimeFormat(lang === "he" ? "he-IL" : "en-GB", {
+  return new Intl.DateTimeFormat(localeOf(lang), {
     timeZone: "Asia/Jerusalem",
     dateStyle: "medium",
     timeStyle: "short",

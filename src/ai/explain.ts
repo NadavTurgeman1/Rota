@@ -33,7 +33,7 @@ const CODES = new Set<Reason["code"]>([
 export function readExplainRequest(body: unknown): ExplainRequest | null {
   if (!body || typeof body !== "object") return null;
   const input = body as Record<string, unknown>;
-  if (input.lang !== "he" && input.lang !== "en") return null;
+  if (input.lang !== "he" && input.lang !== "en" && input.lang !== "ru") return null;
   if (typeof input.name !== "string" || typeof input.seat !== "string") return null;
   const reason = input.reason as Record<string, unknown> | null;
   if (!reason || typeof reason !== "object" || !CODES.has(reason.code as Reason["code"])) return null;
@@ -49,7 +49,7 @@ export function ruleText(request: ExplainRequest): string {
 }
 
 export function explainPrompt(request: ExplainRequest): { system: string; user: string } {
-  const language = request.lang === "he" ? "Hebrew" : "English";
+  const language = request.lang === "he" ? "Hebrew" : request.lang === "ru" ? "Russian" : "English";
   const system = [
     `Rewrite one scheduling rule result as one or two short, plain ${language} sentences for a shift manager.`,
     "Use only the facts given. Do not add numbers, times, names, or advice that are not in the facts.",

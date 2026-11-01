@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { isSiteManager } from "../access/hierarchy";
-import { dayName, type Lang, type RotaState } from "../domain";
+import { dayName, localeOf, type Lang, type RotaState } from "../domain";
 import type { ManagerMessage, MessageAudience, MessageDeliver } from "../db/messages";
 import { copy } from "../i18n/copy";
 import { filterNames } from "../people/names";
@@ -50,7 +50,7 @@ function PersonCheck({
 }
 
 function dueLabel(iso: string, lang: Lang): string {
-  return new Intl.DateTimeFormat(lang === "he" ? "he-IL" : "en-GB", {
+  return new Intl.DateTimeFormat(localeOf(lang), {
     timeZone: "Asia/Jerusalem",
     dateStyle: "medium",
     timeStyle: "short",

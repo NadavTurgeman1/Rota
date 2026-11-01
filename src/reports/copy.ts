@@ -180,4 +180,73 @@ export const reportCopy: Record<Lang, ReportCopy> = {
       return `${hours}h ${String(rest).padStart(2, "0")}m`;
     },
   },
+  ru: {
+    hint: "Здесь менеджер готовит отчёты по людям на своих объектах. Выберите отчёт и диапазон дат и сузьте его по объекту, сотруднику или роли.",
+    kind: {
+      hours: "Отчёт по часам",
+      payroll: "Отчёт для обработки часов",
+      errors: "Отчёт по отклонениям",
+      standard: "Норма и факт",
+    },
+    kindHint: {
+      hours: "Приходы и уходы каждого сотрудника в диапазоне.",
+      payroll: "Для каждой назначенной смены: норма, если отметки её покрывают, и отклонение, если нет.",
+      errors: "Только отклонения: нет прихода, опоздание, нет ухода или уход раньше конца смены.",
+      standard: "Каждая позиция в каждый день: нехватка или избыток относительно нормы, по роли смены.",
+    },
+    from: "С",
+    to: "По",
+    site: "Объект",
+    allSites: "Все объекты",
+    employee: "Сотрудник",
+    allEmployees: "Все сотрудники",
+    role: "Роль",
+    allRoles: "Все роли",
+    download: "Скачать отчёт",
+    empty: "В этом диапазоне строк нет.",
+    loading: "Отметки загружаются.",
+    missing: "Отметки не загрузились, поэтому приходы и уходы скрыты.",
+    scheduleBasis: "Смены, которые ещё не начались, или смены без отметок сравниваются с назначением.",
+    employeeScope: "Выбор сотрудника показывает только позиции, куда он назначен. Числа остаются по всей позиции.",
+    columns: {
+      employee: "Сотрудник",
+      role: "Роль",
+      site: "Объект",
+      date: "Дата",
+      in: "Приход",
+      out: "Уход",
+      duration: "Длительность",
+      shift: "Смена",
+      standard: "Норма",
+      result: "Результат",
+      required: "Норма",
+      assigned: "Назначено",
+      clocked: "Отметились",
+    },
+    status: {
+      standard: "Норма",
+      exception: "Отклонение",
+      absence: "Отсутствие",
+      waiting: "Ещё не закончилась",
+      unknown: "Нет отметок",
+    },
+    issue: {
+      "missing-in": () => "Нет прихода",
+      late: (minutes) => `опоздание ${minutes} мин`,
+      "missing-out": () => "Нет ухода",
+      "early-out": (minutes) => `ушёл на ${minutes} мин раньше`,
+    },
+    absence: { sick: "Больничный", vacation: "Отпуск" },
+    standardResult: (gap, compared) => {
+      const basis = compared === "schedule" ? " в графике" : "";
+      if (gap < 0) return `Нехватка ${-gap}${basis}`;
+      if (gap > 0) return `Избыток ${gap}${basis}`;
+      return compared === "schedule" ? "Норма в графике" : "Норма";
+    },
+    duration: (minutes) => {
+      const hours = Math.floor(minutes / 60);
+      const rest = minutes % 60;
+      return `${hours} ч ${String(rest).padStart(2, "0")} мин`;
+    },
+  },
 };

@@ -22,12 +22,15 @@ describe("hebrew calendar", () => {
   });
 
   it("lists holidays in Israel and marks days of rest", () => {
-    const days = holidaysBetween("2026-09-01", "2027-06-30", "he");
+    const days = holidaysBetween("2026-09-01", "2027-08-31", "he");
     expect(days.get("2026-09-21")).toEqual([{ name: "יום כפור", rest: true }]);
     expect(days.get("2026-09-12")).toEqual([{ name: "ראש השנה", rest: true }]);
     expect(days.get("2026-09-27")?.[0]).toMatchObject({ rest: false });
     expect(days.get("2027-05-12")?.[0].name).toBe("יום העצמאות");
-    expect(days.get("2027-04-21")).toEqual([{ name: "ערב פסח", rest: false }]);
+    expect(days.get("2027-04-21")?.map((item) => item.name)).toEqual(["תענית בכורות", "ערב פסח"]);
+    expect(days.get("2027-08-18")?.[0].name).toBe("ט״ו באב");
+    expect(days.get("2026-11-09")?.[0].name).toBe("חג הסיגד");
+    expect(days.get("2027-04-17")?.[0].name).toBe("יום העליה");
     expect(days.has("2026-09-05")).toBe(false);
     expect(days.has("2027-02-21")).toBe(false);
   });

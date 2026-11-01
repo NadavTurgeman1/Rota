@@ -1,4 +1,6 @@
+import { dayName as weekdayName, type Lang } from "./rules";
 import { effectiveSlot } from "./schedule";
+import { tx } from "./text";
 import { addDays, durationHours, parseClock } from "./time";
 import type { Employee, LaborNote, RotaState, Slot } from "./types";
 
@@ -192,12 +194,8 @@ function merge(items: Work[]): { start: number; end: number }[] {
   return spans;
 }
 
-function dayName(iso: string, lang: "he" | "en"): string {
-  const names =
-    lang === "he"
-      ? ["ראשון", "שני", "שלישי", "רביעי", "חמישי", "שישי", "שבת"]
-      : ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
-  return names[weekday(iso)] ?? "";
+function dayName(iso: string, lang: Lang): string {
+  return weekdayName(weekday(iso), lang);
 }
 
 const NOTE_ORDER: LaborNote["code"][] = [
@@ -211,7 +209,7 @@ const NOTE_ORDER: LaborNote["code"][] = [
 ];
 
 /** Notes for one week. Empty when the person has no work in the week. Seven days in a row come first, then each law together. */
-export function laborNotes(state: RotaState, week: string, lang: "he" | "en" = "he"): LaborNote[] {
+export function laborNotes(state: RotaState, week: string, lang: Lang = "he"): LaborNote[] {
   const notes: LaborNote[] = [];
   const weekEnd = addDays(week, 6);
   for (const employee of state.emps) {
@@ -229,15 +227,17 @@ export function laborNotes(state: RotaState, week: string, lang: "he" | "en" = "
   return notes.sort((left, right) => NOTE_ORDER.indexOf(left.code) - NOTE_ORDER.indexOf(right.code));
 }
 
-function streakNotes(state: RotaState, employee: Employee, week: string, lang: "he" | "en"): LaborNote[] {
+function streakNotes(state: RotaState, employee: Employee, week: string, lang: Lang): LaborNote[] {
   return consecutiveStreaks(state, employee.id, week).map((streak) => ({
     key: `consecutive#${employee.id}#${streak.from}`,
     employeeId: employee.id,
     code: "consecutive_days" as const,
-    message:
-      lang === "he"
-        ? `${employee.name}: ${streak.days} ימים ברצף (${dot(streak.from)}–${dot(streak.to)}). אסור לעבוד שבעה ימים ברצף.`
-        : `${employee.name}: ${streak.days} days in a row (${dot(streak.from)}–${dot(streak.to)}). Seven days in a row is not allowed.`,
+    message: tx(
+      lang,
+      `${employee.name}: ${streak.days} ימים ברצף (${dot(streak.from)}–${dot(streak.to)}). אסור לעבוד שבעה ימים ברצף.`,
+      `${employee.name}: ${streak.days} days in a row (${dot(streak.from)}–${dot(streak.to)}). Seven days in a row is not allowed.`,
+      `${employee.name}: ${streak.days} дней подряд (${dot(streak.from)}–${dot(streak.to)}). Семь дней подряд работать нельзя.`,
+    ),
   }));
 }
 
@@ -257,7 +257,7 @@ function countsAsWeeklyRest(gapStart: number, gapEnd: number): boolean {
   return coversFullDay(gapStart, gapEnd);
 }
 
-function restNotes(employee: Employee, work: Work[], lang: "he" | "en"): LaborNote[] {
+function restNotes(employee: Employee, work: Work[], lang: Lang): LaborNote[] {
   const spans = merge(work);
   if (!spans.some((span) => span.end > 0 && span.start < 168)) return [];
   const gaps = [{ start: -168, end: spans[0].start }];
@@ -283,15 +283,17 @@ function restNotes(employee: Employee, work: Work[], lang: "he" | "en"): LaborNo
       employeeId: employee.id,
       code: "weekly_rest",
       hours: longest,
-      message:
-        lang === "he"
-          ? `${employee.name}: המנוחה הרצופה הארוכה השבוע היא ${hours} שעות. החוק דורש 36 שעות רצופות.`
-          : `${employee.name}: the longest unbroken rest this week is ${hours}h. The law requires 36 consecutive hours.`,
+      message: tx(
+        lang,
+        `${employee.name}: המנוחה הרצופה הארוכה השבוע היא ${hours} שעות. החוק דורש 36 שעות רצופות.`,
+        `${employee.name}: the longest unbroken rest this week is ${hours}h. The law requires 36 consecutive hours.`,
+        `${employee.name}: самый длинный непрерывный отдых на этой неделе — ${hours} ч. Закон требует 36 часов подряд.`,
+      ),
     },
   ];
 }
 
-function gapNotes(employee: Employee, work: Work[], lang: "he" | "en"): LaborNote[] {
+function gapNotes(employee: Employee, work: Work[], lang: Lang): LaborNote[] {
   const sorted = [...work].sort((left, right) => left.start - right.start);
   const notes: LaborNote[] = [];
   for (let index = 0; index < sorted.length - 1; index += 1) {
@@ -304,10 +306,12 @@ function gapNotes(employee: Employee, work: Work[], lang: "he" | "en"): LaborNot
       employeeId: employee.id,
       code: "daily_gap",
       hours: gap,
-      message:
-        lang === "he"
-          ? `${employee.name}: ${hours} שעות בין משמרות. החוק דורש 8 שעות לפחות בין יום עבודה למשנהו.`
-          : `${employee.name}: ${hours}h between shifts. The law requires at least 8 hours between work days.`,
+      message: tx(
+        lang,
+        `${employee.name}: ${hours} שעות בין משמרות. החוק דורש 8 שעות לפחות בין יום עבודה למשנהו.`,
+        `${employee.name}: ${hours}h between shifts. The law requires at least 8 hours between work days.`,
+        `${employee.name}: ${hours} ч между сменами. Закон требует не меньше 8 часов между рабочими днями.`,
+      ),
     });
   }
   return notes;
@@ -324,7 +328,7 @@ function groupedDays(work: Work[]): Map<string, { hours: number; night: number }
   return days;
 }
 
-function dayNotes(employee: Employee, work: Work[], lang: "he" | "en"): LaborNote[] {
+function dayNotes(employee: Employee, work: Work[], lang: Lang): LaborNote[] {
   const notes: LaborNote[] = [];
   for (const [iso, day] of groupedDays(work)) {
     if (day.hours <= DAY_CAP_HOURS + 1e-9) continue;
@@ -334,10 +338,12 @@ function dayNotes(employee: Employee, work: Work[], lang: "he" | "en"): LaborNot
       employeeId: employee.id,
       code: "day_cap",
       hours: day.hours,
-      message:
-        lang === "he"
-          ? `${employee.name}: ביום ${dayName(iso, lang)} ${hours} שעות עבודה. ההיתר הכללי מגביל יום עבודה ל-12 שעות, כולל שעות נוספות.`
-          : `${employee.name}: ${dayName(iso, lang)} has ${hours}h of work. The general permit limits a work day to 12 hours, including overtime.`,
+      message: tx(
+        lang,
+        `${employee.name}: ביום ${dayName(iso, lang)} ${hours} שעות עבודה. ההיתר הכללי מגביל יום עבודה ל-12 שעות, כולל שעות נוספות.`,
+        `${employee.name}: ${dayName(iso, lang)} has ${hours}h of work. The general permit limits a work day to 12 hours, including overtime.`,
+        `${employee.name}: в день ${dayName(iso, lang)} ${hours} ч работы. Общее разрешение ограничивает рабочий день 12 часами, включая сверхурочные.`,
+      ),
     });
   }
   return notes;
@@ -349,7 +355,7 @@ function ordinaryHours(employee: Employee, iso: string, night: number): number {
   return ORDINARY_DAY_HOURS;
 }
 
-function overtimeNote(employee: Employee, work: Work[], lang: "he" | "en"): LaborNote[] {
+function overtimeNote(employee: Employee, work: Work[], lang: Lang): LaborNote[] {
   let dailyOvertime = 0;
   let regular = 0;
   for (const [iso, day] of groupedDays(work)) {
@@ -367,10 +373,12 @@ function overtimeNote(employee: Employee, work: Work[], lang: "he" | "en"): Labo
       employeeId: employee.id,
       code: "overtime",
       hours: total,
-      message:
-        lang === "he"
-          ? `${employee.name}: ${hours} שעות נוספות השבוע. ההיתר הכללי מתיר עד 16.`
-          : `${employee.name}: ${hours} overtime hours this week. The general permit allows up to 16.`,
+      message: tx(
+        lang,
+        `${employee.name}: ${hours} שעות נוספות השבוע. ההיתר הכללי מתיר עד 16.`,
+        `${employee.name}: ${hours} overtime hours this week. The general permit allows up to 16.`,
+        `${employee.name}: ${hours} сверхурочных часов на этой неделе. Общее разрешение допускает до 16.`,
+      ),
     },
   ];
 }
@@ -412,7 +420,7 @@ function workedWeeklyRestDay(state: RotaState, employeeId: string, week: string)
   return false;
 }
 
-function shabbatRunNote(state: RotaState, employee: Employee, week: string, lang: "he" | "en"): LaborNote[] {
+function shabbatRunNote(state: RotaState, employee: Employee, week: string, lang: Lang): LaborNote[] {
   if (!workedWeeklyRestDay(state, employee.id, week)) return [];
   let from = week;
   let to = week;
@@ -432,10 +440,12 @@ function shabbatRunNote(state: RotaState, employee: Employee, week: string, lang
       key: `shabbat-run#${employee.id}#${start}`,
       employeeId: employee.id,
       code: "consecutive_shabbat",
-      message:
-        lang === "he"
-          ? `${employee.name}: ${weeks} שבתות ברצף (${dot(start)}–${dot(end)}). לפי ההיתר הכללי, יום המנוחה השבועית צריך להיכלל במנוחה לפחות אחת לארבעה שבועות.`
-          : `${employee.name}: ${weeks} consecutive weekly rest days (${dot(start)}–${dot(end)}). The general permit requires the weekly rest day at least once every four weeks.`,
+      message: tx(
+        lang,
+        `${employee.name}: ${weeks} שבתות ברצף (${dot(start)}–${dot(end)}). לפי ההיתר הכללי, יום המנוחה השבועית צריך להיכלל במנוחה לפחות אחת לארבעה שבועות.`,
+        `${employee.name}: ${weeks} consecutive weekly rest days (${dot(start)}–${dot(end)}). The general permit requires the weekly rest day at least once every four weeks.`,
+        `${employee.name}: ${weeks} недельных дней отдыха подряд (${dot(start)}–${dot(end)}). По общему разрешению день недельного отдыха должен входить в отдых хотя бы раз в четыре недели.`,
+      ),
     },
   ];
 }
@@ -449,7 +459,7 @@ function nightShiftCount(work: Work[], from: string, to: string): number {
   return count;
 }
 
-function nightNote(employee: Employee, work: Work[], week: string, lang: "he" | "en"): LaborNote[] {
+function nightNote(employee: Employee, work: Work[], week: string, lang: Lang): LaborNote[] {
   const windows = [
     { from: addDays(week, -7), to: addDays(week, 6) },
     { from: week, to: addDays(week, 13) },
@@ -462,10 +472,12 @@ function nightNote(employee: Employee, work: Work[], week: string, lang: "he" | 
       key: `night#${employee.id}#${window.from}`,
       employeeId: employee.id,
       code: "night_weeks",
-      message:
-        lang === "he"
-          ? `${employee.name}: ${count} משמרות לילה בשבועיים (${dot(window.from)}–${dot(window.to)}). מותרות עד 7 משמרות לילה בשבועיים.`
-          : `${employee.name}: ${count} night shifts in two weeks (${dot(window.from)}–${dot(window.to)}). Up to 7 night shifts are allowed in two weeks.`,
+      message: tx(
+        lang,
+        `${employee.name}: ${count} משמרות לילה בשבועיים (${dot(window.from)}–${dot(window.to)}). מותרות עד 7 משמרות לילה בשבועיים.`,
+        `${employee.name}: ${count} night shifts in two weeks (${dot(window.from)}–${dot(window.to)}). Up to 7 night shifts are allowed in two weeks.`,
+        `${employee.name}: ${count} ночных смен за две недели (${dot(window.from)}–${dot(window.to)}). За две недели разрешено до 7 ночных смен.`,
+      ),
     });
   }
   return notes;

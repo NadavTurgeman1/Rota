@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Lang } from "../domain";
+import { localeOf, type Lang } from "../domain";
 import { confirmDeleteForm, copy } from "../i18n/copy";
 import { FilePreview } from "./file-preview";
 import type { EmployeeFormRecord } from "../people/forms";
@@ -180,7 +180,7 @@ export function EmployeeForms({
                 </p>
                 <p className="text-xs leading-5 text-muted">
                   <bdi dir="ltr">
-                    {sizeLabel(form.bytes)} · {new Date(form.addedAt).toLocaleDateString(lang === "he" ? "he-IL" : "en-GB")}
+                    {sizeLabel(form.bytes)} · {new Date(form.addedAt).toLocaleDateString(localeOf(lang))}
                   </bdi>
                 </p>
               </div>

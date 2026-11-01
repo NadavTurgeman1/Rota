@@ -1,7 +1,9 @@
 import {
   addDays,
   dayName,
+  localeOf,
   shiftById,
+  tx,
   type CoverageOption,
   type CoveragePart,
   type Lang,
@@ -12,10 +14,10 @@ import { hourFixText } from "../i18n/copy";
 import { clockLabel, type HourFix, type Proposal } from "./edit";
 
 const SHIFT_LABELS: Record<string, Record<Lang, string>> = {
-  Morning: { he: "בוקר", en: "Morning" },
-  Afternoon: { he: "צהריים", en: "Afternoon" },
-  Night: { he: "לילה", en: "Night" },
-  Day: { he: "יום", en: "Day" },
+  Morning: { he: "בוקר", en: "Morning", ru: "Утро" },
+  Afternoon: { he: "צהריים", en: "Afternoon", ru: "День" },
+  Night: { he: "לילה", en: "Night", ru: "Ночь" },
+  Day: { he: "יום", en: "Day", ru: "Дневная" },
 };
 
 const SITE_LABELS: Record<string, string> = {
@@ -36,6 +38,9 @@ export function shiftLabel(name: string, lang: Lang): string {
 
 export function localizeShiftNames(text: string, lang: Lang): string {
   if (lang === "en") return text;
+  if (lang === "ru") {
+    return text.replaceAll("Morning", "Утро").replaceAll("Afternoon", "День").replaceAll("Night", "Ночь").replaceAll(/\bDay\b/g, "Дневная");
+  }
   return text.replaceAll("Morning", "בוקר").replaceAll("Afternoon", "צהריים").replaceAll("Night", "לילה").replaceAll(/\bDay\b/g, "יום");
 }
 
@@ -44,7 +49,8 @@ export function siteLabel(name: string, lang: Lang): string {
 }
 
 export function orgTypeLabel(type: string, lang: Lang): string {
-  return type === "Security company" && lang === "he" ? "חברת אבטחה" : type;
+  if (type !== "Security company") return type;
+  return tx(lang, "חברת אבטחה", type, "Охранная компания");
 }
 
 export function slotTitle(state: RotaState, slot: { day: number; shiftId: string }, lang: Lang): string {
@@ -53,7 +59,7 @@ export function slotTitle(state: RotaState, slot: { day: number; shiftId: string
 
 function formatIso(iso: string, lang: Lang, withYear: boolean): string {
   const [year, month, date] = iso.split("-").map(Number);
-  return new Date(Date.UTC(year, month - 1, date)).toLocaleDateString(lang === "he" ? "he-IL" : "en-GB", {
+  return new Date(Date.UTC(year, month - 1, date)).toLocaleDateString(localeOf(lang), {
     day: "numeric",
     month: "short",
     year: withYear ? "numeric" : undefined,
@@ -94,12 +100,12 @@ export function pngFileName(siteName: string, week: string): string {
 }
 
 function wageNote(wage: number | undefined, dearerThan: number | undefined, lang: Lang): string {
-  if (!wage || wage <= 0) return lang === "he" ? " · שכר לא הוגדר" : " · wage not set";
+  if (!wage || wage <= 0) return tx(lang, " · שכר לא הוגדר", " · wage not set", " · оплата не задана");
   const amount = Number.isInteger(wage) ? String(wage) : wage.toFixed(2);
-  const base = lang === "he" ? ` · ${amount} ₪ לשעה` : ` · ${amount} ₪/hour`;
+  const base = tx(lang, ` · ${amount} ₪ לשעה`, ` · ${amount} ₪/hour`, ` · ${amount} ₪/час`);
   if (!dearerThan || wage <= dearerThan) return base;
   const cheaper = Number.isInteger(dearerThan) ? String(dearerThan) : dearerThan.toFixed(2);
-  return base + (lang === "he" ? ` · יקר יותר מ־${cheaper} ₪` : ` · dearer than ${cheaper} ₪`);
+  return base + tx(lang, ` · יקר יותר מ־${cheaper} ₪`, ` · higher than ${cheaper} ₪`, ` · выше ${cheaper} ₪`);
 }
 
 function seatName(state: RotaState | undefined, key: string, lang: Lang): string {
@@ -127,14 +133,21 @@ function changeLine(part: CoveragePart, lang: Lang, state?: RotaState): string {
   const to = seatName(state, part.slotKey, lang);
   const hours = `${clockLabel(part.start)}–${clockLabel(part.end)}`;
   const wage = part.extended ? wageNote(part.wage, undefined, lang) : "";
-  if (lang === "he") {
-    if (moved && part.extended) return `${part.name} — מעבר מ${from} ל${to}, והארכה לכפולה (${hours})${wage}`;
-    if (moved) return `${part.name} — מעבר מ${from} ל${to}`;
-    return `${part.name} — הארכה לכפולה ב${to} (${hours})${wage}`;
+  if (moved && part.extended) {
+    return tx(
+      lang,
+      `${part.name} — מעבר מ${from} ל${to}, והארכה לכפולה (${hours})${wage}`,
+      `${part.name} — moves from ${from} to ${to} and extends into a double (${hours})${wage}`,
+      `${part.name} — переход с ${from} на ${to} и продление до двойной (${hours})${wage}`,
+    );
   }
-  if (moved && part.extended) return `${part.name} — moves from ${from} to ${to} and extends into a double (${hours})${wage}`;
-  if (moved) return `${part.name} — moves from ${from} to ${to}`;
-  return `${part.name} — extends ${to} into a double (${hours})${wage}`;
+  if (moved) return tx(lang, `${part.name} — מעבר מ${from} ל${to}`, `${part.name} — moves from ${from} to ${to}`, `${part.name} — переход с ${from} на ${to}`);
+  return tx(
+    lang,
+    `${part.name} — הארכה לכפולה ב${to} (${hours})${wage}`,
+    `${part.name} — extends ${to} into a double (${hours})${wage}`,
+    `${part.name} — продление ${to} до двойной (${hours})${wage}`,
+  );
 }
 
 export function hourFixLine(fix: HourFix, lang: Lang, state: RotaState): string {
@@ -146,17 +159,20 @@ export function hourFixLine(fix: HourFix, lang: Lang, state: RotaState): string 
 
 export function proposalText(proposal: Proposal, lang: Lang, state?: RotaState): string {
   if (proposal.kind === "relief") {
-    return lang === "he" ? `${proposal.name}: שיבוץ מתגבור` : `${proposal.name}: reinforcement assignment`;
+    return tx(lang, `${proposal.name}: שיבוץ מתגבור`, `${proposal.name}: reinforcement assignment`, `${proposal.name}: назначение подкрепления`);
   }
   if (proposal.kind === "extra") {
     const option = proposal.option;
     const wage = wageNote(option.wage, option.dearerThan, lang);
     if (option.n > option.agreed) {
-      return lang === "he"
-        ? `${option.name}: משמרת ${option.n} מעבר להסכם של ${option.agreed}${wage}`
-        : `${option.name}: shift ${option.n} beyond the agreed ${option.agreed}${wage}`;
+      return tx(
+        lang,
+        `${option.name}: משמרת ${option.n} מעבר להסכם של ${option.agreed}${wage}`,
+        `${option.name}: shift ${option.n} beyond the agreed ${option.agreed}${wage}`,
+        `${option.name}: смена ${option.n} сверх соглашения в ${option.agreed}${wage}`,
+      );
     }
-    return lang === "he" ? `${option.name}: משמרת נוספת${wage}` : `${option.name}: extra shift${wage}`;
+    return tx(lang, `${option.name}: משמרת נוספת${wage}`, `${option.name}: extra shift${wage}`, `${option.name}: дополнительная смена${wage}`);
   }
   return coverageChanges(proposal.option, lang, state);
 }
@@ -166,11 +182,9 @@ export function replacementText(candidate: ReplacementCandidate, lang: Lang): st
   const hours = Number.isInteger(candidate.hours) ? String(candidate.hours) : candidate.hours.toFixed(1);
   const nights =
     candidate.consecutiveNights > 1
-      ? lang === "he"
-        ? ` · ${candidate.consecutiveNights} לילות צמודים`
-        : ` · ${candidate.consecutiveNights} nights in a row`
+      ? tx(lang, ` · ${candidate.consecutiveNights} לילות צמודים`, ` · ${candidate.consecutiveNights} nights in a row`, ` · ${candidate.consecutiveNights} ночей подряд`)
       : "";
-  const preference = candidate.prefers ? (lang === "he" ? " · מעדיף" : " · preferred") : "";
+  const preference = candidate.prefers ? tx(lang, " · מעדיף", " · preferred", " · предпочитает") : "";
   return `${candidate.name} · ${quota} · ${hours}h${preference}${nights}${wageNote(candidate.wage, candidate.dearerThan, lang)}`;
 }
 

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Lang } from "../domain";
 import { copy } from "../i18n/copy";
+import type { CalendarPrefs } from "../schedule/shown-calendars";
 import { button } from "./ui";
 
 export type Theme = "light" | "dark";
@@ -11,14 +12,18 @@ export type Theme = "light" | "dark";
 export function SettingsMenu({
   lang,
   theme,
+  calendars,
   onLang,
   onTheme,
+  onCalendar,
   onSignOut,
 }: {
   lang: Lang;
   theme: Theme;
+  calendars: CalendarPrefs;
   onLang: (lang: Lang) => void;
   onTheme: (theme: Theme) => void;
+  onCalendar: (key: keyof CalendarPrefs, on: boolean) => void;
   onSignOut?: () => void;
 }) {
   const t = copy[lang];
@@ -57,7 +62,7 @@ export function SettingsMenu({
           role="dialog"
           aria-label={t.settings}
           data-testid="settings-panel"
-          className="pop-in material-pop absolute end-0 top-full z-40 mt-2 w-64 rounded-lg border border-line p-3 shadow-pop"
+          className="pop-in material-pop absolute end-0 top-full z-40 mt-2 w-80 rounded-lg border border-line p-3 shadow-pop"
         >
           <Group title={t.appearance}>
             <Segment
@@ -73,13 +78,22 @@ export function SettingsMenu({
           <Group title={t.language}>
             <Segment
               testId="lang"
+              columns={3}
               options={[
                 { value: "he", label: t.hebrew, lang: "he" },
                 { value: "en", label: t.english, lang: "en" },
+                { value: "ru", label: t.russian, lang: "ru" },
               ]}
               value={lang}
               onChange={(value) => onLang(value as Lang)}
             />
+            <div className="mt-3 border-t border-line pt-3">
+              <p className="text-xs font-semibold text-muted">{t.calendars}</p>
+              <p className="mt-1 text-xs leading-5 text-muted">{t.calendarsHint}</p>
+              <Switch testId="calendar-hebrew" label={t.hebrewCalendar} on={calendars.hebrew} onChange={(on) => onCalendar("hebrew", on)} />
+              <Switch testId="calendar-christian" label={t.christianHolidays} on={calendars.christian} onChange={(on) => onCalendar("christian", on)} />
+              <Switch testId="calendar-muslim" label={t.muslimHolidays} on={calendars.muslim} onChange={(on) => onCalendar("muslim", on)} />
+            </div>
           </Group>
           {onSignOut ? (
             <div className="mt-3 border-t border-line pt-3">
@@ -103,19 +117,39 @@ function Group({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
+function Switch({ testId, label, on, onChange }: { testId: string; label: string; on: boolean; onChange: (on: boolean) => void }) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      data-testid={testId}
+      aria-checked={on}
+      className="mt-2 flex w-full items-center justify-between gap-3 rounded-lg px-1 py-1 text-start focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+      onClick={() => onChange(!on)}
+    >
+      <span className="text-sm text-ink">{label}</span>
+      <span className={`relative h-5 w-9 shrink-0 rounded-full ${on ? "bg-brand" : "bg-track"}`}>
+        <span className={`absolute top-0.5 h-4 w-4 rounded-full bg-card shadow-card ${on ? "end-0.5" : "start-0.5"}`} />
+      </span>
+    </button>
+  );
+}
+
 function Segment({
   testId,
   options,
   value,
   onChange,
+  columns = 2,
 }: {
   testId: string;
   options: { value: string; label: string; icon?: ReactNode; lang?: Lang }[];
   value: string;
   onChange: (value: string) => void;
+  columns?: 2 | 3;
 }) {
   return (
-    <div className="grid grid-cols-2 gap-1 rounded-xl border border-line bg-track p-1">
+    <div className={`grid gap-1 rounded-xl border border-line bg-track p-1 ${columns === 3 ? "grid-cols-3" : "grid-cols-2"}`}>
       {options.map((option) => (
         <button
           key={option.value}

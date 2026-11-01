@@ -44,7 +44,7 @@ function isStringArray(value: unknown): value is string[] {
 export function readConstraintRequest(body: unknown): ConstraintRequest | null {
   if (!body || typeof body !== "object") return null;
   const input = body as Record<string, unknown>;
-  if (input.lang !== "he" && input.lang !== "en") return null;
+  if (input.lang !== "he" && input.lang !== "en" && input.lang !== "ru") return null;
   if (typeof input.text !== "string" || input.text.length === 0 || input.text.length > MAX_TEXT) return null;
   const textLines = input.text.split(/\r?\n/).length;
   if (!Array.isArray(input.lines) || input.lines.length === 0 || input.lines.length > MAX_LINES) return null;
@@ -87,7 +87,7 @@ const DAYS = "0=Sunday 1=Monday 2=Tuesday 3=Wednesday 4=Thursday 5=Friday 6=Satu
 
 export function constraintPrompt(request: ConstraintRequest): { system: string; user: string } {
   const system = [
-    "You read short availability messages that employees send to a shift manager, in Hebrew or English.",
+    "You read short availability messages that employees send to a shift manager, in Hebrew, English, or Russian.",
     "Return JSON only, with this shape: {\"suggestions\":[{\"line\":number,\"employeeId\":string,\"days\":number[],\"shiftIds\":string[],\"polarity\":\"off\"|\"on\"|\"only\"}]}.",
     "polarity off = cannot work those shifts. on = can work them. only = can work only those shifts that day.",
     "An empty shiftIds means every shift that day, and is not allowed with polarity only.",

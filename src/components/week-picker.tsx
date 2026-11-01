@@ -1,10 +1,11 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { addDays, sundayOnOrBefore, type Lang } from "../domain";
-import { hebrewDay, hebrewMonthSpan, holidaysBetween, type Holiday } from "../schedule/hebrew-calendar";
+import { addDays, localeOf, sundayOnOrBefore, type Lang } from "../domain";
+import { hebrewDay, hebrewMonthSpan } from "../schedule/hebrew-calendar";
+import { rangeHolidays } from "../schedule/shown-calendars";
 import { copy } from "../i18n/copy";
-import { useHebrewCalendar, WeekDates } from "./day-dates";
+import { useCalendars, WeekDates } from "./day-dates";
 
 const YEARS_AROUND = 5;
 
@@ -70,8 +71,9 @@ export function WeekPicker({ lang, week, onPick, className = "" }: { lang: Lang;
   const [view, setView] = useState(() => monthStart(addDays(week, 3)));
   const [hovered, setHovered] = useState<string | null>(null);
   const root = useRef<HTMLDivElement>(null);
-  const locale = lang === "he" ? "he-IL" : "en-GB";
-  const hebrew = useHebrewCalendar();
+  const locale = localeOf(lang);
+  const calendars = useCalendars();
+  const hebrew = calendars.hebrew;
 
   useEffect(() => {
     if (!open) return;
@@ -92,7 +94,7 @@ export function WeekPicker({ lang, week, onPick, className = "" }: { lang: Lang;
   const first = `${view.year}-${String(view.month).padStart(2, "0")}-01`;
   const gridStart = sundayOnOrBefore(first);
   const days = useMemo(() => Array.from({ length: 42 }, (_, index) => addDays(gridStart, index)), [gridStart]);
-  const holidays = useMemo(() => (hebrew ? holidaysBetween(days[0], days[41], lang) : new Map<string, Holiday[]>()), [days, lang, hebrew]);
+  const holidays = useMemo(() => rangeHolidays(days[0], days[41], lang, calendars), [days, lang, calendars]);
   const monthHolidays = days.filter((day) => day.startsWith(first.slice(0, 8)) && holidays.has(day));
   const today = localToday();
   const months = Array.from({ length: 12 }, (_, index) => ({
@@ -196,8 +198,8 @@ export function WeekPicker({ lang, week, onPick, className = "" }: { lang: Lang;
                           key={day}
                           type="button"
                           data-testid={`picker-day-${day}`}
-                          title={hebrew ? (names ? `${hebrewDay(day, lang)} · ${names}` : hebrewDay(day, lang)) : undefined}
-                          className={`flex ${hebrew ? "h-[3.75rem]" : "h-10"} min-w-0 flex-col items-center justify-start gap-0.5 rounded-xl px-0.5 pt-1 ${inMonth ? "" : "opacity-35"}`}
+                          title={names ? (hebrew ? `${hebrewDay(day, lang)} · ${names}` : names) : hebrew ? hebrewDay(day, lang) : undefined}
+                          className={`flex ${hebrew || events.length > 0 ? "h-[3.75rem]" : "h-10"} min-w-0 flex-col items-center justify-start gap-0.5 rounded-xl px-0.5 pt-1 ${inMonth ? "" : "opacity-35"}`}
                           onClick={() => pick(day)}
                         >
                           <span

@@ -25,7 +25,7 @@ export function readDemoSave(raw: string | null): DemoSave | null {
   try {
     const parsed = JSON.parse(raw) as { version?: number; state?: RotaState; lang?: unknown };
     if (parsed.version !== 1 || !validState(parsed.state)) return null;
-    return { state: parsed.state, lang: parsed.lang === "en" ? "en" : "he" };
+    return { state: parsed.state, lang: parsed.lang === "en" || parsed.lang === "ru" ? parsed.lang : "he" };
   } catch {
     return null;
   }
@@ -43,7 +43,7 @@ export function readWorkspaceSave(raw: string | null): WorkspaceSave | null {
     if (parsed.version !== 2 || !workspace?.org?.name || !Array.isArray(workspace.users)) return null;
     if (!Array.isArray(workspace.sites) || workspace.sites.length === 0) return null;
     if (!workspace.sites.every((site) => typeof site.id === "string" && validState(site.state))) return null;
-    return { workspace, lang: parsed.lang === "en" ? "en" : "he" };
+    return { workspace, lang: parsed.lang === "en" || parsed.lang === "ru" ? parsed.lang : "he" };
   } catch {
     return null;
   }

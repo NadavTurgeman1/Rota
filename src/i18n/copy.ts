@@ -1,5 +1,7 @@
 import type { Lang } from "../domain";
+import { tx } from "../domain/text";
 import type { ConstraintReason } from "../parser";
+import { ru } from "./ru";
 
 export interface Copy {
   demo: string;
@@ -81,6 +83,11 @@ export interface Copy {
   overQuota: string;
   hebrew: string;
   english: string;
+  russian: string;
+  calendars: string;
+  christianHolidays: string;
+  muslimHolidays: string;
+  calendarsHint: string;
   navSchedule: string;
   navTeam: string;
   navMine: string;
@@ -701,6 +708,11 @@ export const copy: Record<Lang, Copy> = {
     overQuota: "מעל המכסה",
     hebrew: "עברית",
     english: "English",
+    russian: "Русский",
+    calendars: "לוחות שנה",
+    christianHolidays: "חגים נוצרים",
+    muslimHolidays: "חגים מוסלמים",
+    calendarsHint: "אפשר להציג לוח שנה עברי, חגים נוצרים או חגים מוסלמים. הם מופיעים בקטן ליד התאריך, בסידור, באילוצים, בלוח השנה ובייצוא. כולם כבויים עד שמפעילים אותם.",
     navSchedule: "יצירת סידור",
     navTeam: "ניהול עובדים",
     navMine: "כניסה ויציאה",
@@ -1263,7 +1275,7 @@ export const copy: Record<Lang, Copy> = {
     previousMonth: "Previous month",
     nextMonth: "Next month",
     hebrewCalendar: "Hebrew calendar",
-    hebrewCalendarHint: "On: the Hebrew date and holidays appear in small print next to Gregorian dates, in the schedule, constraints, calendar and exports. Off: Gregorian dates only.",
+    hebrewCalendarHint: "Hebrew dates and Jewish holidays, in small print beside the Gregorian date.",
     previousYear: "Previous year",
     nextYear: "Next year",
     monthLabel: "Month",
@@ -1298,13 +1310,13 @@ export const copy: Record<Lang, Copy> = {
     createBeforePublish: "Generate a schedule before publishing.",
     allClear: "No violations and no open shifts. Ready to publish.",
     publishedClear: "No violations and no open shifts.",
-    noSchedule: "Nothing is assigned yet. Generate fills the seats through the engine.",
+    noSchedule: "Nothing is assigned yet. Generate fills the open seats.",
     issues: "Issues",
     violations: "Violations",
     laborTitle: "Hours of work and rest",
     laborOpen: "Open",
     laborClose: "Close",
-    laborWillAsk: "There are hours-of-work-and-rest notes. Publishing will ask first.",
+    laborWillAsk: "There are notes on hours of work and rest. Publishing will ask first.",
     laborAskLead: "This schedule has notes under the Hours of Work and Rest Law. Assignment stays allowed, and publishing waits for confirmation.",
     openShifts: "Open shifts",
     underQuota: "Under the agreement",
@@ -1324,7 +1336,7 @@ export const copy: Record<Lang, Copy> = {
     addEmployee: "Add employee",
     availableForShift: "Available",
     unavailableForShift: "Unavailable",
-    nobodyToAdd: "No one to add",
+    nobodyToAdd: "Nobody to add",
     remove: "Remove",
     covered: "Covered by an extension",
     cancelSelection: "Cancel selection",
@@ -1333,6 +1345,11 @@ export const copy: Record<Lang, Copy> = {
     overQuota: "Over the agreement",
     hebrew: "עברית",
     english: "English",
+    russian: "Русский",
+    calendars: "Calendars",
+    christianHolidays: "Christian holidays",
+    muslimHolidays: "Muslim holidays",
+    calendarsHint: "Show a Hebrew calendar, Christian holidays, or Muslim holidays. They appear in small print beside the date, on the schedule, constraints, calendar, and exports. All stay off until you turn one on.",
     navSchedule: "Create the schedule",
     navTeam: "Employees",
     navMine: "Clock in and out",
@@ -1581,7 +1598,7 @@ export const copy: Record<Lang, Copy> = {
     blockSplitWeekday: "Weekdays and weekend",
     blockSplitShift: "By shift",
     blockSplitGeneralHint: "One number for the whole week.",
-    blockSplitWeekdayHint: "Sunday to Thursday apart from Friday and Saturday.",
+    blockSplitWeekdayHint: "Sunday to Thursday counted separately from Friday and Saturday.",
     blockSplitShiftHint: "A separate number for each shift, across the week.",
     blockWeekdays: "Sunday–Thursday",
     blockWeekend: "Friday–Saturday",
@@ -1607,7 +1624,7 @@ export const copy: Record<Lang, Copy> = {
     createAccount: "Create account",
     goToSignup: "Don't have an account?",
     goToLogin: "Already have an account?",
-    forgotPassword: "Forgot my password",
+    forgotPassword: "Forgot password",
     forgotHint: "Choose a new password for this email. No email is sent.",
     forgotSend: "Save password",
     forgotSent: "The password is updated. You can sign in.",
@@ -1765,7 +1782,7 @@ export const copy: Record<Lang, Copy> = {
     attendanceReportOut: "Clock out",
     attendanceLast: (kind, when) => `Last report: ${kind} ${when}`,
     attendanceAlreadyIn: "There is already an open clock-in.",
-    attendanceAlreadyOut: "There is no open clock-in to leave.",
+    attendanceAlreadyOut: "There is no open clock-in to clock out of.",
     attendanceClockOk: "Clock is current",
     attendanceClockBad: "Clock needs a fix",
     attendanceClockSkew: "The phone clock is not current. Turn on automatic time, then refresh.",
@@ -1885,147 +1902,195 @@ export const copy: Record<Lang, Copy> = {
     rejectRequest: "Reject",
     hourlyWage: "Hourly wage",
   },
+  ru,
 };
 
 function problemParts(lang: Lang, violations: number, unfilled: number, coverage: number): string {
-  const parts =
-    lang === "en"
-      ? [
-          unfilled === 1 ? "1 open shift" : unfilled > 0 ? `${unfilled} open shifts` : "",
-          violations === 1 ? "1 violation" : violations > 0 ? `${violations} violations` : "",
-          coverage === 1 ? "1 coverage gap" : coverage > 0 ? `${coverage} coverage gaps` : "",
-        ]
-      : [
-          unfilled === 1 ? "משמרת פתוחה אחת" : unfilled > 0 ? `${unfilled} משמרות פתוחות` : "",
-          violations === 1 ? "הפרה אחת" : violations > 0 ? `${violations} הפרות` : "",
-          coverage === 1 ? "פער כיסוי אחד" : coverage > 0 ? `${coverage} פערי כיסוי` : "",
-        ];
+  const parts = [
+    tx(
+      lang,
+      unfilled === 1 ? "משמרת פתוחה אחת" : unfilled > 0 ? `${unfilled} משמרות פתוחות` : "",
+      unfilled === 1 ? "1 open shift" : unfilled > 0 ? `${unfilled} open shifts` : "",
+      unfilled === 1 ? "1 открытая смена" : unfilled > 0 ? `открытых смен: ${unfilled}` : "",
+    ),
+    tx(
+      lang,
+      violations === 1 ? "הפרה אחת" : violations > 0 ? `${violations} הפרות` : "",
+      violations === 1 ? "1 violation" : violations > 0 ? `${violations} violations` : "",
+      violations === 1 ? "1 нарушение" : violations > 0 ? `нарушений: ${violations}` : "",
+    ),
+    tx(
+      lang,
+      coverage === 1 ? "פער כיסוי אחד" : coverage > 0 ? `${coverage} פערי כיסוי` : "",
+      coverage === 1 ? "1 coverage gap" : coverage > 0 ? `${coverage} coverage gaps` : "",
+      coverage === 1 ? "1 пробел покрытия" : coverage > 0 ? `пробелов покрытия: ${coverage}` : "",
+    ),
+  ];
   return parts.filter(Boolean).join(", ");
 }
 
 export function publishBlocked(lang: Lang, violations: number, unfilled: number, coverage = 0): string {
   const body = problemParts(lang, violations, unfilled, coverage);
-  return lang === "en" ? `Publish is blocked: ${body}.` : `פרסום חסום: ${body}.`;
+  return tx(lang, `פרסום חסום: ${body}.`, `Publish is blocked: ${body}.`, `Публикация закрыта: ${body}.`);
 }
 
 /** The sentence in the publish confirmation. The count is open shifts, violations, and coverage gaps. */
 export function publishProblems(lang: Lang, violations: number, unfilled: number, coverage = 0): string {
   const count = violations + unfilled + coverage;
   const body = problemParts(lang, violations, unfilled, coverage);
-  if (lang === "en") {
-    const lead = count === 1 ? "There is 1 problem" : `There are ${count} problems`;
-    return body ? `${lead}: ${body}.` : `${lead}.`;
-  }
-  const lead = count === 1 ? "יש בעיה אחת" : `יש ${count} בעיות`;
+  const lead = tx(
+    lang,
+    count === 1 ? "יש בעיה אחת" : `יש ${count} בעיות`,
+    count === 1 ? "There is 1 problem" : `There are ${count} problems`,
+    count === 1 ? "Есть 1 проблема" : `Проблем: ${count}`,
+  );
   return body ? `${lead}: ${body}.` : `${lead}.`;
 }
 
 export function publishWillAsk(lang: Lang, count: number): string {
-  if (lang === "en") return count === 1 ? "There is 1 problem. Publishing will ask first." : `There are ${count} problems. Publishing will ask first.`;
-  return count === 1 ? "יש בעיה אחת. הפרסום יבקש אישור." : `יש ${count} בעיות. הפרסום יבקש אישור.`;
+  return tx(
+    lang,
+    count === 1 ? "יש בעיה אחת. הפרסום יבקש אישור." : `יש ${count} בעיות. הפרסום יבקש אישור.`,
+    count === 1 ? "There is 1 problem. Publishing will ask first." : `There are ${count} problems. Publishing will ask first.`,
+    count === 1 ? "Есть 1 проблема. Публикация сначала спросит." : `Проблем: ${count}. Публикация сначала спросит.`,
+  );
 }
 
 export function constraintBlocked(lang: Lang, count: number): string {
-  if (lang === "en") {
-    return count === 1
-      ? "Publish is blocked: someone is scheduled against a constraint."
-      : `Publish is blocked: ${count} assignments break a constraint.`;
-  }
-  return count === 1 ? "פרסום חסום: יש שיבוץ על אילוץ." : `פרסום חסום: יש ${count} שיבוצים על אילוץ.`;
+  return tx(
+    lang,
+    count === 1 ? "פרסום חסום: יש שיבוץ על אילוץ." : `פרסום חסום: יש ${count} שיבוצים על אילוץ.`,
+    count === 1 ? "Publish is blocked: someone is scheduled against a constraint." : `Publish is blocked: ${count} assignments break a constraint.`,
+    count === 1 ? "Публикация закрыта: кто-то стоит в смене против ограничения." : `Публикация закрыта: ${count} назначений нарушают ограничение.`,
+  );
 }
 
 /** One suggested clock change. The time is the new start or the new end. */
 export function hourFixText(lang: Lang, name: string, shift: string, edge: "start" | "end", clock: string): string {
   const time = `\u200E${clock}`;
-  if (lang === "en") return edge === "start" ? `${name} starts ${shift} at ${time}` : `${name} finishes ${shift} at ${time}`;
-  return edge === "start" ? `${name} — ${shift} מ-${time}` : `${name} — ${shift} עד ${time}`;
+  return edge === "start"
+    ? tx(lang, `${name} — ${shift} מ-${time}`, `${name} starts ${shift} at ${time}`, `${name} начинает ${shift} в ${time}`)
+    : tx(lang, `${name} — ${shift} עד ${time}`, `${name} finishes ${shift} at ${time}`, `${name} заканчивает ${shift} в ${time}`);
 }
 
 /** Shortage or surplus, without the shift name. The clock range is added beside it. */
 export function coverageGapText(lang: Lang, delta: number): string {
   const count = Math.abs(delta);
-  if (lang === "en") {
-    if (delta < 0) return count === 1 ? "One employee short" : `${count} employees short`;
-    return count === 1 ? "One extra employee" : `${count} extra employees`;
+  if (delta < 0) {
+    return tx(
+      lang,
+      count === 1 ? "חוסר של עובד אחד" : `חוסר של ${count} עובדים`,
+      count === 1 ? "One employee short" : `${count} employees short`,
+      count === 1 ? "Не хватает одного сотрудника" : `Не хватает сотрудников: ${count}`,
+    );
   }
-  if (delta < 0) return count === 1 ? "חוסר של עובד אחד" : `חוסר של ${count} עובדים`;
-  return count === 1 ? "עודף של עובד אחד" : `עודף של ${count} עובדים`;
+  return tx(
+    lang,
+    count === 1 ? "עודף של עובד אחד" : `עודף של ${count} עובדים`,
+    count === 1 ? "One extra employee" : `${count} extra employees`,
+    count === 1 ? "Один лишний сотрудник" : `Лишних сотрудников: ${count}`,
+  );
 }
 
 export function selectionHint(lang: Lang, name: string): string {
-  return lang === "he"
-    ? `${name} נבחר. לחצו על משמרת יעד, או גררו במחשב.`
-    : `${name} is selected. Tap a destination shift, or drag on desktop.`;
+  return tx(
+    lang,
+    `${name} נבחר. לחצו על משמרת יעד, או גררו במחשב.`,
+    `${name} is selected. Tap a destination shift, or drag on desktop.`,
+    `${name} выбран. Нажмите смену назначения или перетащите на компьютере.`,
+  );
 }
 
 export function removeLabel(lang: Lang, name: string): string {
-  return lang === "he" ? `הסרת ${name}` : `Remove ${name}`;
+  return tx(lang, `הסרת ${name}`, `Remove ${name}`, `Убрать ${name}`);
 }
 
 export function confirmDeleteForm(lang: Lang, name: string): string {
-  return lang === "he" ? `למחוק את ${name}?` : `Delete ${name}?`;
+  return tx(lang, `למחוק את ${name}?`, `Delete ${name}?`, `Удалить ${name}?`);
 }
 
 export function confirmDeleteEmployee(lang: Lang, name: string): string {
-  return lang === "he"
-    ? `למחוק את ${name}? ההסכם, הזמינות והשיבוצים בטיוטות יימחקו. סידורים שפורסמו וגרסאות יישארו כמו שהם.`
-    : `Delete ${name}? Their agreement, availability and draft seats are removed. Published weeks and versions stay as they are.`;
+  return tx(
+    lang,
+    `למחוק את ${name}? ההסכם, הזמינות והשיבוצים בטיוטות יימחקו. סידורים שפורסמו וגרסאות יישארו כמו שהם.`,
+    `Delete ${name}? Their agreement, availability and draft seats are removed. Published weeks and versions stay as they are.`,
+    `Удалить ${name}? Соглашение, доступность и места в черновиках удалятся. Опубликованные недели и версии останутся как есть.`,
+  );
 }
 
 export function deleteEmployeeBlocked(lang: Lang, weeks: string): string {
-  return lang === "he"
-    ? `אי אפשר למחוק עכשיו: העובד משובץ בסידור שפורסם (${weeks}). החזירו את השבוע לטיוטה או דווחו חיסור, ואז מחקו.`
-    : `Can't delete yet: they're seated in a published week (${weeks}). Return it to draft or report a call-off first.`;
+  return tx(
+    lang,
+    `אי אפשר למחוק עכשיו: העובד משובץ בסידור שפורסם (${weeks}). החזירו את השבוע לטיוטה או דווחו חיסור, ואז מחקו.`,
+    `Can't delete yet: they're seated in a published week (${weeks}). Return it to draft or report a call-off first.`,
+    `Пока нельзя удалить: сотрудник стоит в опубликованной неделе (${weeks}). Верните её в черновик или снимите его со смены, затем удалите.`,
+  );
 }
 
 export function confirmDeleteManager(lang: Lang, name: string): string {
-  return lang === "he"
-    ? `למחוק את מנהל המשמרות ${name}? המשתמש שלו יימחק והוא לא יוכל להיכנס.`
-    : `Delete the shift manager ${name}? Their login is removed and they can no longer sign in.`;
+  return tx(
+    lang,
+    `למחוק את מנהל המשמרות ${name}? המשתמש שלו יימחק והוא לא יוכל להיכנס.`,
+    `Delete the shift manager ${name}? Their login is removed and they can no longer sign in.`,
+    `Удалить менеджера смен ${name}? Его вход удалится, и он больше не сможет войти.`,
+  );
 }
 
 export function confirmDeleteStaffLogin(lang: Lang, name: string): string {
-  return lang === "he"
-    ? `למחוק את הכניסה של ${name}? המשתמש יימחק, אבל ${name} יישאר בניהול העובדים ובסידורים.`
-    : `Delete ${name}'s login? The login is removed, but ${name} stays on the team and in schedules.`;
+  return tx(
+    lang,
+    `למחוק את הכניסה של ${name}? המשתמש יימחק, אבל ${name} יישאר בניהול העובדים ובסידורים.`,
+    `Delete ${name}'s login? The login is removed, but ${name} stays on the team and in schedules.`,
+    `Удалить вход ${name}? Вход удалится, но ${name} останется в списке сотрудников и в графиках.`,
+  );
 }
 
 export function confirmDeleteSite(lang: Lang, name: string): string {
-  return lang === "he"
-    ? `למחוק את האתר ${name}? המשמרות, העובדים, הזמינות, הסידורים והגרסאות שלו יימחקו.`
-    : `Delete the site ${name}? Its shifts, employees, availability, schedules and versions are removed.`;
+  return tx(
+    lang,
+    `למחוק את האתר ${name}? המשמרות, העובדים, הזמינות, הסידורים והגרסאות שלו יימחקו.`,
+    `Delete the site ${name}? Its shifts, employees, availability, schedules and versions are removed.`,
+    `Удалить объект ${name}? Его смены, сотрудники, доступность, графики и версии удалятся.`,
+  );
 }
 
 export function userErrorText(lang: Lang, error: "name" | "email" | "duplicate" | "password"): string {
-  const he = { name: "חסר שם.", email: "האימייל לא תקין.", duplicate: "כבר יש משתמש עם האימייל הזה.", password: "סיסמה של 6 תווים לפחות." };
-  const en = { name: "Name is missing.", email: "The email is not valid.", duplicate: "A user with this email exists.", password: "Password needs at least 6 characters." };
-  return (lang === "he" ? he : en)[error];
+  const text = {
+    name: tx(lang, "חסר שם.", "Name is missing.", "Нет имени."),
+    email: tx(lang, "האימייל לא תקין.", "The email is not valid.", "Почта неверна."),
+    duplicate: tx(lang, "כבר יש משתמש עם האימייל הזה.", "A user with this email exists.", "Пользователь с этой почтой уже есть."),
+    password: tx(lang, "סיסמה של 6 תווים לפחות.", "Password needs at least 6 characters.", "Паролю нужно не меньше 6 символов."),
+  };
+  return text[error];
 }
 
 export function versionLabel(lang: Lang, number: number): string {
-  return lang === "he" ? `גרסה ${number}` : `Version ${number}`;
+  return tx(lang, `גרסה ${number}`, `Version ${number}`, `Версия ${number}`);
 }
 
 export function deleteVersionLabel(lang: Lang, number: number): string {
-  return lang === "he" ? `מחיקת גרסה ${number}` : `Delete version ${number}`;
+  return tx(lang, `מחיקת גרסה ${number}`, `Delete version ${number}`, `Удалить версию ${number}`);
 }
 
 export function restoredFromText(lang: Lang, number: number): string {
-  return lang === "he" ? `שוחזרה מגרסה ${number}` : `Restored from version ${number}`;
+  return tx(lang, `שוחזרה מגרסה ${number}`, `Restored from version ${number}`, `Восстановлено из версии ${number}`);
 }
 
 export function restoredDraftText(lang: Lang, number: number): string {
-  return lang === "he"
-    ? `הטיוטה שוחזרה מגרסה ${number}. פרסום יבדוק אותה שוב ויהפוך אותה לגרסה הבאה.`
-    : `This draft was restored from version ${number}. Publishing checks it again and makes it the next version.`;
+  return tx(
+    lang,
+    `הטיוטה שוחזרה מגרסה ${number}. פרסום יבדוק אותה שוב ויהפוך אותה לגרסה הבאה.`,
+    `This draft was restored from version ${number}. Publishing checks it again and makes it the next version.`,
+    `Черновик восстановлен из версии ${number}. Публикация проверит его снова и сделает следующей версией.`,
+  );
 }
 
 export function sinceVersionText(lang: Lang, number: number): string {
-  return lang === "he" ? `שינויים מאז גרסה ${number}` : `Changes since version ${number}`;
+  return tx(lang, `שינויים מאז גרסה ${number}`, `Changes since version ${number}`, `Изменения с версии ${number}`);
 }
 
 export function callOffLabel(lang: Lang, name: string): string {
-  return lang === "he" ? `חיסור: ${name}` : `Call off ${name}`;
+  return tx(lang, `חיסור: ${name}`, `Call off ${name}`, `Снятие: ${name}`);
 }
 
 export function constraintReasonText(lang: Lang, reason: ConstraintReason): string {
@@ -2051,6 +2116,17 @@ export function constraintReasonText(lang: Lang, reason: ConstraintReason): stri
     missing_polarity: "It is unclear whether they can work.",
     conflict: "The line contradicts itself.",
   };
-  return (lang === "he" ? he : en)[reason];
+  const russian: Record<ConstraintReason, string> = {
+    unknown_employee: "Этого имени нет в команде.",
+    ambiguous_employee: "Это имя подходит больше чем одному человеку.",
+    ambiguous_shift: "Это слово смены подходит больше чем одной смене.",
+    ambiguous_day: "День неоднозначен.",
+    no_employee: "В этой строке нет ясного сотрудника.",
+    missing_day: "Нет ясного дня.",
+    missing_shift: "Нет ясной смены.",
+    missing_polarity: "Неясно, может ли человек работать.",
+    conflict: "Строка противоречит сама себе.",
+  };
+  return (lang === "he" ? he : lang === "ru" ? russian : en)[reason];
 }
 

@@ -118,7 +118,7 @@ export function ReportsScreen({
         rows.set(employee.id, employee);
       }
     }
-    return [...rows.values()].sort((left, right) => left.name.localeCompare(right.name, lang === "he" ? "he" : "en"));
+    return [...rows.values()].sort((left, right) => left.name.localeCompare(right.name, lang));
   }, [selected, role, lang]);
   const roles = useMemo(
     () => roleNames(selected.flatMap((site) => [...(site.state.biz.roles ?? []), ...site.state.biz.shifts.map((shift) => shift.role), ...site.state.emps.map((employee) => employee.role)])),

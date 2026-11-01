@@ -1,19 +1,23 @@
 import { createContext, useContext } from "react";
 import type { Lang } from "../domain";
 import { formatDayDate, formatWeekRange } from "../schedule/display";
-import { hebrewWeek, hebrewWeekRange } from "../schedule/hebrew-calendar";
+import { CALENDARS_OFF, weekHebrewRange, weekMarks, type CalendarPrefs } from "../schedule/shown-calendars";
 
-/** The business setting. Off leaves Gregorian dates only: no Hebrew dates and no holidays. */
-export const HebrewCalendarContext = createContext(true);
+/** Display calendars. All off until the viewer turns one on in settings. */
+export const HebrewCalendarContext = createContext<CalendarPrefs>(CALENDARS_OFF);
 
-export function useHebrewCalendar(): boolean {
+export function useCalendars(): CalendarPrefs {
   return useContext(HebrewCalendarContext);
 }
 
-/** Under a day name: the Gregorian date, then the Hebrew date and holidays in small print. */
+export function useHebrewCalendar(): boolean {
+  return useCalendars().hebrew;
+}
+
+/** Under a day name: the Gregorian date, then any calendar the viewer turned on. */
 export function DayDates({ week, day, lang, today = false }: { week: string; day: number; lang: Lang; today?: boolean }) {
-  const hebrew = useHebrewCalendar();
-  const info = hebrew ? hebrewWeek(week, lang)[day] : null;
+  const calendars = useCalendars();
+  const info = calendars.hebrew || calendars.christian || calendars.muslim ? weekMarks(week, lang, calendars)[day] : null;
   return (
     <>
       <span className={`block text-[11px] font-normal tabular-nums ${today ? "text-brand-text" : "text-subtle"}`}>{formatDayDate(week, day, lang)}</span>
@@ -40,15 +44,15 @@ export function DayDates({ week, day, lang, today = false }: { week: string; day
   );
 }
 
-/** A week range, with its Hebrew range in small print underneath when the calendar is on. */
+/** A week range, with its Hebrew range in small print underneath when that calendar is on. */
 export function WeekDates({ week, lang, className = "" }: { week: string; lang: Lang; className?: string }) {
-  const hebrew = useHebrewCalendar();
+  const hebrew = weekHebrewRange(week, lang, useCalendars());
   return (
     <span className={`flex flex-col items-center leading-tight ${className}`}>
       <span>{formatWeekRange(week, lang)}</span>
       {hebrew ? (
         <span data-testid="hebrew-week" className="text-[11px] font-normal text-muted">
-          {hebrewWeekRange(week, lang)}
+          {hebrew}
         </span>
       ) : null}
     </span>

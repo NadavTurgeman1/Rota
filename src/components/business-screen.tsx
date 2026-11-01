@@ -237,20 +237,18 @@ export function BusinessScreen({
     { key: "maxDayHours", label: t.maxDayHours },
   ];
   const activeName = sites.find((site) => site.id === activeSiteId)?.name ?? biz.name;
-  const [orgPatch, setOrgPatch] = useState<{ name?: string; type?: string; hebrewCalendar?: boolean }>({});
+  const [orgPatch, setOrgPatch] = useState<{ name?: string; type?: string }>({});
   const [sitePatch, setSitePatch] = useState<BusinessPatch>({});
-  const orgView = { name: orgPatch.name ?? org.name, type: orgPatch.type ?? org.type, hebrewCalendar: orgPatch.hebrewCalendar ?? org.hebrewCalendar };
+  const orgView = { name: orgPatch.name ?? org.name, type: orgPatch.type ?? org.type };
   const siteView = { ...biz, ...sitePatch };
-  const calendarOn = org.hebrewCalendar !== false;
   const orgChanged =
     (orgPatch.name !== undefined && orgPatch.name !== org.name) ||
-    (orgPatch.type !== undefined && orgPatch.type !== org.type) ||
-    (orgPatch.hebrewCalendar !== undefined && orgPatch.hebrewCalendar !== calendarOn);
+    (orgPatch.type !== undefined && orgPatch.type !== org.type);
   const siteChanged = (Object.keys(sitePatch) as (keyof BusinessPatch)[]).some(
     (key) => JSON.stringify(sitePatch[key]) !== JSON.stringify(biz[key as keyof typeof biz]),
   );
   const dirty = orgChanged || siteChanged;
-  function editOrg(patch: { name?: string; type?: string; hebrewCalendar?: boolean }) {
+  function editOrg(patch: { name?: string; type?: string }) {
     setOrgPatch((current) => ({ ...current, ...patch }));
   }
   function editSite(patch: BusinessPatch) {
@@ -291,34 +289,6 @@ export function BusinessScreen({
               onCommit={(type) => editOrg({ type })}
             />
           </label>
-        </div>
-        <div className="mt-5 border-t border-line pt-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="text-sm font-medium text-ink">{t.hebrewCalendar}</span>
-            <div className="inline-flex rounded-full border border-line bg-well p-0.5" role="group" aria-label={t.hebrewCalendar}>
-              <button
-                type="button"
-                data-testid="hebrew-calendar-off"
-                aria-pressed={orgView.hebrewCalendar === false}
-                disabled={!canEditOrg}
-                className={`h-8 rounded-full px-3 text-xs font-semibold ${orgView.hebrewCalendar === false ? "bg-card text-ink shadow-card" : "text-muted"}`}
-                onClick={() => editOrg({ hebrewCalendar: false })}
-              >
-                OFF
-              </button>
-              <button
-                type="button"
-                data-testid="hebrew-calendar-on"
-                aria-pressed={orgView.hebrewCalendar !== false}
-                disabled={!canEditOrg}
-                className={`h-8 rounded-full px-3 text-xs font-semibold ${orgView.hebrewCalendar !== false ? "bg-brand text-on-brand shadow-card" : "text-muted"}`}
-                onClick={() => editOrg({ hebrewCalendar: true })}
-              >
-                ON
-              </button>
-            </div>
-          </div>
-          <p className="mt-2 text-sm leading-6 text-muted">{t.hebrewCalendarHint}</p>
         </div>
       </section>
 

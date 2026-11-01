@@ -1,8 +1,9 @@
 import { useMemo, useState } from "react";
-import { addDays, clickAbsenceDay, sundayOnOrBefore, type Lang } from "../domain";
-import { hebrewDay, hebrewMonthSpan, holidaysBetween, type Holiday } from "../schedule/hebrew-calendar";
+import { addDays, clickAbsenceDay, localeOf, sundayOnOrBefore, type Lang } from "../domain";
+import { hebrewDay, hebrewMonthSpan } from "../schedule/hebrew-calendar";
+import { rangeHolidays } from "../schedule/shown-calendars";
 import { copy } from "../i18n/copy";
-import { useHebrewCalendar } from "./day-dates";
+import { useCalendars } from "./day-dates";
 
 const YEARS_AROUND = 5;
 
@@ -83,13 +84,14 @@ export function AbsenceCalendar({
 }) {
   const t = copy[lang];
   const [view, setView] = useState(() => monthStart(start || localToday()));
-  const locale = lang === "he" ? "he-IL" : "en-GB";
-  const hebrew = useHebrewCalendar();
+  const locale = localeOf(lang);
+  const calendars = useCalendars();
+  const hebrew = calendars.hebrew;
 
   const first = `${view.year}-${String(view.month).padStart(2, "0")}-01`;
   const gridStart = sundayOnOrBefore(first);
   const days = useMemo(() => Array.from({ length: 42 }, (_, index) => addDays(gridStart, index)), [gridStart]);
-  const holidays = useMemo(() => (hebrew ? holidaysBetween(days[0], days[41], lang) : new Map<string, Holiday[]>()), [days, lang, hebrew]);
+  const holidays = useMemo(() => rangeHolidays(days[0], days[41], lang, calendars), [days, lang, calendars]);
   const today = localToday();
   const months = Array.from({ length: 12 }, (_, index) => ({
     value: index + 1,

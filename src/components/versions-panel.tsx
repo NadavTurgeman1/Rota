@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { diffIsEmpty, diffSchedules, weekVersions, type Lang, type RotaState, type ScheduleDiff } from "../domain";
+import { diffIsEmpty, diffSchedules, localeOf, weekVersions, type Lang, type RotaState, type ScheduleDiff } from "../domain";
 import { copy, deleteVersionLabel, restoredDraftText, restoredFromText, sinceVersionText, versionLabel } from "../i18n/copy";
 import { employeeName } from "../people/edit";
 import { slotTitle } from "../schedule/display";
@@ -80,7 +80,7 @@ export function VersionsPanel({
                     {version.reason === "publish" ? t.versionPublish : version.reason === "trade" ? t.versionTrade : t.versionCalloff}
                   </span>
                   <time dateTime={version.at} className="text-subtle">
-                    {new Date(version.at).toLocaleString(lang === "he" ? "he-IL" : "en-GB", {
+                    {new Date(version.at).toLocaleString(localeOf(lang), {
                       weekday: "short",
                       hour: "2-digit",
                       minute: "2-digit",

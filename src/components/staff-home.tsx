@@ -15,7 +15,7 @@ import { WeekBoard } from "./schedule-board";
 import { Logo } from "./login-screen";
 import { RailIcon } from "./rail-icon";
 import { downloadBlob, downloadWeekPng } from "./week-png";
-import { useHebrewCalendar } from "./day-dates";
+import { useCalendars } from "./day-dates";
 import { StaffTrades, type ShiftTrade, type TradeApi } from "./trades";
 import { StaffEnvelopeButton, StaffMessageInbox, StaffMessagePopup } from "./staff-messages";
 import type { ManagerMessage } from "../db/messages";
@@ -242,7 +242,7 @@ function DecisionNotice({
   const t = copy[lang];
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
-  const hebrew = useHebrewCalendar();
+  const hebrew = useCalendars().hebrew;
   const title = decision.outcome === "approved" ? t.requestApproved : t.requestRejected;
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4">
@@ -357,7 +357,7 @@ export function StaffHome({
   schedulable: boolean;
 }) {
   const t = copy[lang];
-  const hebrew = useHebrewCalendar();
+  const calendars = useCalendars();
   const [tab, setTab] = useState<"attendance" | "schedule" | "constraints" | "absences">("attendance");
   const activeNav = useRef<HTMLButtonElement>(null);
   const [copied, setCopied] = useState(false);
@@ -574,7 +574,7 @@ export function StaffHome({
                 className={button.quiet}
                 disabled={!hasPublished}
                 onClick={() => {
-                  const xml = weekExcelXml(publishedStates, lang, orgName, selfId ?? undefined, hebrew, state.biz.excelLayout === "shifts" ? "shifts" : "written");
+                  const xml = weekExcelXml(publishedStates, lang, orgName, selfId ?? undefined, calendars, state.biz.excelLayout === "shifts" ? "shifts" : "written");
                   if (!xml) return;
                   downloadBlob(new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" }), exportFileName(siteName, state.week, "xls"));
                 }}
@@ -587,7 +587,7 @@ export function StaffHome({
                 className={button.quiet}
                 disabled={!hasPublished}
                 onClick={() => {
-                  const csv = weekCsv(publishedStates, lang, selfId ?? undefined, hebrew);
+                  const csv = weekCsv(publishedStates, lang, selfId ?? undefined, calendars);
                   if (!csv) return;
                   downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), exportFileName(siteName, state.week, "csv"));
                 }}
@@ -601,7 +601,7 @@ export function StaffHome({
                 disabled={!hasPublished}
                 onClick={() => {
                   for (const view of publishedStates) {
-                    const data = weekExport(view, lang, orgName, hebrew);
+                    const data = weekExport(view, lang, orgName, calendars);
                     if (!data) continue;
                     downloadWeekPng(
                       data,
@@ -619,7 +619,7 @@ export function StaffHome({
                 className={button.quiet}
                 disabled={!hasPublished}
                 onClick={() => {
-                  const text = weekText(publishedStates, lang, orgName, selfId ?? undefined, hebrew);
+                  const text = weekText(publishedStates, lang, orgName, selfId ?? undefined, calendars);
                   if (!text) return;
                   if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
                     void navigator.clipboard.writeText(text).then(() => {
