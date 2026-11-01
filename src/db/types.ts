@@ -24,6 +24,7 @@ export interface SiteRow {
   org_name: string;
   org_kind: string;
   roles: unknown;
+  excel_layout: string;
 }
 
 export interface ShiftRow {

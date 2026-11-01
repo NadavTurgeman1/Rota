@@ -40,8 +40,15 @@ describe("weekly export formats", () => {
 
     const excel = weekExcelXml(published, "he", "Sentinel")!;
     expect(excel).toContain('<?mso-application progid="Excel.Sheet"?>');
-    expect(excel).toContain('ss:Name="סידור שבועי"');
-    expect(excel).toContain('ss:Name="שעות ומשמרות"');
+    expect(excel).toContain('ss:Name="סידור רגיל"');
+    expect(excel).toContain('ss:Name="סידור לפי עובד"');
+    expect(excel).toContain('ss:Name="שעות עבודה לכל עובד"');
+    expect(excel).toContain('ss:Name="תקן מול סידור לפי אתר"');
+    const byEmployee = excel.slice(excel.indexOf('ss:Name="סידור לפי עובד"'), excel.indexOf("</Worksheet>", excel.indexOf('ss:Name="סידור לפי עובד"')));
+    expect(byEmployee).toContain('ss:StyleID="head"><Data ss:Type="String">ראשון</Data>');
+    const byShift = weekExcelXml(published, "he", "Sentinel", undefined, true, "shifts")!;
+    const shiftSheet = byShift.slice(byShift.indexOf('ss:Name="סידור לפי עובד"'), byShift.indexOf("</Worksheet>", byShift.indexOf('ss:Name="סידור לפי עובד"')));
+    expect(shiftSheet).toContain('ss:StyleID="head"><Data ss:Type="String">בוקר</Data>');
     expect(excel).toContain('ss:RightToLeft="1"');
     expect(excel).toContain(dana.name);
 

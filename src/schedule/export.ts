@@ -1,4 +1,5 @@
 import { addDays, coveredSeats, dayName, durationHours, fullShiftCoveredByHours, shiftKind, slots, type Lang, type RotaState } from "../domain";
+import { staffedCount } from "../domain/rest";
 import { calendarTitle, shiftsIcs, type CalendarShift } from "./calendar";
 import { clockLabel } from "./edit";
 import { formatDayDate, formatWeekRange, shiftLabel, siteLabel } from "./display";
@@ -194,8 +195,9 @@ function xmlEscape(value: string): string {
     .replaceAll("'", "&apos;");
 }
 
-function worksheetBoardXml(data: WeekExport, sheetName: string, labels: { shift: string; closed: string; open: string; covered: string }): string {
-  const rtl = data.dir === "rtl" ? ' ss:RightToLeft="1"' : "";
+export type ExcelLayout = "shifts" | "written";
+
+function boardRows(data: WeekExport, labels: { shift: string; closed: string; open: string; covered: string }): string {
   const headerCells = [
     `<Cell ss:StyleID="head"><Data ss:Type="String">${xmlEscape(labels.shift)}</Data></Cell>`,
     ...data.days.map(
@@ -223,20 +225,51 @@ function worksheetBoardXml(data: WeekExport, sheetName: string, labels: { shift:
     })
     .join("");
   return [
-    `<Worksheet ss:Name="${xmlEscape(sheetName.slice(0, 31))}"${rtl}>`,
-    "<Table>",
-    '<Column ss:Width="130"/>',
-    ...data.days.map(() => '<Column ss:Width="135"/>'),
     `<Row ss:Height="26"><Cell ss:MergeAcross="${data.days.length}" ss:StyleID="title"><Data ss:Type="String">${xmlEscape([data.title, data.subtitle, data.hebrewSubtitle].filter(Boolean).join(" · "))}</Data></Cell></Row>`,
     `<Row ss:Height="${!data.hebrewSubtitle ? 24 : data.days.some((day) => day.holidays.length > 0) ? 52 : 38}">${headerCells}</Row>`,
     bodyRows,
-    "</Table>",
-    "</Worksheet>",
   ].join("");
 }
 
-/** Excel SpreadsheetML (.xls) with the weekly board and an hours & shifts breakdown sheet. */
-export function weekExcelXml(sites: RotaState | RotaState[], lang: Lang, org: string, onlyEmployeeId?: string, hebrew = true): string | null {
+function textCell(value: string, style = "cell"): string {
+  return `<Cell ss:StyleID="${style}"><Data ss:Type="String">${xmlEscape(value)}</Data></Cell>`;
+}
+
+function numberCell(value: number, style = "cell"): string {
+  const shown = Number.isInteger(value) ? String(value) : String(Number(value.toFixed(2)));
+  return `<Cell ss:StyleID="${style}"><Data ss:Type="Number">${shown}</Data></Cell>`;
+}
+
+function lines(parts: string[]): string {
+  return parts.filter(Boolean).map(xmlEscape).join("&#10;");
+}
+
+function sheetXml(name: string, rtl: string, columns: string, rows: string): string {
+  return [`<Worksheet ss:Name="${xmlEscape(name.slice(0, 31))}"${rtl}>`, "<Table>", columns, rows, "</Table>", "</Worksheet>"].join("");
+}
+
+function listedPeople(state: RotaState, onlyEmployeeId?: string): { id: string; name: string }[] {
+  const names = nameMap(state);
+  const ids = new Set<string>();
+  if (onlyEmployeeId) ids.add(onlyEmployeeId);
+  else {
+    for (const employee of state.emps) if (employee.active !== false) ids.add(employee.id);
+    for (const assigned of Object.values(state.sched[state.week]?.assign ?? {})) {
+      for (const id of assigned ?? []) ids.add(id);
+    }
+  }
+  return [...ids].map((id) => ({ id, name: names.get(id) ?? id })).sort((left, right) => left.name.localeCompare(right.name, "he"));
+}
+
+/** Excel SpreadsheetML (.xls): regular board, by employee, hours, and standard against the schedule. */
+export function weekExcelXml(
+  sites: RotaState | RotaState[],
+  lang: Lang,
+  org: string,
+  onlyEmployeeId?: string,
+  hebrew = true,
+  layout: ExcelLayout = "written",
+): string | null {
   const list = Array.isArray(sites) ? sites : [sites];
   const published = list.filter((site) => site.sched[site.week]?.status === "published");
   if (published.length === 0) return null;
@@ -245,8 +278,10 @@ export function weekExcelXml(sites: RotaState | RotaState[], lang: Lang, org: st
   const labels =
     lang === "he"
       ? {
-          board: "סידור שבועי",
-          hours: "שעות ומשמרות",
+          board: "סידור רגיל",
+          byEmployee: "סידור לפי עובד",
+          hours: "שעות עבודה לכל עובד",
+          standard: "תקן מול סידור לפי אתר",
           shift: "משמרת",
           closed: "סגור",
           open: "חסר",
@@ -254,6 +289,13 @@ export function weekExcelXml(sites: RotaState | RotaState[], lang: Lang, org: st
           employee: "עובד",
           shiftsCount: "משמרות",
           totalHours: "סה״כ שעות",
+          required: "תקן",
+          assigned: "שובצו",
+          result: "תוצאה",
+          role: "תפקיד",
+          met: "תקין",
+          short: (count: number) => `חוסר ${count}`,
+          over: (count: number) => `עודף ${count}`,
           site: "אתר",
           date: "תאריך",
           hebrewDate: "תאריך עברי",
@@ -263,8 +305,10 @@ export function weekExcelXml(sites: RotaState | RotaState[], lang: Lang, org: st
           duration: "אורך (שעות)",
         }
       : {
-          board: "Weekly schedule",
-          hours: "Hours & shifts",
+          board: "Regular schedule",
+          byEmployee: "By employee",
+          hours: "Hours per employee",
+          standard: "Standard vs schedule",
           shift: "Shift",
           closed: "Closed",
           open: "Open",
@@ -272,6 +316,13 @@ export function weekExcelXml(sites: RotaState | RotaState[], lang: Lang, org: st
           employee: "Employee",
           shiftsCount: "Shifts",
           totalHours: "Total hours",
+          required: "Standard",
+          assigned: "Assigned",
+          result: "Result",
+          role: "Role",
+          met: "Met",
+          short: (count: number) => `Short ${count}`,
+          over: (count: number) => `Over ${count}`,
           site: "Site",
           date: "Date",
           hebrewDate: "Hebrew date",
@@ -281,75 +332,120 @@ export function weekExcelXml(sites: RotaState | RotaState[], lang: Lang, org: st
           duration: "Duration (h)",
         };
 
-  const boardSheets = published
-    .map((site) => {
-      const exported = weekExport(site, lang, org, hebrew);
-      if (!exported) return "";
-      const name = published.length > 1 ? siteLabel(site.biz.name, lang) : labels.board;
-      return worksheetBoardXml(exported, name, labels);
-    })
-    .filter(Boolean);
+  const boards = published
+    .map((site) => weekExport(site, lang, org, hebrew))
+    .filter((board): board is WeekExport => board !== null);
+  const regularSheet = sheetXml(
+    labels.board,
+    rtl,
+    ['<Column ss:Width="130"/>', ...Array.from({ length: 7 }, () => '<Column ss:Width="135"/>')].join(""),
+    boards.map((board) => boardRows(board, labels)).join("<Row/>"),
+  );
+
+  const showSite = published.length > 1;
+  const employeeRows = published.flatMap((site) => {
+    const assignments = publishedAssignments(site, lang, onlyEmployeeId, hebrew);
+    const people = listedPeople(site, onlyEmployeeId);
+    if (layout === "shifts") {
+      const header = `<Row ss:Height="22">${[labels.employee, ...(showSite ? [labels.site] : []), ...site.biz.shifts.map((shift) => shiftLabel(shift.name, lang))].map((label) => textCell(label, "head")).join("")}</Row>`;
+      const body = people
+        .map((person) => {
+          const cells = [
+            textCell(person.name),
+            ...(showSite ? [textCell(siteLabel(site.biz.name, lang))] : []),
+            ...site.biz.shifts.map((shift) => {
+              const days = assignments
+                .filter((entry) => entry.employeeId === person.id && entry.shiftId === shift.id)
+                .map((entry) => (entry.hours === `${shift.start}–${shift.end}` ? entry.day : `${entry.day} (${entry.hours})`));
+              return `<Cell ss:StyleID="cell"><Data ss:Type="String">${lines(days)}</Data></Cell>`;
+            }),
+          ];
+          return `<Row>${cells.join("")}</Row>`;
+        })
+        .join("");
+      return `${published.length > 1 ? `<Row>${textCell(siteLabel(site.biz.name, lang), "title")}</Row>` : ""}${header}${body}`;
+    }
+    const header = `<Row ss:Height="22">${[labels.employee, ...(showSite ? [labels.site] : []), ...[0, 1, 2, 3, 4, 5, 6].map((day) => dayName(day, lang))].map((label) => textCell(label, "head")).join("")}</Row>`;
+    const body = people
+      .map((person) => {
+        const cells = [
+          textCell(person.name),
+          ...(showSite ? [textCell(siteLabel(site.biz.name, lang))] : []),
+          ...[0, 1, 2, 3, 4, 5, 6].map((day) => {
+            const shifts = assignments
+              .filter((entry) => entry.employeeId === person.id && entry.dayIndex === day)
+              .map((entry) => `${entry.shift} ${entry.hours}`);
+            return `<Cell ss:StyleID="cell"><Data ss:Type="String">${lines(shifts)}</Data></Cell>`;
+          }),
+        ];
+        return `<Row>${cells.join("")}</Row>`;
+      })
+      .join("");
+    return `${header}${body}`;
+  });
+  const byEmployeeSheet = sheetXml(labels.byEmployee, rtl, '<Column ss:Width="140"/>'.repeat(16), employeeRows.join("<Row/>"));
 
   const entries = published.flatMap((site) => publishedAssignments(site, lang, onlyEmployeeId, hebrew));
-  const totals = new Map<string, { name: string; shifts: number; hours: number }>();
+  const totals = new Map<string, { name: string; site: string; shifts: number; hours: number }>();
   for (const entry of entries) {
-    const prev = totals.get(entry.employeeId) ?? { name: entry.employee, shifts: 0, hours: 0 };
+    const key = `${entry.employeeId}|${entry.site}`;
+    const prev = totals.get(key) ?? { name: entry.employee, site: entry.site, shifts: 0, hours: 0 };
     prev.shifts += 1;
     prev.hours += entry.duration;
-    totals.set(entry.employeeId, prev);
+    totals.set(key, prev);
   }
   const summaryRows = [...totals.values()]
-    .sort((left, right) => left.name.localeCompare(right.name, lang))
-    .map(
-      (item) =>
-        `<Row><Cell ss:StyleID="cell"><Data ss:Type="String">${xmlEscape(item.name)}</Data></Cell><Cell ss:StyleID="cell"><Data ss:Type="Number">${item.shifts}</Data></Cell><Cell ss:StyleID="cell"><Data ss:Type="Number">${Number(item.hours.toFixed(2))}</Data></Cell></Row>`,
-    )
-    .join("");
-
-  const columns: { label: string; width: number; value: (row: AssignmentEntry) => string | number }[] = [
-    { label: labels.site, width: 110, value: (row) => row.site },
-    { label: labels.date, width: 95, value: (row) => row.date },
-    ...(hebrew
-      ? [
-          { label: labels.hebrewDate, width: 95, value: (row: AssignmentEntry) => row.hebrewDate },
-          { label: labels.holiday, width: 110, value: (row: AssignmentEntry) => row.holiday },
-        ]
-      : []),
-    { label: labels.day, width: 90, value: (row) => row.day },
-    { label: labels.shift, width: 105, value: (row) => row.shift },
-    { label: labels.hoursRange, width: 105, value: (row) => row.hours },
-    { label: labels.employee, width: 130, value: (row) => row.employee },
-    { label: labels.duration, width: 95, value: (row) => Number(row.duration.toFixed(2)) },
-  ];
-  const detailHeaders = columns
-    .map((column) => `<Cell ss:StyleID="head"><Data ss:Type="String">${xmlEscape(column.label)}</Data></Cell>`)
+    .sort((left, right) => left.name.localeCompare(right.name, lang) || left.site.localeCompare(right.site, lang))
+    .map((item) => `<Row>${textCell(item.name)}${textCell(item.site)}${numberCell(item.shifts)}${numberCell(item.hours)}</Row>`)
     .join("");
   const detailRows = entries
     .map(
       (row) =>
-        `<Row>${columns
-          .map((column) => {
-            const value = column.value(row);
-            return typeof value === "number"
-              ? `<Cell ss:StyleID="cell"><Data ss:Type="Number">${value}</Data></Cell>`
-              : `<Cell ss:StyleID="cell"><Data ss:Type="String">${xmlEscape(value)}</Data></Cell>`;
-          })
-          .join("")}</Row>`,
+        `<Row>${textCell(row.employee)}${textCell(row.site)}${textCell(row.date)}${textCell(row.day)}${textCell(row.shift)}${textCell(row.hours)}${numberCell(row.duration)}</Row>`,
     )
     .join("");
+  const hoursSheet = sheetXml(
+    labels.hours,
+    rtl,
+    '<Column ss:Width="130"/><Column ss:Width="110"/><Column ss:Width="95"/><Column ss:Width="90"/><Column ss:Width="110"/><Column ss:Width="110"/><Column ss:Width="90"/>',
+    [
+      `<Row ss:Height="22">${[labels.employee, labels.site, labels.shiftsCount, labels.totalHours].map((label) => textCell(label, "head")).join("")}</Row>`,
+      summaryRows,
+      "<Row/>",
+      `<Row ss:Height="22">${[labels.employee, labels.site, labels.date, labels.day, labels.shift, labels.hoursRange, labels.duration].map((label) => textCell(label, "head")).join("")}</Row>`,
+      detailRows,
+    ].join(""),
+  );
 
-  const hoursSheet = [
-    `<Worksheet ss:Name="${xmlEscape(labels.hours)}"${rtl}>`,
-    "<Table>",
-    columns.map((column) => `<Column ss:Width="${column.width}"/>`).join(""),
-    `<Row ss:Height="22"><Cell ss:StyleID="head"><Data ss:Type="String">${xmlEscape(labels.employee)}</Data></Cell><Cell ss:StyleID="head"><Data ss:Type="String">${xmlEscape(labels.shiftsCount)}</Data></Cell><Cell ss:StyleID="head"><Data ss:Type="String">${xmlEscape(labels.totalHours)}</Data></Cell></Row>`,
-    summaryRows,
-    "<Row/>",
-    `<Row ss:Height="22">${detailHeaders}</Row>`,
-    detailRows,
-    "</Table>",
-    "</Worksheet>",
-  ].join("");
+  const standardRows = published.flatMap((site) => {
+    const schedule = site.sched[site.week];
+    if (!schedule) return [];
+    const rows: string[] = [];
+    for (const shift of site.biz.shifts) {
+      for (let day = 0; day < 7; day += 1) {
+        const key = `${day}|${shift.id}`;
+        const override = schedule.staffing?.[key];
+        const required = override !== undefined && Number.isFinite(override) ? Math.trunc(override) : staffedCount(shift, day, site.week);
+        const assigned = new Set(schedule.assign[key] ?? []).size;
+        if (required <= 0 && assigned === 0) continue;
+        const gap = assigned - required;
+        const result = gap === 0 ? labels.met : gap < 0 ? labels.short(-gap) : labels.over(gap);
+        rows.push(
+          `<Row>${textCell(siteLabel(site.biz.name, lang))}${textCell(dayName(day, lang))}${textCell(addDays(site.week, day))}${textCell(shiftLabel(shift.name, lang))}${textCell(shift.role || "—")}${numberCell(required)}${numberCell(assigned)}${textCell(result)}</Row>`,
+        );
+      }
+    }
+    return rows;
+  });
+  const standardSheet = sheetXml(
+    labels.standard,
+    rtl,
+    '<Column ss:Width="110"/><Column ss:Width="90"/><Column ss:Width="95"/><Column ss:Width="120"/><Column ss:Width="100"/><Column ss:Width="70"/><Column ss:Width="70"/><Column ss:Width="90"/>',
+    [
+      `<Row ss:Height="22">${[labels.site, labels.day, labels.date, labels.shift, labels.role, labels.required, labels.assigned, labels.result].map((label) => textCell(label, "head")).join("")}</Row>`,
+      ...standardRows,
+    ].join(""),
+  );
 
   return [
     '<?xml version="1.0" encoding="UTF-8"?>',
@@ -364,8 +460,10 @@ export function weekExcelXml(sites: RotaState | RotaState[], lang: Lang, org: st
     '<Style ss:ID="closed"><Font ss:Color="#78716C"/><Interior ss:Color="#F7F4EE" ss:Pattern="Solid"/><Alignment ss:Horizontal="Center" ss:Vertical="Center"/></Style>',
     '<Style ss:ID="cell"><Alignment ss:Vertical="Center"/></Style>',
     "</Styles>",
-    ...boardSheets,
+    regularSheet,
+    byEmployeeSheet,
     hoursSheet,
+    standardSheet,
     "</Workbook>",
   ].join("\n");
 }

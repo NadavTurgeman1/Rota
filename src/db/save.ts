@@ -42,8 +42,8 @@ export async function saveSite(
        id, org_id, name, min_rest_hours, max_weekly_hours, max_shift_hours, max_day_hours, assume_available,
        staff_access, constraint_opens_day, constraint_closes_day, constraint_opens, constraint_closes,
        constraint_block_limit, constraint_max_blocks, constraint_block_split,
-       constraint_weekday_blocks, constraint_weekend_blocks, constraint_shift_blocks, roles
-     ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::time, $13::time, $14, $15, $16, $17, $18, $19::text::jsonb, $20::text::jsonb)
+       constraint_weekday_blocks, constraint_weekend_blocks, constraint_shift_blocks, roles, excel_layout
+     ) values ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12::time, $13::time, $14, $15, $16, $17, $18, $19::text::jsonb, $20::text::jsonb, $21)
      on conflict (id) do update set
        name = excluded.name,
        min_rest_hours = excluded.min_rest_hours,
@@ -62,7 +62,8 @@ export async function saveSite(
        constraint_weekday_blocks = excluded.constraint_weekday_blocks,
        constraint_weekend_blocks = excluded.constraint_weekend_blocks,
        constraint_shift_blocks = excluded.constraint_shift_blocks,
-       roles = excluded.roles
+       roles = excluded.roles,
+       excel_layout = excluded.excel_layout
      where public.sites.org_id = excluded.org_id`,
       [
         siteId,
@@ -87,6 +88,7 @@ export async function saveSite(
         // sees a string instead of an object. Parsing text avoids that.
         JSON.stringify(cleanShiftBlocks(state.biz.shiftBlocks)),
         JSON.stringify(roleNames(state.biz.roles)),
+        state.biz.excelLayout === "shifts" ? "shifts" : "written",
       ],
     );
   } catch (error) {

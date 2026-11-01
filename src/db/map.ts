@@ -168,6 +168,7 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
       ...(bundle.site.constraint_extension_until ? { constraintExtensionUntil: bundle.site.constraint_extension_until } : {}),
       assume: bundle.site.assume_available,
       roles: catalogRoles(bundle.site.roles, shifts, roster.map((employee) => employee.job_title)),
+      ...(bundle.site.excel_layout === "shifts" ? { excelLayout: "shifts" as const } : {}),
       shifts,
     },
     emps: people,

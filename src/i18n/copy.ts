@@ -303,6 +303,10 @@ export interface Copy {
   maxShift: string;
   maxDayHours: string;
   shiftsTitle: string;
+  excelLayoutTitle: string;
+  excelLayoutHint: string;
+  excelByShifts: string;
+  excelWriteShifts: string;
   shiftName: string;
   shiftStart: string;
   shiftEnd: string;
@@ -920,6 +924,10 @@ export const copy: Record<Lang, Copy> = {
     maxShift: "אורך משמרת מקסימלי בכיסוי חור (שעות)",
     maxDayHours: "תקרת שעות ביום (0 = בלי תקרה)",
     shiftsTitle: "משמרות ותקן",
+    excelLayoutTitle: "ייצוא הסידור לאקסל",
+    excelLayoutHint: "קובע את הגיליון סידור לפי עובד. לפי משמרות: עמודה לכל משמרת, והימים שבהם העובד משובץ. לכתוב משמרות: עמודה לכל יום, ושם המשמרת נכתב בתא.",
+    excelByShifts: "לפי משמרות",
+    excelWriteShifts: "לכתוב משמרות",
     shiftName: "משמרת",
     shiftStart: "התחלה",
     shiftEnd: "סיום",
@@ -1548,6 +1556,10 @@ export const copy: Record<Lang, Copy> = {
     maxShift: "Max shift length when covering a gap (h)",
     maxDayHours: "Max hours per day (0 = no cap)",
     shiftsTitle: "Shifts & staffing",
+    excelLayoutTitle: "Schedule Excel export",
+    excelLayoutHint: "Sets the by-employee sheet. By shifts: a column for each shift, with the days that person works. Write shifts: a column for each day, with the shift name in the cell.",
+    excelByShifts: "By shifts",
+    excelWriteShifts: "Write shifts",
     shiftName: "Shift",
     shiftStart: "Start",
     shiftEnd: "End",

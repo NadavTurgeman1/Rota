@@ -20,6 +20,7 @@ export interface BusinessPatch {
   weekdayBlocks?: number;
   weekendBlocks?: number;
   shiftBlocks?: Record<string, number>;
+  excelLayout?: "shifts" | "written";
 }
 
 export interface ShiftPatch {
@@ -92,6 +93,11 @@ export function updateBusiness(state: RotaState, actor: Actor, patch: BusinessPa
       shifts[id] = value;
     }
     next.shiftBlocks = shifts;
+  }
+  if (patch.excelLayout !== undefined) {
+    if (patch.excelLayout !== "shifts" && patch.excelLayout !== "written") return state;
+    if (patch.excelLayout === "written") delete next.excelLayout;
+    else next.excelLayout = "shifts";
   }
   return { ...state, biz: next };
 }

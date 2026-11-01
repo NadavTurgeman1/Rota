@@ -1364,7 +1364,14 @@ export function ScheduleApp() {
   }
 
   function exportExcel() {
-    const xml = weekExcelXml(state, lang, live.org.name, undefined, hebrew);
+    const week = state.week;
+    const sites = live.sites.length
+      ? live.sites.map((site) => {
+          const source = site.id === live.activeSiteId ? state : site.state;
+          return source.week === week ? source : { ...source, week };
+        })
+      : [state];
+    const xml = weekExcelXml(sites, lang, live.org.name, undefined, hebrew, state.biz.excelLayout === "shifts" ? "shifts" : "written");
     if (!xml) return;
     downloadBlob(
       new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" }),

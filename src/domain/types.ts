@@ -173,6 +173,12 @@ export interface Business {
   /** Role names this site can assign to people and shifts. */
   roles?: string[];
   /**
+   * How the employee sheet of an Excel export is laid out.
+   * `written` puts the shift name in each day. `shifts` gives each shift its own column.
+   * Omitted means `written`.
+   */
+  excelLayout?: "shifts" | "written";
+  /**
    * Stored by the prototype when availability was not submitted.
    * The engine still treats a missing week as "available per contract".
    */

@@ -49,7 +49,8 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
        to_json(s.constraint_extension_until) #>> '{}' as constraint_extension_until,
        o.name as org_name,
        o.kind as org_kind,
-       s.roles
+       s.roles,
+       s.excel_layout
      from public.sites s
      join public.organizations o on o.id = s.org_id
      where s.id = $1`,

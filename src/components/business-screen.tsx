@@ -597,6 +597,32 @@ export function BusinessScreen({
 
       <section className={card}>
         <h2 className={cardTitle}>{t.shiftsTitle}</h2>
+        <div className="mt-4 border-t border-line pt-4">
+          <p className="text-sm font-medium text-ink">{t.excelLayoutTitle}</p>
+          <p className="mt-1 text-sm leading-6 text-muted">{t.excelLayoutHint}</p>
+          <div className="mt-3 inline-flex rounded-full border border-line bg-well p-0.5" role="group" aria-label={t.excelLayoutTitle}>
+            <button
+              type="button"
+              data-testid="excel-layout-shifts"
+              aria-pressed={siteView.excelLayout === "shifts"}
+              disabled={readOnly}
+              className={`h-8 rounded-full px-3 text-xs font-semibold ${siteView.excelLayout === "shifts" ? "bg-brand text-on-brand shadow-card" : "text-muted"}`}
+              onClick={() => editSite({ excelLayout: "shifts" })}
+            >
+              {t.excelByShifts}
+            </button>
+            <button
+              type="button"
+              data-testid="excel-layout-written"
+              aria-pressed={siteView.excelLayout !== "shifts"}
+              disabled={readOnly}
+              className={`h-8 rounded-full px-3 text-xs font-semibold ${siteView.excelLayout !== "shifts" ? "bg-card text-ink shadow-card" : "text-muted"}`}
+              onClick={() => editSite({ excelLayout: "written" })}
+            >
+              {t.excelWriteShifts}
+            </button>
+          </div>
+        </div>
         <div className="-mx-1 mt-4 overflow-x-auto px-1">
           <table className="w-max border-separate border-spacing-x-2 border-spacing-y-1 text-sm">
             <thead>
