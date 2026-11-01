@@ -85,6 +85,7 @@ import {
 import { BusinessScreen } from "./business-screen";
 import { ConstraintsScreen, ExtraWindowMenu } from "./constraints-screen";
 import { InsightsScreen } from "./insights-screen";
+import { DashboardScreen } from "./dashboard-screen";
 import { MessagesScreen, type MessagesApi } from "./messages-screen";
 import type { ManagerMessage } from "../db/messages";
 import { AbsenceScreen, type AbsencesApi } from "./absence-screen";
@@ -166,10 +167,11 @@ function blankWorkspace(userId: string, email: string): Workspace {
   };
 }
 
-type Screen = "business" | "team" | "constraints" | "insights" | "messages" | "absences" | "schedule" | "mine" | "approvals";
+type Screen = "business" | "team" | "constraints" | "insights" | "dashboard" | "messages" | "absences" | "schedule" | "mine" | "approvals";
 
 function visibleScreens(caps: Capabilities, hasSelf: boolean, owner: boolean, schedulable: boolean): Screen[] {
   const screens: Screen[] = [];
+  if (caps.insights || caps.schedule_edit || caps.people_edit) screens.push("dashboard");
   if (caps.schedule_view || caps.schedule_edit) screens.push("schedule");
   if (caps.people_edit || caps.people_site || caps.documents) screens.push("team");
   if ((schedulable && caps.constraints) || caps.schedule_edit || caps.people_edit) screens.push("constraints");
@@ -305,7 +307,7 @@ export function ScheduleApp() {
     }),
   );
   const [selection, setSelection] = useState<string | null>(null);
-  const [screen, setScreen] = useState<Screen>("schedule");
+  const [screen, setScreen] = useState<Screen>("dashboard");
   const [schedulePane, setSchedulePane] = useState<"issues" | "summary" | "versions">("issues");
   const [scheduleClip, setScheduleClip] = useState<{ week: string; schedule: Schedule } | null>(null);
   useEffect(() => {
@@ -372,6 +374,7 @@ export function ScheduleApp() {
     return () => window.removeEventListener("beforeunload", block);
   }, [draftDirty]);
   const [rosterLog, setRosterLog] = useState<(AttendanceRoster & { siteId: string }) | null>(null);
+  const [rosterPhase, setRosterPhase] = useState<"off" | "loading" | "ready" | "failed">("off");
   const [rosterSite, setRosterSite] = useState<string | null>(null);
   const approvedSeen = useRef<Set<string> | null>(null);
   const tradeLater = useSetAside("later");
@@ -449,11 +452,14 @@ export function ScheduleApp() {
   }, [signedIn, live.activeSiteId, loadManagerNotes, loadAbsences, screen]);
 
   useEffect(() => {
-    if (!remote || !writer || screen !== "team" || !live.activeSiteId) return;
+    const watch = screen === "team" || screen === "dashboard" || screen === "insights";
+    if (!remote || !watch || !live.activeSiteId) return;
+    if (!writer && !editorCapabilities.insights && !editorCapabilities.people_edit && !editorCapabilities.schedule_edit) return;
     const siteId = live.activeSiteId;
     const controller = new AbortController();
     let current = true;
     setRosterLog(null);
+    setRosterPhase("loading");
     setRosterSite(siteId);
     const headers: Record<string, string> = { authorization: `Bearer ${tokenRef.current ?? ""}` };
     if (supportRef.current) headers["x-rota-support-org"] = supportRef.current;
@@ -463,21 +469,28 @@ export function ScheduleApp() {
         signal: controller.signal,
       }).catch(() => null);
       if (!current || !response?.ok) {
-        if (current) setRosterSite(null);
+        if (current) {
+          setRosterSite(null);
+          setRosterPhase("failed");
+        }
         return;
       }
       const body = (await response.json().catch(() => null)) as AttendanceRoster | null;
       if (!current || !body?.employees) {
-        if (current) setRosterSite(null);
+        if (current) {
+          setRosterSite(null);
+          setRosterPhase("failed");
+        }
         return;
       }
       setRosterLog({ ...body, siteId });
+      setRosterPhase("ready");
     })();
     return () => {
       current = false;
       controller.abort();
     };
-  }, [remote, writer, screen, live.activeSiteId]);
+  }, [remote, writer, screen, live.activeSiteId, editorCapabilities.insights, editorCapabilities.people_edit, editorCapabilities.schedule_edit]);
 
   useEffect(() => {
     const approved = new Set(trades.trades.filter((trade) => trade.status === "approved").map((trade) => trade.id));
@@ -873,7 +886,7 @@ export function ScheduleApp() {
     const { data, error } = await browserClient().auth.signInWithPassword({ email: email.trim(), password });
     if (error || !data.session || !data.user) return false;
     await adopt(data.session.access_token, data.user.id, data.user.email ?? email);
-    setScreen("schedule");
+    setScreen("dashboard");
     return true;
   }
 
@@ -896,7 +909,7 @@ export function ScheduleApp() {
     window.history.replaceState(null, "", window.location.pathname);
     await adopt(session.access_token, data.user.id, data.user.email ?? "");
     setAuthScreen("login");
-    setScreen("schedule");
+    setScreen("dashboard");
     return true;
   }
 
@@ -920,7 +933,7 @@ export function ScheduleApp() {
     }
     if (!data.session) return "confirm";
     await adopt(data.session.access_token, data.user.id, data.user.email ?? email);
-    setScreen("schedule");
+    setScreen("dashboard");
     return "signed-in";
   }
 
@@ -945,7 +958,7 @@ export function ScheduleApp() {
     savedBaseline.current = saved;
     saves.current.noteSaved(saved);
     setRemoteError(null);
-    setScreen("schedule");
+    setScreen("dashboard");
     return true;
   }
 
@@ -1272,7 +1285,7 @@ export function ScheduleApp() {
     if (!token || !userId) return;
     rememberSupport(orgId);
     await adopt(token, userId, emailRef.current);
-    setScreen("schedule");
+    setScreen("dashboard");
   }
 
   async function leaveSupport() {
@@ -1584,6 +1597,7 @@ export function ScheduleApp() {
 
   const tabs = (
     [
+      { id: "dashboard", label: t.navDashboard },
       { id: "schedule", label: t.navSchedule },
       { id: "team", label: t.navTeam },
       { id: "constraints", label: t.navConstraints },
@@ -1595,7 +1609,25 @@ export function ScheduleApp() {
     ] as const
   ).filter((tab) => allowedScreens.includes(tab.id));
   const shown = allowedScreens.includes(screen) || screen === "approvals" ? screen : null;
-  const weekly = shown === "schedule" || shown === "constraints" || shown === "messages";
+  const weekly = shown === "schedule" || shown === "constraints" || shown === "messages" || shown === "dashboard";
+  const clockPunches =
+    rosterPhase === "ready" && rosterLog?.siteId === live.activeSiteId
+      ? rosterLog.employees.flatMap((person) =>
+          person.punches.map((punch) => ({
+            id: punch.id,
+            employeeId: person.id,
+            kind: punch.kind,
+            punchedAt: punch.punchedAt,
+          })),
+        )
+      : null;
+  const clockZone = rosterLog?.siteId === live.activeSiteId ? rosterLog.timeZone : "Asia/Jerusalem";
+  const clocks =
+    rosterPhase === "ready" && rosterLog?.siteId === live.activeSiteId
+      ? "ready"
+      : rosterPhase === "failed" || !remote
+        ? "missing"
+        : "loading";
 
   return (
     <HebrewCalendarContext.Provider value={hebrew}>
@@ -1684,7 +1716,7 @@ export function ScheduleApp() {
               <button
                 type="button"
                 className={button.quiet}
-                onClick={() => setScreen(screen === "approvals" ? "schedule" : "approvals")}
+                onClick={() => setScreen(screen === "approvals" ? (allowedScreens.includes("dashboard") ? "dashboard" : "schedule") : "approvals")}
               >
                 {t.approvalsTitle}
               </button>
@@ -2111,7 +2143,26 @@ export function ScheduleApp() {
             onDraft={rememberDraft}
           />
         ) : null}
-        {shown === "insights" ? <InsightsScreen state={state} lang={lang} /> : null}
+        {shown === "dashboard" ? (
+          <DashboardScreen
+            state={peered}
+            lang={lang}
+            timeZone={clockZone}
+            punches={clockPunches}
+            clocks={clocks}
+            onOpenEmployee={
+              allowedScreens.includes("team")
+                ? (employeeId) => {
+                    setSelectedId(employeeId);
+                    setScreen("team");
+                  }
+                : undefined
+            }
+          />
+        ) : null}
+        {shown === "insights" ? (
+          <InsightsScreen state={peered} lang={lang} timeZone={clockZone} punches={clockPunches} clocks={clocks} />
+        ) : null}
       </main>
         </div>
       </div>

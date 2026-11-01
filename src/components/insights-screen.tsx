@@ -1,179 +1,292 @@
-import { useMemo } from "react";
-import { dayName, type Lang, type RotaState } from "../domain";
-import { anomalyText, balanceText, insightsCopy, tipText } from "../insights/copy";
-import { sampleInsights, type AnomalyKind, type Risk } from "../insights/sample";
-import { card, cardHint, cardTitle, pill, surface } from "./ui";
+"use client";
 
-const RISK_TONE: Record<Risk, string> = {
-  low: "bg-ok-soft text-ok-text",
-  medium: "bg-warn-soft text-warn-text",
-  high: "bg-danger-soft text-danger-text",
-};
+import { useMemo, useState } from "react";
+import type { LaborNote, Lang, RotaState } from "../domain";
+import { formatCalendarDate, shiftLabel } from "../schedule/display";
+import { screenCopy } from "../insights/copy";
+import { buildInsights, type ClockPunch, type InsightReport, type InsightSpan } from "../insights/report";
+import { useMinute } from "./dashboard-screen";
 
-const LOAD_BAR: Record<Risk, string> = {
-  low: "bg-ok-text",
-  medium: "bg-warn-line",
-  high: "bg-danger-text",
-};
+const SPANS: InsightSpan[] = ["day", "week", "month", "quarter"];
+const SHOWN = 8;
 
-const ANOMALY_TONE: Record<AnomalyKind, string> = {
-  nightStreak: "bg-danger-soft text-danger-text",
-  overQuota: "bg-danger-soft text-danger-text",
-  shortRest: "bg-warn-soft text-warn-text",
-  lateSwaps: "bg-violet-soft text-violet-text",
-  underUsed: "bg-ok-soft text-ok-text",
-};
+type Lens = "shortages" | "occupancy" | "late" | "noshow" | "recurring" | "idle" | "patterns" | "hiring" | "burnout";
 
-export function InsightsScreen({ state, lang }: { state: RotaState; lang: Lang }) {
-  const t = insightsCopy[lang];
-  const data = useMemo(() => sampleInsights(state), [state]);
-  const scale = Math.max(...data.days.map((day) => Math.max(day.needed, day.available)), 1);
+const LENSES: Lens[] = ["shortages", "occupancy", "late", "noshow", "recurring", "idle", "patterns", "hiring", "burnout"];
 
-  const stats = [
-    { id: "coverage", label: t.coverage, value: `${data.coverage}%`, tone: data.coverage >= 95 ? "text-ok-text" : "text-warn-text" },
-    { id: "hours", label: t.hours, value: String(data.hours), tone: "text-ink" },
-    { id: "doubles", label: t.doubles, value: String(data.doubles), tone: data.doubles > 2 ? "text-warn-text" : "text-ink" },
-    { id: "risk", label: t.atRisk, value: String(data.atRisk), tone: data.atRisk > 0 ? "text-danger-text" : "text-ok-text" },
-    {
-      id: "balance",
-      label: t.balance,
-      value: balanceText(lang, data.balance),
-      tone: data.balance < 0 ? "text-danger-text" : data.balance > 0 ? "text-ok-text" : "text-ink",
-    },
-  ];
+export function InsightsScreen({
+  state,
+  lang,
+  timeZone,
+  punches,
+  clocks,
+}: {
+  state: RotaState;
+  lang: Lang;
+  timeZone: string;
+  punches: ClockPunch[] | null;
+  clocks: "loading" | "missing" | "ready";
+}) {
+  const t = screenCopy[lang];
+  const now = useMinute();
+  const [span, setSpan] = useState<InsightSpan>("week");
+  const [openLabor, setOpenLabor] = useState<LaborNote["code"] | null>(null);
+  const [lens, setLens] = useState<Lens>("shortages");
+  const [lensSpan, setLensSpan] = useState(span);
+  const report = useMemo(() => buildInsights(state, span, lang, timeZone, now, punches), [state, span, lang, timeZone, now, punches]);
+  if (lensSpan !== span) {
+    setLensSpan(span);
+    setLens(bestLens(report, clocks));
+    setOpenLabor(null);
+  }
+  const laborOpen = report.labor.find((group) => group.code === openLabor && group.count > 0) ?? null;
 
   return (
     <div data-testid="insights-screen" className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="max-w-2xl text-sm leading-6 text-muted">{t.hint}</p>
-        <div className="flex flex-col items-start gap-1 sm:items-end">
-          <span data-testid="insights-sample" className={`${pill} bg-violet-soft text-violet-text`}>
-            {t.sample}
-          </span>
-          <p className="max-w-80 text-xs leading-5 text-muted sm:text-end">{t.sampleNote}</p>
+      <div className="flex flex-col gap-3">
+        <p className="max-w-3xl text-sm leading-6 text-muted">{t.insightsHint}</p>
+        <div role="tablist" aria-label={t.span.week} className="flex w-fit max-w-full flex-wrap gap-1 rounded-xl border border-line bg-card p-1 shadow-card">
+          {SPANS.map((item) => (
+            <button
+              key={item}
+              type="button"
+              role="tab"
+              aria-selected={span === item}
+              data-testid={`insights-span-${item}`}
+              className={`h-9 rounded-lg px-4 text-sm focus-visible:ring-2 focus-visible:ring-focus ${
+                span === item ? "bg-brand font-medium text-on-brand" : "text-muted hover:bg-well hover:text-ink"
+              }`}
+              onClick={() => setSpan(item)}
+            >
+              {t.span[item]}
+            </button>
+          ))}
         </div>
+        <p className="text-xs tabular-nums text-subtle" dir="ltr">
+          {t.range(formatCalendarDate(report.from), formatCalendarDate(report.to))}
+        </p>
+        {clocks === "loading" ? <p className="text-sm text-muted">{t.loadingClocks}</p> : null}
+        {clocks === "missing" ? <p className="text-sm text-muted">{t.clocksMissing}</p> : null}
       </div>
 
-      <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
-        {stats.map((stat) => (
-          <div key={stat.id} data-testid={`insight-${stat.id}`} className={`${surface} min-w-0 px-4 py-4`}>
-            <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-muted">{stat.label}</p>
-            <p className={`mt-3 text-[1.75rem] font-semibold leading-none tracking-[-0.03em] tabular-nums ${stat.tone}`}>{stat.value}</p>
-          </div>
-        ))}
+      <section className="rounded-2xl border border-line bg-card p-4 shadow-card sm:p-5">
+        <h2 className="text-base font-semibold tracking-tight text-ink">{t.laborTitle}</h2>
+        <p className="mt-1 text-sm leading-6 text-muted">{t.laborHint}</p>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 xl:grid-cols-7">
+          {report.labor.map((group, index) => {
+            const open = laborOpen?.code === group.code;
+            const clear = group.count === 0;
+            return (
+              <button
+                key={group.code}
+                type="button"
+                data-testid={`labor-${group.code}`}
+                aria-expanded={open}
+                disabled={clear}
+                style={{ animationDelay: `${Math.min(index, 6) * 70}ms` }}
+                className={`dash-rise flex min-h-24 flex-col items-start justify-between rounded-xl border px-3 py-3 text-start focus-visible:ring-2 focus-visible:ring-focus disabled:cursor-default disabled:opacity-100 ${
+                  open ? "border-brand bg-brand-soft" : clear ? "border-ok-text bg-ok-soft" : "border-danger-line bg-danger-softer hover:border-danger-text"
+                }`}
+                onClick={() => setOpenLabor(open ? null : group.code)}
+              >
+                <span className={`text-3xl font-semibold tabular-nums leading-none ${open ? "text-brand-text" : clear ? "text-ok-text" : "text-danger-text"}`}>
+                  {group.count}
+                </span>
+                <span className={`text-xs font-medium leading-4 ${open ? "text-brand-text" : clear ? "text-ok-text" : "text-danger-text"}`}>{t.laborCode[group.code]}</span>
+              </button>
+            );
+          })}
+        </div>
+        {report.labor.every((group) => group.count === 0) ? <p className="mt-4 text-sm text-muted">{t.laborEmpty}</p> : null}
+        {laborOpen ? (
+          <ul data-testid="labor-detail" className="dash-rise mt-4 flex flex-col gap-2">
+            {laborOpen.notes.map((note) => (
+              <li key={note.key} className="rounded-lg bg-well px-3 py-2 text-sm leading-6 text-ink">
+                {note.message}
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </section>
 
-      <div className="grid gap-6 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
-        <section className={`${card} min-w-0`}>
-          <h3 className={cardTitle}>{t.workloadTitle}</h3>
-          <p className={cardHint}>{t.workloadHint}</p>
-          {data.people.length === 0 ? <p className="mt-4 text-sm text-muted">{t.noPeople}</p> : null}
-          <div className={`mt-4 overflow-x-auto ${data.people.length === 0 ? "hidden" : ""}`}>
-            <table data-testid="insights-workload" className="w-full min-w-[520px] text-sm">
-              <thead>
-                <tr className="border-b border-line text-start text-[11px] font-medium uppercase tracking-[0.06em] text-muted">
-                  <th className="py-2 pe-3 text-start font-medium">{t.employee}</th>
-                  <th className="px-3 py-2 text-start font-medium">{t.shifts}</th>
-                  <th className="w-1/3 px-3 py-2 text-start font-medium">{t.load}</th>
-                  <th className="px-3 py-2 text-start font-medium">{t.nights}</th>
-                  <th className="px-3 py-2 text-start font-medium">{t.doubles}</th>
-                  <th className="ps-3 py-2 text-start font-medium">{t.risk}</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.people.map((person) => (
-                  <tr key={person.id} className="border-b border-line last:border-b-0">
-                    <td className="py-2.5 pe-3 font-medium text-ink">{person.name}</td>
-                    <td className="px-3 py-2.5 tabular-nums text-ink-soft">
-                      {person.shifts}/{person.quota}
-                    </td>
-                    <td className="px-3 py-2.5">
-                      <div className="flex items-center gap-2">
-                        <div className="h-2 flex-1 overflow-hidden rounded-full bg-track" aria-hidden="true">
-                          <div className={`h-full rounded-full ${LOAD_BAR[person.risk]}`} style={{ width: `${Math.min(100, (person.load / 150) * 100)}%` }} />
-                        </div>
-                        <span className="w-11 text-end text-xs tabular-nums text-ink-soft">{person.load}%</span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2.5 tabular-nums text-ink-soft">{person.nights}</td>
-                    <td className="px-3 py-2.5 tabular-nums text-ink-soft">{person.doubles}</td>
-                    <td className="ps-3 py-2.5">
-                      <span className={`${pill} ${RISK_TONE[person.risk]}`}>{t.riskLevel[person.risk]}</span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-
-        <section className={`${card} min-w-0`}>
-          <h3 className={cardTitle}>{t.staffingTitle}</h3>
-          <p className={cardHint}>{t.staffingHint}</p>
-          <div className="mt-3 flex gap-4 text-xs text-muted">
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm bg-brand" aria-hidden="true" />
-              {t.available}
-            </span>
-            <span className="inline-flex items-center gap-1.5">
-              <span className="h-2.5 w-2.5 rounded-sm border-2 border-field-line" aria-hidden="true" />
-              {t.needed}
-            </span>
-          </div>
-          <ul data-testid="insights-staffing" className="mt-3 flex flex-col gap-2.5">
-            {data.days.map((day) => {
-              const gap = day.available - day.needed;
-              return (
-                <li key={day.day} className="grid grid-cols-[3.5rem_minmax(0,1fr)_3rem] items-center gap-3 text-sm">
-                  <span className="font-medium text-ink-soft">{dayName(day.day, lang)}</span>
-                  <div className="relative h-5 rounded-md bg-track" aria-hidden="true">
-                    <div className="absolute inset-y-0 start-0 rounded-md bg-brand/80" style={{ width: `${(day.available / scale) * 100}%` }} />
-                    <div className="absolute inset-y-0 start-0 rounded-md border-2 border-field-line" style={{ width: `${(day.needed / scale) * 100}%` }} />
-                  </div>
-                  <span
-                    dir="ltr"
-                    className={`text-center text-xs font-semibold tabular-nums ${gap < 0 ? "text-danger-text" : gap > 0 ? "text-ok-text" : "text-muted"}`}
-                    aria-label={`${t.available} ${day.available}, ${t.needed} ${day.needed}`}
-                  >
-                    {gap > 0 ? `+${gap}` : gap}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        </section>
-      </div>
-
-      <div className="grid gap-6 lg:grid-cols-2">
-        <section className={`${card} min-w-0`}>
-          <h3 className={cardTitle}>{t.anomaliesTitle}</h3>
-          {data.anomalies.length === 0 ? <p className="mt-4 text-sm text-muted">{t.noPeople}</p> : null}
-          <ul data-testid="insights-anomalies" className="mt-4 flex flex-col gap-2">
-            {data.anomalies.map((anomaly) => (
-              <li key={anomaly.kind} className="flex items-start gap-3 rounded-xl border border-line bg-well/60 p-3 text-sm leading-6 text-ink">
-                <span className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg text-xs font-bold ${ANOMALY_TONE[anomaly.kind]}`} aria-hidden="true">
-                  !
-                </span>
-                {anomalyText(lang, anomaly)}
-              </li>
-            ))}
-          </ul>
-        </section>
-        <section className={`${card} min-w-0`}>
-          <h3 className={cardTitle}>{t.tipsTitle}</h3>
-          <p className={cardHint}>{t.tipsHint}</p>
-          <ol data-testid="insights-tips" className="mt-4 flex flex-col gap-2">
-            {data.tips.map((tip, index) => (
-              <li key={tip.kind} className="flex items-start gap-3 rounded-xl border border-line bg-brand-soft/40 p-3 text-sm leading-6 text-ink">
-                <span className="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-lg bg-brand text-xs font-bold text-on-brand" aria-hidden="true">
-                  {index + 1}
-                </span>
-                {tipText(lang, tip)}
-              </li>
-            ))}
-          </ol>
-        </section>
-      </div>
+      <section className="flex flex-col gap-3">
+        <p className="text-sm text-muted">{t.lensHint}</p>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-5">
+          {LENSES.map((item, index) => {
+            const value = lensValue(item, report, clocks);
+            const health = lensHealth(item, report, clocks);
+            const pressed = lens === item;
+            const tone = health === "good" ? "text-ok-text" : health === "bad" ? "text-danger-text" : pressed ? "text-brand-text" : "text-ink";
+            const face =
+              health === "good"
+                ? "border-ok-text bg-ok-soft"
+                : health === "bad"
+                  ? "border-danger-line bg-danger-softer"
+                  : pressed
+                    ? "border-brand bg-brand-soft"
+                    : "border-line bg-card shadow-card hover:border-field-line";
+            return (
+              <button
+                key={item}
+                type="button"
+                aria-pressed={pressed}
+                style={{ animationDelay: `${Math.min(index, 6) * 70}ms` }}
+                className={`dash-rise flex min-h-20 flex-col items-start justify-between rounded-xl border px-3 py-3 text-start focus-visible:ring-2 focus-visible:ring-focus ${face} ${
+                  pressed ? "ring-2 ring-brand ring-offset-2 ring-offset-page" : ""
+                }`}
+                onClick={() => setLens(item)}
+              >
+                <span className={`text-2xl font-semibold tabular-nums leading-none ${tone}`}>{value}</span>
+                <span className={`text-xs font-medium leading-4 ${health === "wait" && !pressed ? "text-muted" : tone}`}>{lensTitle(item, t)}</span>
+              </button>
+            );
+          })}
+        </div>
+        <div key={lens} className="dash-rise rounded-2xl border border-line bg-card p-4 shadow-card sm:p-5">
+          <h2 className="text-base font-semibold tracking-tight text-ink">{lensTitle(lens, t)}</h2>
+          <LensBody lens={lens} report={report} clocks={clocks} lang={lang} />
+        </div>
+      </section>
     </div>
   );
+}
+
+function bestLens(report: InsightReport, clocks: "loading" | "missing" | "ready"): Lens {
+  const found = LENSES.find((item) => lensCount(item, report, clocks) > 0);
+  return found ?? "shortages";
+}
+
+function lensCount(lens: Lens, report: InsightReport, clocks: "loading" | "missing" | "ready"): number {
+  if (lens === "shortages") return report.shortages.length;
+  if (lens === "occupancy") return report.secondaryFills.length;
+  if (lens === "late") return clocks === "ready" ? report.late.length : 0;
+  if (lens === "noshow") return clocks === "ready" ? report.noShows.length : 0;
+  if (lens === "recurring") return report.recurring.length;
+  if (lens === "idle") return clocks === "loading" ? 0 : report.idle.length;
+  if (lens === "patterns") return clocks === "loading" ? 0 : report.patterns.length;
+  if (lens === "hiring") return report.hiring.length;
+  return report.burnout.length;
+}
+
+function lensHealth(lens: Lens, report: InsightReport, clocks: "loading" | "missing" | "ready"): "good" | "bad" | "wait" {
+  if ((lens === "late" || lens === "noshow") && clocks !== "ready") return "wait";
+  if ((lens === "idle" || lens === "patterns") && clocks === "loading") return "wait";
+  return lensCount(lens, report, clocks) > 0 ? "bad" : "good";
+}
+
+function lensValue(lens: Lens, report: InsightReport, clocks: "loading" | "missing" | "ready"): string {
+  const count = lensCount(lens, report, clocks);
+  if ((lens === "late" || lens === "noshow") && clocks !== "ready") return "—";
+  if ((lens === "idle" || lens === "patterns") && clocks === "loading") return "—";
+  return String(count);
+}
+
+function lensTitle(lens: Lens, t: (typeof screenCopy)["he"]): string {
+  if (lens === "shortages") return t.shortagesTitle;
+  if (lens === "occupancy") return t.occupancyTitle;
+  if (lens === "late") return t.lateTitle;
+  if (lens === "noshow") return t.noShowTitle;
+  if (lens === "recurring") return t.recurringTitle;
+  if (lens === "idle") return t.idleTitle;
+  if (lens === "patterns") return t.patternsTitle;
+  if (lens === "hiring") return t.hiringTitle;
+  return t.burnoutTitle;
+}
+
+function LensBody({
+  lens,
+  report,
+  clocks,
+  lang,
+}: {
+  lens: Lens;
+  report: InsightReport;
+  clocks: "loading" | "missing" | "ready";
+  lang: Lang;
+}) {
+  const t = screenCopy[lang];
+  if (lens === "late" && clocks !== "ready") return <p className="mt-3 text-sm text-muted">{clocks === "loading" ? t.loadingClocks : t.clocksMissing}</p>;
+  if (lens === "noshow" && clocks !== "ready") return <p className="mt-3 text-sm text-muted">{clocks === "loading" ? t.loadingClocks : t.clocksMissing}</p>;
+  if ((lens === "idle" || lens === "patterns") && clocks === "loading") return <p className="mt-3 text-sm text-muted">{t.loadingClocks}</p>;
+
+  const rows = lensRows(lens, report, lang);
+  if (rows.length === 0) return <p className="mt-3 text-sm text-muted">{lensEmpty(lens, t)}</p>;
+  return (
+    <ul className="mt-3 flex flex-col gap-2">
+      {rows.slice(0, SHOWN).map((row) => (
+        <li key={row.key} className="rounded-lg bg-well px-3 py-2 text-sm leading-6 text-ink">
+          {row.text}
+        </li>
+      ))}
+      {rows.length > SHOWN ? <li className="px-3 text-sm text-muted">{t.more(rows.length - SHOWN)}</li> : null}
+    </ul>
+  );
+}
+
+function lensEmpty(lens: Lens, t: (typeof screenCopy)["he"]): string {
+  if (lens === "shortages") return t.shortagesEmpty;
+  if (lens === "occupancy") return t.occupancyEmpty;
+  if (lens === "late") return t.lateEmpty;
+  if (lens === "noshow") return t.noShowEmpty;
+  if (lens === "recurring") return t.recurringEmpty;
+  if (lens === "idle") return t.idleEmpty;
+  if (lens === "patterns") return t.patternsEmpty;
+  if (lens === "hiring") return t.hiringEmpty;
+  return t.burnoutEmpty;
+}
+
+function lensRows(lens: Lens, report: InsightReport, lang: Lang): { key: string; text: string }[] {
+  const t = screenCopy[lang];
+  if (lens === "shortages") {
+    return report.shortages.map((row) => ({
+      key: `${row.date}|${row.shiftId}`,
+      text: t.shortageLine(shiftLabel(row.shiftName, lang), formatCalendarDate(row.date), row.filled, row.required),
+    }));
+  }
+  if (lens === "occupancy") {
+    return report.secondaryFills.map((row) => ({
+      key: `${row.employeeId}|${row.date}|${row.shiftId}`,
+      text: t.occupancyLine(row.name, shiftLabel(row.shiftName, lang), formatCalendarDate(row.date), row.role),
+    }));
+  }
+  if (lens === "late") {
+    return report.late.map((row) => ({
+      key: `${row.employeeId}|${row.date}|${row.shiftId}`,
+      text: t.lateLine(row.name, shiftLabel(row.shiftName, lang), formatCalendarDate(row.date), row.minutes),
+    }));
+  }
+  if (lens === "noshow") {
+    return report.noShows.map((row) => ({
+      key: `${row.employeeId}|${row.date}|${row.shiftId}`,
+      text: t.noShowLine(row.name, shiftLabel(row.shiftName, lang), formatCalendarDate(row.date)),
+    }));
+  }
+  if (lens === "recurring") {
+    return report.recurring.map((row) => ({
+      key: row.shiftId,
+      text: t.recurringLine(shiftLabel(row.shiftName, lang), row.role, row.times, row.missing),
+    }));
+  }
+  if (lens === "idle") {
+    return report.idle.map((row) => ({
+      key: row.employeeId,
+      text: row.last ? t.idleLine(row.name, row.days) : t.idleNever(row.name, row.days),
+    }));
+  }
+  if (lens === "patterns") {
+    return report.patterns.map((row) => ({
+      key: `${row.employeeId}|${row.kind}`,
+      text: t.patternLine(row.name, row.kind, row.count),
+    }));
+  }
+  if (lens === "hiring") {
+    return report.hiring.map((row) => ({
+      key: row.shiftId,
+      text: t.hiringLine(row.hire, row.role, shiftLabel(row.shiftName, lang), row.shortDays),
+    }));
+  }
+  return report.burnout.map((row) => ({
+    key: `${row.employeeId}|${row.code}`,
+    text: `${t.burnoutAction[row.code]} — ${row.message}`,
+  }));
 }

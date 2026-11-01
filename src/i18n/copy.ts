@@ -421,6 +421,7 @@ export interface Copy {
   language: string;
   selectAll: string;
   clearAll: string;
+  navDashboard: string;
   navInsights: string;
   navMessages: string;
   messagesHint: string;
@@ -715,7 +716,7 @@ export const copy: Record<Lang, Copy> = {
     capPeopleSite: "צפייה ברשימת העובדים באתר",
     capPeopleEdit: "עריכת פרטי העובדים שבניהולו",
     capMessages: "שליחת הודעות",
-    capInsights: "צפייה בסיכום השבוע",
+    capInsights: "דשבורד ותובנות",
     capDocuments: "צפייה ועריכה בטפסי העובד",
     createPerson: "אדם חדש",
     personWorker: "עובד משובץ",
@@ -1036,7 +1037,8 @@ export const copy: Record<Lang, Copy> = {
     language: "שפה",
     selectAll: "בחר הכל",
     clearAll: "נקה",
-    navInsights: "דשבורד",
+    navDashboard: "דשבורד",
+    navInsights: "תובנות",
     navMessages: "הודעות",
     messagesHint: "הודעה לעובדים באתר הזה. בוחרים למי, ומתי היא תופיע אצלם.",
     messagesCompose: "הודעה חדשה",
@@ -1341,7 +1343,7 @@ export const copy: Record<Lang, Copy> = {
     capPeopleSite: "View the site employee list",
     capPeopleEdit: "Edit details of people they manage",
     capMessages: "Send messages",
-    capInsights: "View the weekly summary",
+    capInsights: "Dashboard and insights",
     capDocuments: "View and edit employee forms",
     createPerson: "New person",
     personWorker: "Scheduled employee",
@@ -1662,7 +1664,8 @@ export const copy: Record<Lang, Copy> = {
     language: "Language",
     selectAll: "Select all",
     clearAll: "Clear",
-    navInsights: "Dashboard",
+    navDashboard: "Dashboard",
+    navInsights: "Insights",
     navMessages: "Messages",
     messagesHint: "A note to staff at this site. Choose who receives it, and when it appears for them.",
     messagesCompose: "New message",
