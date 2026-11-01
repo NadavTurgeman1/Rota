@@ -384,14 +384,18 @@ function TradeComposer({
         </div>
         {!anyMine ? (
           <p className="mt-2 text-sm leading-6 text-ink">{t.tradeNoSeats}</p>
-        ) : hint ? (
-          <p className="mt-2 text-sm leading-6 text-muted">{hint}</p>
-        ) : null}
-        {targets === "loading" ? <p className="mt-2 text-sm text-muted">{t.tradeChecking}</p> : null}
-        {Array.isArray(targets) && targets.length === 0 && !error ? (
-          <p role="alert" className="mt-2 text-sm font-medium text-ink">
+        ) : targets === "loading" ? (
+          <p className="mt-2 text-sm font-semibold leading-6 text-ink">{t.tradeChecking}</p>
+        ) : Array.isArray(targets) && targets.length === 0 && !error ? (
+          <p role="alert" className="mt-2 rounded-lg bg-[#ff1744] px-3 py-2 text-sm font-semibold leading-6 text-white">
             {t.tradeNoTargets}
           </p>
+        ) : Array.isArray(targets) && targets.length > 0 && hint ? (
+          <p className="mt-2 rounded-lg bg-[#00e676] px-3 py-2 text-sm font-semibold leading-6 text-[#052e16]">
+            {hint}
+          </p>
+        ) : hint ? (
+          <p className="mt-2 text-sm font-semibold leading-6 text-ink">{hint}</p>
         ) : null}
         <div className="mt-4 flex flex-col gap-4">
           {shown.map((item) => {

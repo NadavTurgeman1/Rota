@@ -130,15 +130,15 @@ export function LoginScreen({
   /** Returns false when the email or password is wrong. */
   onSignIn: (email: string, password: string) => boolean | Promise<boolean>;
   onShowSignup?: () => void;
-  /** Emails a password-reset link. Returns false when the request fails. */
-  onRequestReset?: (email: string) => Promise<boolean>;
+  /** Sets a new password for this email. Returns false when the account cannot be updated. */
+  onRequestReset?: (email: string, password: string) => Promise<boolean>;
 }) {
   const t = copy[lang];
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [failed, setFailed] = useState(false);
   const [forgot, setForgot] = useState(false);
-  const [resetState, setResetState] = useState<"idle" | "sent" | "failed">("idle");
+  const [resetState, setResetState] = useState<"idle" | "sent" | "failed" | "short">("idle");
   const hint = orgName && orgName !== "Rota" ? `${orgName} · ${t.signInHint}` : t.signInHint;
 
   return (
@@ -158,7 +158,11 @@ export function LoginScreen({
           void (async () => {
             if (forgot) {
               if (!onRequestReset) return;
-              setResetState((await onRequestReset(address)) ? "sent" : "failed");
+              if (secret.length < 6) {
+                setResetState("short");
+                return;
+              }
+              setResetState((await onRequestReset(address, secret)) ? "sent" : "failed");
               return;
             }
             setFailed(!(await onSignIn(address, secret)));
@@ -186,21 +190,19 @@ export function LoginScreen({
             onInput={(event) => setEmail(event.currentTarget.value)}
           />
         </label>
-        {forgot ? null : (
-          <label className={`${authLabel} mt-5`}>
-            <span>{t.password}</span>
-            <PasswordField
-              testId="login-password"
-              id="current-password"
-              name="password"
-              autoComplete="current-password"
-              defaultValue={password}
-              onInput={setPassword}
-              showLabel={t.showPassword}
-              hideLabel={t.hidePassword}
-            />
-          </label>
-        )}
+        <label className={`${authLabel} mt-5`}>
+          <span>{forgot ? t.newPasswordTitle : t.password}</span>
+          <PasswordField
+            testId="login-password"
+            id="current-password"
+            name="password"
+            autoComplete={forgot ? "new-password" : "current-password"}
+            defaultValue={password}
+            onInput={setPassword}
+            showLabel={t.showPassword}
+            hideLabel={t.hidePassword}
+          />
+        </label>
         {failed && !forgot ? (
           <p role="alert" data-testid="login-error" className="mt-4 text-sm text-danger-text">
             {t.signInFailed}
@@ -209,6 +211,11 @@ export function LoginScreen({
         {forgot && resetState === "sent" ? (
           <p role="status" data-testid="reset-sent" className="mt-4 text-sm leading-6 text-ink">
             {t.forgotSent}
+          </p>
+        ) : null}
+        {forgot && resetState === "short" ? (
+          <p role="alert" data-testid="reset-short" className="mt-4 text-sm text-danger-text">
+            {t.passwordTooShort}
           </p>
         ) : null}
         {forgot && resetState === "failed" ? (

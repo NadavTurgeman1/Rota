@@ -84,6 +84,7 @@ export interface Copy {
   navSchedule: string;
   navTeam: string;
   navMine: string;
+  navEmpty: string;
   authorityTitle: string;
   authorityHint: string;
   directManager: string;
@@ -119,6 +120,8 @@ export interface Copy {
   employeeName: string;
   contact: string;
   loginEmailHint: string;
+  loginOpen: string;
+  loginNone: string;
   saveChanges: string;
   cancelChanges: string;
   unsavedTitle: string;
@@ -500,6 +503,7 @@ export interface Copy {
   attendanceCoarse: (meters: string) => string;
   attendanceLocked: (meters: string) => string;
   attendanceDenied: string;
+  attendanceForbidden: string;
   attendanceNoFix: string;
   attendanceWide: string;
   attendanceSaved: string;
@@ -533,6 +537,7 @@ export interface Copy {
   staffAccess: string;
   staffAccessHint: string;
   constraintWindow: string;
+  constraintWindowHint: string;
   constraintStart: string;
   constraintEnd: string;
   constraintStartTime: string;
@@ -602,7 +607,7 @@ export const copy: Record<Lang, Copy> = {
     previousMonth: "החודש הקודם",
     nextMonth: "החודש הבא",
     hebrewCalendar: "לוח שנה עברי",
-    hebrewCalendarHint: "דלוק: התאריך העברי והחגים מופיעים בקטן ליד התאריך הלועזי, בסידור, באילוצים, בלוח השנה ובייצוא. כבוי: רק תאריכים לועזיים. רק הבעלים יכול לשנות.",
+    hebrewCalendarHint: "דלוק: התאריך העברי והחגים מופיעים בקטן ליד התאריך הלועזי, בסידור, באילוצים, בלוח השנה ובייצוא. כבוי: רק תאריכים לועזיים.",
     previousYear: "השנה הקודמת",
     nextYear: "השנה הבאה",
     monthLabel: "חודש",
@@ -672,16 +677,17 @@ export const copy: Record<Lang, Copy> = {
     overQuota: "מעל המכסה",
     hebrew: "עברית",
     english: "English",
-    navSchedule: "סידור שבועי",
+    navSchedule: "יצירת סידור",
     navTeam: "ניהול עובדים",
-    navMine: "המשמרת שלי",
+    navMine: "כניסה ויציאה",
+    navEmpty: "אין מסך פתוח לחשבון הזה.",
     authorityTitle: "ניהול והרשאות",
     authorityHint: "המנהל הישיר הוא מי שפתח את המשתמש. אפשר להעביר את הניהול הישיר לכל מנהל אתר בחברה. מי שמעליו בשרשרת רואה את העובד ויכול לפעול עליו.",
     directManager: "מנהל ישיר",
     directManagerEmpty: "האדם הבכיר בחברה",
     transferManager: "העברת ניהול",
     reportsBlock: "יש עובדים תחתיו. מעבירים אותם למנהל אתר אחר לפני המחיקה.",
-    capClock: "כניסה ויציאה ממשמרת",
+    capClock: "כניסה ויציאה לעבודה",
     capConstraints: "הגשת אילוצים שבועיים",
     capAbsences: "הגשת בקשת היעדרות",
     capTrades: "בקשת החלפת משמרת",
@@ -709,7 +715,9 @@ export const copy: Record<Lang, Copy> = {
     personSchedulableHint: "מנהל אתר שאפשר גם לשבץ למשמרות. כיבוי מחזיר אותו לניהול בלבד.",
     employeeName: "שם",
     contact: "אימייל",
-    loginEmailHint: "האימייל הזה הוא גם הכניסה למערכת.",
+    loginEmailHint: "האימייל פותח כניסה לאדם הזה. המסכים נקבעים לפי ההרשאות שלו.",
+    loginOpen: "הכניסה פתוחה.",
+    loginNone: "בלי אימייל אין כניסה. מנהל מזין את האילוצים.",
     saveChanges: "שמירת שינויים",
     cancelChanges: "ביטול",
     unsavedTitle: "לשמור את השינויים?",
@@ -930,10 +938,10 @@ export const copy: Record<Lang, Copy> = {
     goToSignup: "אין חשבון?",
     goToLogin: "יש חשבון?",
     forgotPassword: "שכחתי סיסמה",
-    forgotHint: "נשלח קישור לאימייל הזה לאיפוס הסיסמה.",
-    forgotSend: "שליחת קישור",
-    forgotSent: "אם יש חשבון לאימייל הזה, הקישור בדרך.",
-    forgotFailed: "לא הצלחנו לשלוח את הקישור. נסו שוב.",
+    forgotHint: "בחרו סיסמה חדשה לאימייל הזה. לא נשלח מייל.",
+    forgotSend: "שמירת סיסמה",
+    forgotSent: "הסיסמה עודכנה. אפשר להיכנס.",
+    forgotFailed: "לא הצלחנו לעדכן את הסיסמה. בדקו את האימייל ונסו שוב.",
     backToSignIn: "חזרה לכניסה",
     newPasswordTitle: "סיסמה חדשה",
     newPasswordHint: "בחרו סיסמה של 6 תווים לפחות.",
@@ -1092,6 +1100,7 @@ export const copy: Record<Lang, Copy> = {
     attendanceCoarse: (meters) => `הרדיוס עכשיו ${meters} מ׳. הכניסה תיפתח כשהמיקום יינעל.`,
     attendanceLocked: (meters) => `המיקום נעול, ${meters} מ׳`,
     attendanceDenied: "כדי להירשם צריך לאשר גישה למיקום בעת השימוש.",
+    attendanceForbidden: "אין הרשאת כניסה ויציאה באתר הזה.",
     attendanceNoFix: "לא התקבל מיקום. יוצאים החוצה ומחכים שה-GPS יינעל.",
     attendanceWide: "המיקום רחב מדי. צריך עד 100 מטר. יוצאים החוצה ומפעילים מיקום מדויק.",
     attendanceSaved: "נשמר",
@@ -1125,6 +1134,7 @@ export const copy: Record<Lang, Copy> = {
     staffAccess: "גישה לעובדים",
     staffAccessHint: "כבוי: מנהל המשמרות מזין את האילוצים. דלוק: לעובד יש משתמש, והוא מגיש בקשה רק בחלון הזמן.",
     constraintWindow: "חלון הגשת אילוצים",
+    constraintWindowHint: "מי שיש לו הרשאת הגשת אילוצים מגיש אותם בעצמו רק בחלון הזה.",
     constraintStart: "יום התחלה",
     constraintEnd: "יום סיום",
     constraintStartTime: "שעת התחלה",
@@ -1156,7 +1166,7 @@ export const copy: Record<Lang, Copy> = {
     tradePickTarget: "בחר/י משמרת של עובד אחר. בטבלה מופיעים רק עובדים שאפשר להחליף איתם את המשמרת בלי להפר אילוץ או חוק של העסק או האתר.",
     tradePickGiveaway: "בחר/י את המשמרת שברצונך למסור. בטבלה מופיעות רק המשמרות שלך, והיא תוצע לכל עובד שיכול לקחת אותה.",
     tradeChecking: "בודק אילו משמרות מתאימות…",
-    tradeNoTargets: "אין משמרת שאפשר להחליף איתה בלי להפר אילוץ או חוק.",
+    tradeNoTargets: "אין משמרת שאפשר להחליף אותה בלי להפר אילוץ או חוק.",
     tradeNoSeats: "אין לך משמרות עתידיות בסידור שפורסם לשבוע הזה.",
     tradeSend: "שליחת הבקשה",
     tradeOffer: "פרסום המסירה",
@@ -1205,7 +1215,7 @@ export const copy: Record<Lang, Copy> = {
     previousMonth: "Previous month",
     nextMonth: "Next month",
     hebrewCalendar: "Hebrew calendar",
-    hebrewCalendarHint: "On: the Hebrew date and holidays appear in small print next to Gregorian dates, in the schedule, constraints, calendar and exports. Off: Gregorian dates only. Only the owner can change this.",
+    hebrewCalendarHint: "On: the Hebrew date and holidays appear in small print next to Gregorian dates, in the schedule, constraints, calendar and exports. Off: Gregorian dates only.",
     previousYear: "Previous year",
     nextYear: "Next year",
     monthLabel: "Month",
@@ -1275,16 +1285,17 @@ export const copy: Record<Lang, Copy> = {
     overQuota: "Over the agreement",
     hebrew: "עברית",
     english: "English",
-    navSchedule: "Weekly schedule",
+    navSchedule: "Create the schedule",
     navTeam: "Employees",
-    navMine: "My shift",
+    navMine: "Clock in and out",
+    navEmpty: "This account has no open screen.",
     authorityTitle: "Management and permissions",
     authorityHint: "The direct manager is the person who opened the account. Direct management can move to any site manager in the company. Anyone above them can see the employee and act for them.",
     directManager: "Direct manager",
     directManagerEmpty: "Most senior person in the company",
     transferManager: "Move management",
     reportsBlock: "People report to this employee. Move them to another site manager before deleting.",
-    capClock: "Clock in and out of a shift",
+    capClock: "Clock in and out of work",
     capConstraints: "Submit weekly constraints",
     capAbsences: "Submit an absence request",
     capTrades: "Request a shift swap",
@@ -1312,7 +1323,9 @@ export const copy: Record<Lang, Copy> = {
     personSchedulableHint: "A site manager who can also be placed on shifts. Turning this off leaves them as management only.",
     employeeName: "Name",
     contact: "Email",
-    loginEmailHint: "This email is also the sign-in address.",
+    loginEmailHint: "This email opens this person's sign-in. The screens follow their permissions.",
+    loginOpen: "Sign-in is open.",
+    loginNone: "Without an email there is no sign-in. A manager enters their constraints.",
     saveChanges: "Save changes",
     cancelChanges: "Cancel",
     unsavedTitle: "Save the changes?",
@@ -1533,10 +1546,10 @@ export const copy: Record<Lang, Copy> = {
     goToSignup: "Don't have an account?",
     goToLogin: "Already have an account?",
     forgotPassword: "Forgot my password",
-    forgotHint: "We'll email a link to reset the password.",
-    forgotSend: "Send link",
-    forgotSent: "If an account exists for this email, the link is on its way.",
-    forgotFailed: "The link could not be sent. Try again.",
+    forgotHint: "Choose a new password for this email. No email is sent.",
+    forgotSend: "Save password",
+    forgotSent: "The password is updated. You can sign in.",
+    forgotFailed: "The password could not be updated. Check the email and try again.",
     backToSignIn: "Back to sign in",
     newPasswordTitle: "New password",
     newPasswordHint: "Choose a password of at least 6 characters.",
@@ -1695,6 +1708,7 @@ export const copy: Record<Lang, Copy> = {
     attendanceCoarse: (meters) => `The radius is ${meters} m. Clock-in opens once the location locks.`,
     attendanceLocked: (meters) => `Location locked, ${meters} m`,
     attendanceDenied: "Allow location access while using the site to clock in or out.",
+    attendanceForbidden: "Clocking in and out is not available at this site.",
     attendanceNoFix: "No location came back. Step outside and wait for GPS to lock.",
     attendanceWide: "The location is too wide. It has to be within 100 meters. Step outside and turn on precise location.",
     attendanceSaved: "Saved",
@@ -1728,6 +1742,7 @@ export const copy: Record<Lang, Copy> = {
     staffAccess: "Employee access",
     staffAccessHint: "Off: the shift manager enters constraints. On: the employee has a login and submits a request only inside the time window.",
     constraintWindow: "Constraint window",
+    constraintWindowHint: "A person with the constraints permission submits them only inside this window.",
     constraintStart: "Start day",
     constraintEnd: "End day",
     constraintStartTime: "Start time",

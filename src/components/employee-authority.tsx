@@ -1,5 +1,5 @@
 import { CAPABILITY_KEYS, type Capabilities, type Capability, type Lang } from "../domain";
-import { capabilitiesOf, grantable, isAncestor, transferTargets, type ReportNode } from "../access/hierarchy";
+import { SHIFT_CAPABILITIES, capabilitiesOf, grantable, isAncestor, transferTargets, type ReportNode } from "../access/hierarchy";
 import { copy } from "../i18n/copy";
 import { select } from "./ui";
 
@@ -87,7 +87,7 @@ export function EmployeeAuthority({
         ) : null}
       </div>
       <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {CAPABILITY_KEYS.map((key) => {
+        {CAPABILITY_KEYS.filter((key) => employee.schedulable !== false || !(SHIFT_CAPABILITIES as readonly string[]).includes(key)).map((key) => {
           const allowed = owner || editorCapabilities[key];
           return (
             <label key={key} className="flex items-center gap-2 text-sm text-ink">

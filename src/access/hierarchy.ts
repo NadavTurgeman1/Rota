@@ -16,6 +16,9 @@ export interface ReportNode {
 
 const STAFF_ON: Capability[] = ["clock", "constraints", "absences", "trades", "schedule_view"];
 
+/** Weekly constraints and shift swaps apply only to someone who can be placed on a shift. Clocking in is the day's attendance, so it stays. */
+export const SHIFT_CAPABILITIES = ["constraints", "trades"] as const satisfies readonly Capability[];
+
 export function blankCapabilities(): Capabilities {
   return Object.fromEntries(CAPABILITY_KEYS.map((key) => [key, false])) as Capabilities;
 }
@@ -66,6 +69,13 @@ export function grantable(actor: Capabilities, requested: Capabilities, owner = 
 
 export function isSchedulable(employee: { schedulable?: boolean }): boolean {
   return employee.schedulable !== false;
+}
+
+/** A person who is not placed on shifts does not submit weekly constraints or request swaps. */
+export function withoutShiftCapabilities(caps: Capabilities): Capabilities {
+  const next = { ...caps };
+  for (const key of SHIFT_CAPABILITIES) next[key] = false;
+  return next;
 }
 
 export function capabilitiesOf(employee: Pick<Employee, "capabilities">): Capabilities {

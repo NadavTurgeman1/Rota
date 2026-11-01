@@ -55,7 +55,7 @@ function mapPunch(row: {
 export async function loadOwnAttendance(sql: SqlClient, siteId: string): Promise<AttendanceSnapshot> {
   if (!UUID.test(siteId)) throw new SaveError("forbidden");
   const site = await sql.query<{ timezone: string }>(`select timezone from public.sites where id = $1`, [siteId]);
-  const actor = await sql.query<{ id: string | null }>(`select private.site_employee($1) as id`, [siteId]);
+  const actor = await sql.query<{ id: string | null }>(`select private.attendance_employee($1) as id`, [siteId]);
   if (!site[0] || !actor[0]?.id) throw new SaveError("forbidden");
   const rows = await sql.query<{
     id: string;

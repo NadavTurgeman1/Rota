@@ -37,6 +37,7 @@ describe("constraint window", () => {
     expect(constraintWindowOpen(site, new Date("2026-10-18T09:01:00.000Z"))).toBe(false);
     expect(constraintWindowOpen(site, new Date("2026-10-18T05:00:00.000Z"))).toBe(false);
     expect(constraintWindowOpen(site, new Date("2026-10-19T07:00:00.000Z"))).toBe(false);
+    expect(constraintWindowText(site, "he")).toBe("ראשון 09:00 – ראשון 12:00");
   });
 
   it("stays open across the week when the end is earlier than the start", () => {
@@ -48,16 +49,10 @@ describe("constraint window", () => {
     expect(constraintWindowOpen(span, new Date("2026-10-20T10:00:00.000Z"))).toBe(false);
   });
 
-  it("stays closed when employees have no login", () => {
-    expect(constraintWindowOpen({ ...site, staffAccess: false }, new Date("2026-10-18T07:00:00.000Z"))).toBe(false);
-    expect(constraintWindowText(site, "he")).toBe("ראשון 09:00 – ראשון 12:00");
-  });
-
   it("opens for every employee during an extra window", () => {
     const extra = { ...site, constraintExtensionUntil: "2026-10-19T12:00:00.000Z" };
     expect(constraintWindowOpen(extra, new Date("2026-10-19T11:59:00.000Z"))).toBe(true);
     expect(constraintWindowOpen(extra, new Date("2026-10-19T12:00:00.000Z"))).toBe(false);
-    expect(constraintWindowOpen({ ...extra, staffAccess: false }, new Date("2026-10-19T11:00:00.000Z"))).toBe(false);
   });
 
   it("closes the extra window when the deadline is cleared", () => {

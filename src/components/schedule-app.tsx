@@ -168,17 +168,16 @@ function blankWorkspace(userId: string, email: string): Workspace {
 
 type Screen = "business" | "team" | "constraints" | "insights" | "messages" | "absences" | "schedule" | "mine" | "approvals";
 
-function visibleScreens(caps: Capabilities, hasSelf: boolean, owner: boolean): Screen[] {
+function visibleScreens(caps: Capabilities, hasSelf: boolean, owner: boolean, schedulable: boolean): Screen[] {
   const screens: Screen[] = [];
   if (caps.schedule_view || caps.schedule_edit) screens.push("schedule");
   if (caps.people_edit || caps.people_site || caps.documents) screens.push("team");
-  if (caps.constraints || caps.schedule_edit || caps.people_edit) screens.push("constraints");
+  if ((schedulable && caps.constraints) || caps.schedule_edit || caps.people_edit) screens.push("constraints");
   if (caps.insights) screens.push("insights");
   if (caps.messages) screens.push("messages");
   if (caps.absences || caps.people_edit) screens.push("absences");
   if (caps.site_settings) screens.push("business");
   if (!owner && hasSelf && caps.clock) screens.push("mine");
-  if (screens.length === 0) screens.push("schedule");
   return screens;
 }
 
@@ -335,11 +334,14 @@ export function ScheduleApp() {
   const writer = Boolean(user && hasWrite(user));
   const owner = Boolean(user && isOwner(user));
   const editorCapabilities = owner ? allCapabilities() : (live.selfCapabilities ?? (writer ? managerCapabilities() : staffCapabilities()));
-  const allowedScreens = visibleScreens(editorCapabilities, Boolean(live.selfEmployeeId), owner);
   const directory = companyDirectory(live.sites, live.activeSiteId, owner ? (live.selfEmployeeId ?? null) : null, user?.name ?? "");
+  const selfSchedulable = live.selfEmployeeId
+    ? directory.find((person) => person.id === live.selfEmployeeId)?.schedulable !== false
+    : false;
+  const allowedScreens = visibleScreens(editorCapabilities, Boolean(live.selfEmployeeId), owner, selfSchedulable);
   useEffect(() => {
     if (!user || user.access === "read" || screen === "approvals" || allowedScreens.includes(screen)) return;
-    setScreen(allowedScreens[0] ?? "schedule");
+    if (allowedScreens[0]) setScreen(allowedScreens[0]);
   }, [allowedScreens, screen, user]);
   const hebrew = hebrewCalendarOn(live);
   const [trades, setTrades] = useState<{ trades: ShiftTrade[]; takeable: string[] }>({ trades: [], takeable: [] });
@@ -869,13 +871,14 @@ export function ScheduleApp() {
     return true;
   }
 
-  async function requestReset(email: string): Promise<boolean> {
+  async function requestReset(email: string, password: string): Promise<boolean> {
     const address = email.trim();
-    if (!address) return false;
-    const { error } = await browserClient().auth.resetPasswordForEmail(address, {
-      redirectTo: `${window.location.origin}/`,
+    if (!address || password.length < 6) return false;
+    const { data, error } = await browserClient().rpc("set_login_password", {
+      target_email: address,
+      new_password: password,
     });
-    return !error;
+    return !error && data === true;
   }
 
   async function saveNewPassword(password: string): Promise<boolean> {
@@ -1506,6 +1509,8 @@ export function ScheduleApp() {
         onMessageAck={ackStaffNote}
         absences={absenceRequests}
         absencesApi={remote ? absencesApi : undefined}
+        capabilities={live.selfCapabilities ?? staffCapabilities()}
+        schedulable={selfSchedulable}
       />
       </HebrewCalendarContext.Provider>
     );
@@ -1583,7 +1588,8 @@ export function ScheduleApp() {
       { id: "mine", label: t.navMine },
     ] as const
   ).filter((tab) => allowedScreens.includes(tab.id));
-  const weekly = screen === "schedule" || screen === "constraints" || screen === "messages";
+  const shown = allowedScreens.includes(screen) || screen === "approvals" ? screen : null;
+  const weekly = shown === "schedule" || shown === "constraints" || shown === "messages";
 
   return (
     <HebrewCalendarContext.Provider value={hebrew}>
@@ -1638,7 +1644,7 @@ export function ScheduleApp() {
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
           <div className="min-w-0">
             <h1 className="text-[2rem] font-semibold leading-none tracking-[-0.03em] text-ink">
-              {screen === "approvals" ? t.approvalsTitle : tabs.find((tab) => tab.id === screen)?.label}
+              {shown === "approvals" ? t.approvalsTitle : (tabs.find((tab) => tab.id === shown)?.label ?? t.navEmpty)}
             </h1>
             <p className="mt-2 text-sm text-muted">{siteLabel(state.biz.name, lang)}</p>
           </div>
@@ -1712,7 +1718,7 @@ export function ScheduleApp() {
                 <Chevron dir="next" />
               </button>
             </div>
-            {screen === "schedule" ? (
+            {shown === "schedule" ? (
               <>
                 <button
                   type="button"
@@ -1800,7 +1806,7 @@ export function ScheduleApp() {
                 >
                   {t.redo}
                 </button>
-                {screen === "constraints" ? (
+                {shown === "constraints" ? (
                   <ExtraWindowMenu
                     lang={lang}
                     until={state.biz.constraintExtensionUntil}
@@ -1810,14 +1816,14 @@ export function ScheduleApp() {
                 ) : null}
               </>
             ) : null}
-            {screen === "schedule" ? (
+            {shown === "schedule" ? (
               <p data-testid="publish-status" aria-live="polite" className="text-sm leading-6 text-ink-soft sm:ms-2">
                 {status}
               </p>
             ) : null}
           </section>
         ) : null}
-        {screen === "schedule" ? (
+        {shown === "schedule" ? (
           <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,22rem)]">
             <div className="min-w-0">
               <WeekBoard {...boardProps} />
@@ -1899,8 +1905,8 @@ export function ScheduleApp() {
             </div>
           </div>
         ) : null}
-        {screen === "mine" ? <AttendanceScreen lang={lang} siteId={live.activeSiteId} api={attendanceApi} /> : null}
-        {screen === "team" ? (
+        {shown === "mine" ? <AttendanceScreen lang={lang} siteId={live.activeSiteId} api={attendanceApi} /> : null}
+        {shown === "team" ? (
           <TeamScreen
             sharedAttendance={
               rosterSite === live.activeSiteId
@@ -2009,7 +2015,7 @@ export function ScheduleApp() {
             directory={directory}
           />
         ) : null}
-        {screen === "constraints" ? (
+        {shown === "constraints" ? (
           <ConstraintsScreen
             state={state}
             lang={lang}
@@ -2032,10 +2038,10 @@ export function ScheduleApp() {
             }
           />
         ) : null}
-        {screen === "approvals" && operator ? (
+        {shown === "approvals" && operator ? (
           <ApprovalsScreen bare lang={lang} toolbar={null} load={loadCompanies} onApprove={approveEmail} onStatus={setCompanyStatus} onEnter={(orgId) => void enterCompany(orgId)} />
         ) : null}
-        {screen === "messages" ? (
+        {shown === "messages" ? (
           <MessagesScreen
             state={state}
             lang={lang}
@@ -2045,7 +2051,7 @@ export function ScheduleApp() {
             hideId={owner ? live.selfEmployeeId : null}
           />
         ) : null}
-        {screen === "absences" ? (
+        {shown === "absences" ? (
           <AbsenceScreen
             lang={lang}
             canWrite={writer}
@@ -2057,7 +2063,7 @@ export function ScheduleApp() {
             api={absencesApi}
           />
         ) : null}
-        {screen === "business" ? (
+        {shown === "business" ? (
           <BusinessScreen
             state={state}
             lang={lang}
@@ -2089,7 +2095,7 @@ export function ScheduleApp() {
             onDraft={rememberDraft}
           />
         ) : null}
-        {screen === "insights" ? <InsightsScreen state={state} lang={lang} /> : null}
+        {shown === "insights" ? <InsightsScreen state={state} lang={lang} /> : null}
       </main>
         </div>
       </div>

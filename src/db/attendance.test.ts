@@ -22,8 +22,8 @@ async function setup() {
       ('${site}', '${org}', 'Main', 'Asia/Jerusalem'),
       ('${otherSite}', '${otherOrg}', 'Other', 'Asia/Jerusalem');
     insert into auth.users (id, email) values
-      ('${dana.user}', 'dana@example.com'),
-      ('${noa.user}', 'noa@example.com'),
+      ('${dana.user}', 'dana.attendance@example.com'),
+      ('${noa.user}', 'noa.attendance@example.com'),
       ('${manager}', 'manager@example.com'),
       ('${owner}', 'owner@example.com'),
       ('${outsider}', 'outsider@example.com');

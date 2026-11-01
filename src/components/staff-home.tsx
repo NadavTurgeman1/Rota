@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { addDays, slots, type Business, type Lang, type RotaState } from "../domain";
+import type { Capabilities } from "../domain";
 import { copy } from "../i18n/copy";
 import { exportFileName, formatWeekRange, pngFileName, siteLabel } from "../schedule/display";
 import { calendarTitle, ownPublishedShifts, shiftsIcs } from "../schedule/calendar";
@@ -71,8 +72,7 @@ function StaffConstraints({
 }) {
   const t = copy[lang];
   const employee = state.emps.find((item) => item.id === employeeId);
-  const accessOn = state.biz.staffAccess !== false;
-  const open = accessOn && constraintWindowOpen(state.biz);
+  const open = constraintWindowOpen(state.biz);
   const [draft, setDraft] = useState<string[][]>(() => (pending ? pending.shifts.map((day) => [...day]) : officialGrid(state, employeeId)));
   const [refused, setRefused] = useState<string[]>([]);
   const [sameNotice, setSameNotice] = useState(false);
@@ -164,10 +164,6 @@ function StaffConstraints({
       {waiting ? (
         <p data-testid="staff-pending" className="mt-2 text-sm font-medium text-ink">
           {t.staffPending}
-        </p>
-      ) : !accessOn ? (
-        <p role="alert" className="mt-2 text-sm font-medium text-ink">
-          {t.staffAccessOff}
         </p>
       ) : !open ? (
         <p role="alert" data-testid="staff-window-closed" className="mt-2 text-sm font-medium text-ink">
@@ -330,6 +326,8 @@ export function StaffHome({
   onMessageAck,
   absences = [],
   absencesApi,
+  capabilities,
+  schedulable,
 }: {
   state: RotaState;
   lang: Lang;
@@ -355,6 +353,8 @@ export function StaffHome({
   onMessageAck?: (messageId: string, kind: "popup" | "read") => Promise<boolean>;
   absences?: AbsenceRequest[];
   absencesApi?: AbsencesApi;
+  capabilities: Capabilities;
+  schedulable: boolean;
 }) {
   const t = copy[lang];
   const hebrew = useHebrewCalendar();
@@ -382,11 +382,11 @@ export function StaffHome({
   const hasPublished = publishedStates.length > 0;
   const decision = decisions[0] ?? null;
   const tabs = [
-    { id: "attendance" as const, label: t.staffAttendance },
-    { id: "schedule" as const, label: t.staffSchedule },
-    { id: "constraints" as const, label: t.staffConstraints },
-    { id: "absences" as const, label: t.staffAbsences },
-  ];
+    capabilities.clock ? { id: "attendance" as const, label: t.staffAttendance } : null,
+    capabilities.schedule_view ? { id: "schedule" as const, label: t.staffSchedule } : null,
+    schedulable && capabilities.constraints ? { id: "constraints" as const, label: t.staffConstraints } : null,
+    capabilities.absences ? { id: "absences" as const, label: t.staffAbsences } : null,
+  ].filter((item): item is { id: "attendance" | "schedule" | "constraints" | "absences"; label: string } => item !== null);
 
   const pageTitle = tabs.find((item) => item.id === tab)?.label ?? "";
 
@@ -403,6 +403,10 @@ export function StaffHome({
     if (delta !== 0) onWeek(delta);
   }
 
+  useEffect(() => {
+    if (tabs.some((item) => item.id === tab)) return;
+    if (tabs[0]) setTab(tabs[0].id);
+  }, [tab, tabs]);
   useEffect(() => {
     activeNav.current?.scrollIntoView({ inline: "nearest", block: "nearest" });
   }, [tab]);
@@ -507,7 +511,7 @@ export function StaffHome({
             </div>
           </section>
         )}
-        {selfId && tradeApi ? (
+        {selfId && tradeApi && schedulable && capabilities.trades ? (
           <StaffTrades
             lang={lang}
             selfId={selfId}
@@ -522,6 +526,8 @@ export function StaffHome({
         ) : null}
         {!selfId ? (
           <p className={`${card} text-sm leading-6 text-ink`}>{t.staffUnlinked}</p>
+        ) : !tabs.some((item) => item.id === tab) ? (
+          <p className={`${card} text-sm leading-6 text-ink`}>{t.navEmpty}</p>
         ) : tab === "attendance" ? (
           <AttendanceScreen lang={lang} siteId={activeSiteId} api={attendanceApi} />
         ) : tab === "absences" && absencesApi ? (

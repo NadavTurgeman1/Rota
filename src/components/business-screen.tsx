@@ -390,36 +390,9 @@ export function BusinessScreen({
           ))}
         </div>
         <div className="mt-5 border-t border-line pt-5">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <span className="text-sm font-medium text-ink">{t.staffAccess}</span>
-            <div className="inline-flex rounded-full border border-line bg-well p-0.5" role="group" aria-label={t.staffAccess}>
-              <button
-                type="button"
-                data-testid="staff-access-off"
-                aria-pressed={siteView.staffAccess === false}
-                disabled={readOnly}
-                className={`h-8 rounded-full px-3 text-xs font-semibold ${siteView.staffAccess === false ? "bg-card text-ink shadow-card" : "text-muted"}`}
-                onClick={() => editSite({ staffAccess: false })}
-              >
-                OFF
-              </button>
-              <button
-                type="button"
-                data-testid="staff-access"
-                aria-pressed={siteView.staffAccess !== false}
-                disabled={readOnly}
-                className={`h-8 rounded-full px-3 text-xs font-semibold ${siteView.staffAccess !== false ? "bg-brand text-on-brand shadow-card" : "text-muted"}`}
-                onClick={() => editSite({ staffAccess: true })}
-              >
-                ON
-              </button>
-            </div>
-          </div>
-          <p className="mt-2 text-sm leading-6 text-muted">{t.staffAccessHint}</p>
-          {siteView.staffAccess !== false ? (
-            <div className="mt-4">
-              <p className="text-sm font-medium text-ink">{t.constraintWindow}</p>
-              <div className="mt-3 grid gap-3 sm:grid-cols-2">
+          <p className="text-sm font-medium text-ink">{t.constraintWindow}</p>
+          <p className="mt-2 text-sm leading-6 text-muted">{t.constraintWindowHint}</p>
+          <div className="mt-3 grid gap-3 sm:grid-cols-2">
                 <label className={label}>
                   <span className={labelText}>{t.constraintStart}</span>
                   <select
@@ -476,9 +449,7 @@ export function BusinessScreen({
                     onChange={(event) => editSite({ constraintCloses: event.target.value.slice(0, 5) })}
                   />
                 </label>
-              </div>
-            </div>
-          ) : null}
+          </div>
           <div className="mt-5">
             <label className="inline-flex items-center gap-2">
               <input
@@ -619,7 +590,6 @@ export function BusinessScreen({
             </tbody>
           </table>
         </div>
-        <p className="mt-3 text-sm leading-6 text-muted">{t.staffingHint}</p>
         {canWrite ? (
           <button type="button" data-testid="add-shift" className={`${button.quiet} mt-4`} onClick={() => onAddShift(t.newShift)}>
             + {t.addShift}

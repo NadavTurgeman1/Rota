@@ -120,7 +120,6 @@ function nextWeekMinute(now: Date, weekMinute: number): Date {
  * The permanent window is included. A week that never closes has no such moment.
  */
 export function millisUntilConstraintWindowChange(biz: Business, now = new Date()): number | null {
-  if (biz.staffAccess === false) return null;
   const open = constraintWindowOpen(biz, now);
   const start = stamp(biz.constraintStartDay ?? 0, biz.constraintOpens ?? "00:00");
   const end = stamp(biz.constraintEndDay ?? 6, biz.constraintCloses ?? "23:59");
@@ -137,7 +136,6 @@ export function millisUntilConstraintWindowChange(biz: Business, now = new Date(
 
 /** Employees may send a constraint request from the start day and hour through the end day and hour. */
 export function constraintWindowOpen(biz: Business, now = new Date()): boolean {
-  if (biz.staffAccess === false) return false;
   if (extensionStillOpen(biz.constraintExtensionUntil, now)) return true;
   const { day, minute } = jerusalemParts(now);
   if (day < 0) return false;

@@ -61,17 +61,14 @@ describe("a roster employee login", () => {
     expect(role[0]?.role).toBe("employee");
 
     await db.exec("reset role");
-    await sql.query(`update public.sites set staff_access = false where id = $1`, [headquarters]);
     await asRole(db, "authenticated", worker);
     const morning = (await loadStoredWorkspace(sql, constraintWeek))?.sites[0]?.state.biz.shifts[0];
     if (!morning) throw new Error("shifts");
     const grid = [[morning.id], [], [], [], [], [], []];
-    await expect(submitAvailabilityRequest(sql, { siteId: headquarters, week: constraintWeek, shifts: grid })).rejects.toBeInstanceOf(SaveError);
     await db.exec("reset role");
     await sql.query(
       `update public.sites
-       set staff_access = true,
-           constraint_opens_day = extract(dow from ((now() at time zone timezone) + interval '2 days'))::int,
+       set constraint_opens_day = extract(dow from ((now() at time zone timezone) + interval '2 days'))::int,
            constraint_closes_day = extract(dow from ((now() at time zone timezone) + interval '2 days'))::int,
            constraint_opens = '03:00',
            constraint_closes = '04:00'
@@ -289,6 +286,12 @@ describe("a roster employee login", () => {
     expect(await inviteStaffLogin(sql, { orgId: sentinel, employeeId: third.id, email: "existing.portal@example.com" })).toBe("linked");
     const thirdRow = await sql.query<{ user_id: string | null }>(`select user_id from public.employees where id = $1`, [third.id]);
     expect(thirdRow[0]?.user_id).toBe(existing);
+    await db.exec("reset role");
+    const thirdAccess = await sql.query<{ role: string }>(
+      `select role from public.site_memberships where user_id = $1 and site_id = $2`,
+      [existing, headquarters],
+    );
+    expect(thirdAccess).toEqual([{ role: "employee" }]);
   });
 
   it("shows member names to a platform admin who is not a member of the business", async () => {

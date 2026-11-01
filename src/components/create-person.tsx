@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { CAPABILITY_KEYS, MANAGEMENT_CAPABILITIES, type Capabilities, type Capability, type Lang } from "../domain";
-import { grantable, staffCapabilities } from "../access/hierarchy";
+import { SHIFT_CAPABILITIES, grantable, staffCapabilities, withoutShiftCapabilities } from "../access/hierarchy";
 import { copy } from "../i18n/copy";
 import { button, cardTitle, field, label as labelClass, labelText } from "./ui";
 
@@ -16,6 +16,7 @@ export interface NewPerson {
 }
 
 const PERSONAL: Capability[] = ["clock", "constraints", "absences", "trades", "schedule_view"];
+const SHIFT_ONLY = new Set<Capability>(SHIFT_CAPABILITIES);
 
 const CAPTION = {
   clock: "capClock",
@@ -64,7 +65,7 @@ export function CreatePerson({
     setPlace(next);
     if (next === "work") setCaps(grantable(editorCapabilities, staffCapabilities(), owner));
     if (next === "lead") {
-      setCaps(grantable(editorCapabilities, { ...staffCapabilities(), people_edit: true, messages: true }, owner));
+      setCaps(grantable(editorCapabilities, withoutShiftCapabilities({ ...staffCapabilities(), people_edit: true, messages: true }), owner));
     }
     if (next === "both") {
       setCaps(
@@ -80,7 +81,7 @@ export function CreatePerson({
   }
 
   const keys = CAPABILITY_KEYS.filter((key) => (leads ? true : PERSONAL.includes(key)));
-  const personalKeys = keys.filter((key) => PERSONAL.includes(key));
+  const personalKeys = keys.filter((key) => PERSONAL.includes(key) && (works || !SHIFT_ONLY.has(key)));
   const managementKeys = keys.filter((key) => (MANAGEMENT_CAPABILITIES as readonly string[]).includes(key));
 
   return (
@@ -138,6 +139,7 @@ export function CreatePerson({
         <label className={`${labelClass} sm:col-span-2`}>
           <span className={labelText}>{t.personEmail}</span>
           <input className={field} value={email} dir="ltr" type="email" onChange={(event) => setEmail(event.target.value)} />
+          <span className="text-xs leading-5 text-muted">{t.loginEmailHint}</span>
         </label>
       </div>
       {leads ? (

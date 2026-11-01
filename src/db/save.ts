@@ -71,7 +71,7 @@ export async function saveSite(
         hours(state.biz.maxShift),
         hours(state.biz.maxDayHours ?? 0),
         state.biz.assume,
-        state.biz.staffAccess !== false,
+        true,
         state.biz.constraintStartDay ?? 0,
         state.biz.constraintEndDay ?? 6,
         state.biz.constraintOpens ?? "00:00",
@@ -155,6 +155,7 @@ export async function saveSite(
   }
 
   const shiftSet = new Set(shiftIds);
+  const loginBefore = writePeople ? await loginSnapshot(sql, orgId, people) : [];
   if (writePeople) {
   await writeRows(
     sql,
@@ -268,6 +269,7 @@ export async function saveSite(
     [orgId],
     [managedEmployees, managedSites],
   );
+  await syncOpenedLogins(sql, orgId, people, loginBefore);
 
   await sql.query(
     `delete from public.employee_qualifications eq
@@ -516,6 +518,55 @@ function constraintLimitsJson(employee: RotaState["emps"][number]): string | nul
     weekend: count(employee.customBlocks.weekend),
     shifts: cleanShiftBlocks(employee.customBlocks.shifts),
   });
+}
+
+const LOGIN_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+async function loginSnapshot(
+  sql: SqlClient,
+  orgId: string,
+  people: KeptPerson[],
+): Promise<{ id: string; email: string; user_id: string | null }[]> {
+  const ids = people.filter((person) => person.roster).map((person) => person.id);
+  if (ids.length === 0) return [];
+  return sql.query<{ id: string; email: string; user_id: string | null }>(
+    `select id, lower(btrim(email)) as email, user_id
+     from public.employees
+     where org_id = $1 and id = any($2::uuid[])`,
+    [orgId, ids],
+  );
+}
+
+/** An email on the person opens their login. Clearing it closes a linked login. */
+async function syncOpenedLogins(
+  sql: SqlClient,
+  orgId: string,
+  people: KeptPerson[],
+  before: { id: string; email: string; user_id: string | null }[],
+): Promise<void> {
+  const actor = await sql.query<{ id: string | null }>(`select auth.uid() as id`);
+  if (!actor[0]?.id) return;
+  const prior = new Map(before.map((row) => [row.id, row]));
+  for (const person of people) {
+    if (!person.roster) continue;
+    const next = person.contact.trim().toLowerCase();
+    const previous = prior.get(person.id);
+    const prev = previous?.email ?? "";
+    if (next === prev) continue;
+    const placed = person.schedulable !== 0 || person.managedSiteIds.length > 0;
+    try {
+      if (!previous?.user_id && next && placed && LOGIN_EMAIL.test(next)) {
+        await sql.query(`select public.assign_staff_login($1, $2, $3)`, [orgId, person.id, next]);
+      } else if (previous?.user_id && !next) {
+        await sql.query(`select public.remove_staff_login($1, $2)`, [orgId, person.id]);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "";
+      if (/not allowed|42501/i.test(message)) throw new SaveError("forbidden");
+      if (/invalid|23514|duplicate|unique|23505/i.test(message)) throw new SaveError("invitation");
+      throw error;
+    }
+  }
 }
 
 function peopleToKeep(state: RotaState): KeptPerson[] {

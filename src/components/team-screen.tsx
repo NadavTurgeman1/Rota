@@ -15,7 +15,7 @@ import { NameRail } from "./name-rail";
 import type { Capabilities } from "../domain";
 import { EmployeeAuthority } from "./employee-authority";
 import { CreatePerson, type NewPerson } from "./create-person";
-import { isSchedulable, isSiteManager, type ReportNode } from "../access/hierarchy";
+import { isSchedulable, isSiteManager, withoutShiftCapabilities, capabilitiesOf, type ReportNode } from "../access/hierarchy";
 import { button, card, cardHint, cardTitle, field, label as labelClass, labelText, select, surface } from "./ui";
 
 export function TeamScreen({
@@ -75,7 +75,7 @@ export function TeamScreen({
 }) {
   const t = copy[lang];
   const [creating, setCreating] = useState(false);
-  const hideSelf = owner && editorId ? editorId : null;
+  const hideSelf = editorId;
   const workers = state.emps.filter((item) => isSchedulable(item) && !isSiteManager(item) && !isRelief(item, siteId) && item.id !== hideSelf);
   const leads = state.emps.filter((item) => isSiteManager(item) && !isRelief(item, siteId) && item.id !== hideSelf);
   const visible = [...workers, ...leads];
@@ -351,12 +351,7 @@ function EmployeeCard({
 
       <EmployeeAttendance employeeId={employeeId} lang={lang} load={loadAttendance} shared={sharedAttendance?.(employeeId)} />
 
-      {employee.schedulable === false ? (
-        <section className={card}>
-          <h2 className={cardTitle}>{t.personLead}</h2>
-          <p className={cardHint}>{t.managerNotScheduled}</p>
-        </section>
-      ) : (
+      {employee.schedulable === false ? null : (
       <section className={card}>
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
@@ -706,10 +701,10 @@ function EmployeeDetails({
       observesShabbat: employee.observesShabbat === true,
       observesHolidays: employee.observesHolidays === true,
       profile: employeeProfile(employee),
-      capabilities: employee.capabilities,
       reportsTo: employee.reportsTo ?? null,
       customBlocks: employee.customBlocks ?? null,
       schedulable: employee.schedulable !== false,
+      capabilities: employee.schedulable === false ? withoutShiftCapabilities(capabilitiesOf(employee)) : employee.capabilities,
       ...(employee.homeSiteId ? { homeSiteId: employee.homeSiteId } : {}),
     });
   }
@@ -724,21 +719,6 @@ function EmployeeDetails({
   const setProfile = (patch: Partial<typeof profile>) => edit({ profile: patch });
   return (
     <div data-testid="employee-profile" className="flex flex-col gap-6">
-      {isSiteManager(saved) ? (
-        <ObservanceSwitch
-          label={t.personSchedulable}
-          hint={t.personSchedulableHint}
-          checked={employee.schedulable !== false}
-          testId="person-schedulable"
-          disabled={readOnly}
-          onClick={() =>
-            edit({
-              schedulable: employee.schedulable === false,
-              ...(employee.schedulable === false && !employee.homeSiteId && siteId ? { homeSiteId: siteId } : {}),
-            })
-          }
-        />
-      ) : null}
       <div>
         <h3 className="text-sm font-medium text-ink">{t.profilePersonal}</h3>
         <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -788,6 +768,9 @@ function EmployeeDetails({
         <h3 className="text-sm font-medium text-ink">{t.profileContact}</h3>
         <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <TextField label={t.contact} value={employee.contact} readOnly={readOnly} onCommit={(contact) => edit({ contact })} />
+          <p className="text-xs leading-5 text-muted sm:col-span-2 lg:col-span-3">
+            {saved.loginConfirmed === true ? t.loginOpen : saved.contact.trim() ? t.loginPending : t.loginNone}
+          </p>
           <p className="text-xs leading-5 text-muted sm:col-span-2 lg:col-span-3">{t.loginEmailHint}</p>
           <TextField
             label={t.phone}
@@ -807,6 +790,27 @@ function EmployeeDetails({
             onCommit={(houseNumber) => setProfile({ houseNumber })}
           />
           <TextField label={t.zip} value={profile.zip} readOnly={readOnly} ltr onCommit={(zip) => setProfile({ zip })} />
+        </div>
+      </div>
+      <div className="border-t border-line pt-6">
+        <h3 className="text-sm font-medium text-ink">{t.profileBank}</h3>
+        <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <TextField label={t.bankName} value={profile.bankName} readOnly={readOnly} onCommit={(bankName) => setProfile({ bankName })} />
+          <TextField
+            label={t.bankBranch}
+            value={profile.bankBranch}
+            readOnly={readOnly}
+            ltr
+            onCommit={(bankBranch) => setProfile({ bankBranch })}
+          />
+          <TextField
+            label={t.bankAccount}
+            value={profile.bankAccount}
+            readOnly={readOnly}
+            ltr
+            testId="employee-bank-account"
+            onCommit={(bankAccount) => setProfile({ bankAccount })}
+          />
         </div>
       </div>
       <div className="border-t border-line pt-6">
@@ -860,6 +864,26 @@ function EmployeeDetails({
           </label>
         </div>
         <div className="mt-5 flex flex-col gap-4 border-t border-line pt-5">
+          {isSiteManager(saved) ? (
+            <ObservanceSwitch
+              label={t.personSchedulable}
+              hint={t.personSchedulableHint}
+              checked={employee.schedulable !== false}
+              testId="person-schedulable"
+              disabled={readOnly}
+              onClick={() =>
+                edit({
+                  schedulable: employee.schedulable === false,
+                  ...(employee.schedulable === false
+                    ? !employee.homeSiteId && siteId
+                      ? { homeSiteId: siteId }
+                      : {}
+                    : { capabilities: withoutShiftCapabilities(capabilitiesOf(employee)) }),
+                })
+              }
+            />
+          ) : null}
+          {employee.schedulable !== false ? (
           <ObservanceSwitch
             label={t.observesShabbat}
             hint={t.observesShabbatHint}
@@ -874,7 +898,8 @@ function EmployeeDetails({
               )
             }
           />
-          {employee.observesShabbat === true ? (
+          ) : null}
+          {employee.schedulable !== false && employee.observesShabbat === true ? (
             <ObservanceSwitch
               label={t.observesHolidays}
               hint={t.observesHolidaysHint}
@@ -942,27 +967,6 @@ function EmployeeDetails({
             ) : null}
           </div>
         ) : null}
-      </div>
-      <div className="border-t border-line pt-6">
-        <h3 className="text-sm font-medium text-ink">{t.profileBank}</h3>
-        <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <TextField label={t.bankName} value={profile.bankName} readOnly={readOnly} onCommit={(bankName) => setProfile({ bankName })} />
-          <TextField
-            label={t.bankBranch}
-            value={profile.bankBranch}
-            readOnly={readOnly}
-            ltr
-            onCommit={(bankBranch) => setProfile({ bankBranch })}
-          />
-          <TextField
-            label={t.bankAccount}
-            value={profile.bankAccount}
-            readOnly={readOnly}
-            ltr
-            testId="employee-bank-account"
-            onCommit={(bankAccount) => setProfile({ bankAccount })}
-          />
-        </div>
       </div>
     </div>
   );

@@ -83,6 +83,7 @@ function problemText(code: string, t: Copy): string {
   if (code === "timezone") return t.attendanceClockZone;
   if (code === "accuracy") return t.attendanceWide;
   if (code === "denied") return t.attendanceDenied;
+  if (code === "forbidden") return t.attendanceForbidden;
   if (code === "location" || code === "unavailable") return t.attendanceNoFix;
   return t.saveFailed;
 }
