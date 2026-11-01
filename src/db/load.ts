@@ -48,7 +48,8 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
        s.constraint_shift_blocks,
        to_json(s.constraint_extension_until) #>> '{}' as constraint_extension_until,
        o.name as org_name,
-       o.kind as org_kind
+       o.kind as org_kind,
+       s.roles
      from public.sites s
      join public.organizations o on o.id = s.org_id
      where s.id = $1`,
@@ -101,7 +102,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
         [siteId],
       ),
       sql.query<EmployeeRow>(
-        `select e.id, e.name, e.email, e.phone, e.home_site_id, e.constraint_limits, e.job_title, e.weekly_shift_quota,
+        `select e.id, e.name, e.email, e.phone, e.home_site_id, e.constraint_limits, e.job_title, e.secondary_roles, e.weekly_shift_quota,
                 e.max_weekly_hours::float8 as max_weekly_hours, e.active,
                 e.hourly_wage::float8 as hourly_wage,
                 e.observes_shabbat, e.observes_holidays,
@@ -127,7 +128,7 @@ export async function loadSiteWeek(sql: SqlClient, siteId: string, week: string)
         [siteId],
       ),
       sql.query<EmployeeRow>(
-        `select e.id, e.name, e.email, e.phone, e.home_site_id, e.constraint_limits, e.job_title, e.weekly_shift_quota,
+        `select e.id, e.name, e.email, e.phone, e.home_site_id, e.constraint_limits, e.job_title, e.secondary_roles, e.weekly_shift_quota,
                 e.max_weekly_hours::float8 as max_weekly_hours, e.active,
                 e.hourly_wage::float8 as hourly_wage,
                 e.observes_shabbat, e.observes_holidays,

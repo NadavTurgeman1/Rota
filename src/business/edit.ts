@@ -1,4 +1,5 @@
 import type { Business, RotaState, ShiftDefinition } from "../domain";
+import { roleNames, secondaryRoles } from "../domain/rules";
 import type { Actor } from "../people/edit";
 
 export interface BusinessPatch {
@@ -135,6 +136,39 @@ export function setShiftRequirement(state: RotaState, actor: Actor, shiftId: str
     req[day] = Math.floor(value);
     return { ...shift, req };
   });
+}
+
+function sameRole(left: string, right: string): boolean {
+  return left.trim().toLowerCase() === right.trim().toLowerCase();
+}
+
+/** Adds one role name. A repeat of an existing name, ignoring letter case, changes nothing. */
+export function addJobRole(state: RotaState, actor: Actor, name: string): RotaState {
+  if (actor.kind !== "manager") return state;
+  const role = name.trim().replace(/\s+/g, " ");
+  if (!role) return state;
+  const roles = roleNames(state.biz.roles);
+  if (roles.some((item) => sameRole(item, role))) return state;
+  return { ...state, biz: { ...state.biz, roles: [...roles, role] } };
+}
+
+/** Removes a role from the catalog, from shifts, and from every person who held it. */
+export function removeJobRole(state: RotaState, actor: Actor, name: string): RotaState {
+  if (actor.kind !== "manager") return state;
+  const roles = roleNames(state.biz.roles);
+  if (!roles.some((item) => sameRole(item, name))) return state;
+  const draft = structuredClone(state);
+  draft.biz.roles = roles.filter((item) => !sameRole(item, name));
+  for (const shift of draft.biz.shifts) {
+    if (sameRole(shift.role, name)) shift.role = "";
+  }
+  for (const employee of draft.emps) {
+    if (sameRole(employee.role, name)) employee.role = "";
+    const next = secondaryRoles(employee).filter((item) => !sameRole(item, name));
+    if (next.length > 0) employee.secondaryRoles = next;
+    else delete employee.secondaryRoles;
+  }
+  return draft;
 }
 
 /** New shifts open every day with one seat, and every agreement allows them until edited. */

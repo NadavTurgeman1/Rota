@@ -1,4 +1,4 @@
-import { addDays, agreementAllows, type Business, type Employee, type EmployeeProfile, type RotaState } from "../domain";
+import { addDays, agreementAllows, durationHours, heldRoles, parseClock, secondaryRoles, shiftVisible, type Business, type Employee, type EmployeeProfile, type RotaState, type ShiftDefinition } from "../domain";
 import { absenceOnWeekDay } from "../domain/absence";
 import { isRelief } from "../domain/relief";
 import { shabbatBlocks, shiftRest, staffedCount } from "../domain/rest";
@@ -6,7 +6,7 @@ import { cleanProfile, employeeProfile } from "../domain/profile";
 import { capabilitiesOf, holdsPeople, normalizeCapabilities, staffCapabilities } from "../access/hierarchy";
 import type { Capabilities } from "../domain/types";
 import { constraintDraftWritable, parseConstraints, type LineOverride } from "../parser/parse";
-import { blockedCells, blockBuckets, normalizeCustom } from "./blocks";
+import { blockedCells, blockBuckets, customFromSite, normalizeCustom } from "./blocks";
 
 /** What the signed-in user may do. `viewer` reads everything and writes nothing. */
 export type Actor = { kind: "manager" } | { kind: "viewer" } | { kind: "employee"; employeeId: string };
@@ -19,6 +19,7 @@ export interface EmployeePatch {
   contact?: string;
   phone?: string;
   role?: string;
+  secondaryRoles?: string[];
   quals?: string;
   perWeek?: number;
   maxHours?: number;
@@ -73,6 +74,7 @@ export function openConstraintShiftIds(state: RotaState, employeeId: string, day
   return state.biz.shifts
     .filter(
       (shift) =>
+        shiftVisible(employee, shift) &&
         agreementAllows(employee, day, shift.id, shift) &&
         staffedCount(shift, day, state.week) > 0 &&
         shiftRest(employee, shift, day, state.week) === null,
@@ -175,7 +177,84 @@ export function setPreference(state: RotaState, actor: Actor, employeeId: string
   return draft;
 }
 
-/** Profile fields. Does not touch the agreement grid or any availability row. */
+function shiftWindow(shift: ShiftDefinition): [number, number] {
+  const start = parseClock(shift.start);
+  return [start, start + durationHours(shift.start, shift.end)];
+}
+
+function windowCovers(inner: [number, number], outer: [number, number]): boolean {
+  return inner[0] >= outer[0] - 1e-6 && inner[1] <= outer[1] + 1e-6;
+}
+
+/**
+ * After a role change, keep only this person's shifts.
+ * A new shift is blocked when its hours sit inside a shift they had already blocked.
+ */
+function alignShiftsWithRoles(state: RotaState, before: Employee, employee: Employee): void {
+  const shifts = state.biz.shifts;
+  if (shifts.length === 0) return;
+  const oldIds = new Set(shifts.filter((shift) => shiftVisible(before, shift)).map((shift) => shift.id));
+  const nextIds = new Set(shifts.filter((shift) => shiftVisible(employee, shift)).map((shift) => shift.id));
+  const previous = gridFrom(before, shifts.map((shift) => shift.id));
+  employee.grid = [0, 1, 2, 3, 4, 5, 6].map((day) => {
+    const had = new Set(previous[day] ?? []);
+    const blocked = shifts
+      .filter((shift) => oldIds.has(shift.id) && !had.has(shift.id) && Number(shift.req[day] || 0) > 0)
+      .map(shiftWindow);
+    const ids = new Set<string>();
+    for (const shift of shifts) {
+      if (!nextIds.has(shift.id)) continue;
+      if (oldIds.has(shift.id)) {
+        if (had.has(shift.id)) ids.add(shift.id);
+        continue;
+      }
+      if (Number(shift.req[day] || 0) <= 0) continue;
+      if (blocked.some((window) => windowCovers(shiftWindow(shift), window))) continue;
+      ids.add(shift.id);
+    }
+    return shifts.map((shift) => shift.id).filter((id) => ids.has(id));
+  });
+  delete employee.allowed;
+  delete employee.blocked;
+  employee.pref = (employee.pref ?? []).filter((id) => nextIds.has(id));
+
+  for (const week of Object.values(state.avail)) {
+    const row = week[employee.id];
+    if (!row) continue;
+    week[employee.id] = [0, 1, 2, 3, 4, 5, 6].map((day) => {
+      const allowed = new Set(employee.grid?.[day] ?? []);
+      const had = new Set((previous[day] ?? []).filter((id) => oldIds.has(id)));
+      const blocked = shifts.filter((shift) => had.has(shift.id) && !(row[day] ?? []).includes(shift.id)).map(shiftWindow);
+      const ids = new Set((row[day] ?? []).filter((id) => nextIds.has(id) && allowed.has(id)));
+      for (const shift of shifts) {
+        if (oldIds.has(shift.id) || !allowed.has(shift.id)) continue;
+        if (blocked.some((window) => windowCovers(shiftWindow(shift), window))) continue;
+        ids.add(shift.id);
+      }
+      return shifts.map((shift) => shift.id).filter((id) => ids.has(id));
+    });
+  }
+
+  if (heldRoles(employee).length < 2 || state.biz.blockLimit !== true) return;
+  const caps = employee.customBlocks ?? customFromSite(state.biz);
+  const parallel = new Map<string, number>();
+  for (const shift of shifts) {
+    if (!oldIds.has(shift.id)) continue;
+    const key = `${shift.start}|${shift.end}`;
+    const cap = caps.shifts[shift.id] ?? Math.max(0, Math.floor(state.biz.shiftBlocks?.[shift.id] ?? 0));
+    if (!parallel.has(key) || shift.role.trim().toLowerCase() === before.role.trim().toLowerCase()) parallel.set(key, cap);
+  }
+  const nextShifts = { ...caps.shifts };
+  for (const shift of shifts) {
+    if (!nextIds.has(shift.id)) continue;
+    const cap = parallel.get(`${shift.start}|${shift.end}`);
+    if (cap !== undefined) nextShifts[shift.id] = cap;
+    else if (nextShifts[shift.id] === undefined) nextShifts[shift.id] = Math.max(0, Math.floor(state.biz.shiftBlocks?.[shift.id] ?? 0));
+  }
+  employee.customBlocks = { ...caps, shifts: nextShifts };
+}
+
+/** Profile fields. A role change keeps the agreement and weekly constraints on this person's shifts. */
 export function updateEmployee(state: RotaState, actor: Actor, employeeId: string, patch: EmployeePatch): RotaState {
   if (!canEditRoster(actor)) return state;
   const employee = findEmployee(state, employeeId);
@@ -189,6 +268,10 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
   if (patch.contact !== undefined) next.contact = patch.contact.trim();
   if (patch.phone !== undefined) next.phone = patch.phone.trim();
   if (patch.role !== undefined) next.role = patch.role.trim();
+  if (patch.secondaryRoles !== undefined) next.secondaryRoles = patch.secondaryRoles;
+  const roles = secondaryRoles(next);
+  if (roles.length > 0) next.secondaryRoles = roles;
+  else delete next.secondaryRoles;
   if (patch.quals !== undefined) next.quals = patch.quals.trim();
   if (patch.perWeek !== undefined) next.perWeek = Math.floor(nonNegative(patch.perWeek));
   if (patch.maxHours !== undefined) next.maxHours = nonNegative(patch.maxHours);
@@ -227,6 +310,7 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
     next.contact === employee.contact &&
     (next.phone ?? "") === (employee.phone ?? "") &&
     next.role === employee.role &&
+    JSON.stringify(next.secondaryRoles ?? []) === JSON.stringify(secondaryRoles(employee)) &&
     next.quals === employee.quals &&
     next.perWeek === employee.perWeek &&
     next.maxHours === employee.maxHours &&
@@ -252,6 +336,9 @@ export function updateEmployee(state: RotaState, actor: Actor, employeeId: strin
   if (next.observesShabbat !== true) delete saved.observesShabbat;
   if (next.observesHolidays !== true) delete saved.observesHolidays;
   draft.emps[index] = saved;
+  if ((patch.role !== undefined || patch.secondaryRoles !== undefined) && draft.biz.shifts.length > 0) {
+    alignShiftsWithRoles(draft, employee, saved);
+  }
   return draft;
 }
 
@@ -413,12 +500,13 @@ export function setWholeAgreement(state: RotaState, actor: Actor, employeeId: st
   const employee = findEmployee(state, employeeId);
   if (!employee) return state;
   const shiftIds = state.biz.shifts.map((shift) => shift.id);
+  const visible = new Set(state.biz.shifts.filter((shift) => shiftVisible(employee, shift)).map((shift) => shift.id));
   const current = gridFrom(employee, shiftIds);
-  const base = allowed ? openGrid(state) : [[], [], [], [], [], [], []];
+  const base = (allowed ? openGrid(state) : [[], [], [], [], [], [], []]).map((dayShifts) => dayShifts.filter((id) => visible.has(id)));
   const grid = base.map((dayShifts, day) => {
     const kept = new Set(dayShifts);
     for (const shift of state.biz.shifts) {
-      if (!shabbatBlocks(employee, shift, day)) continue;
+      if (!visible.has(shift.id) || !shabbatBlocks(employee, shift, day)) continue;
       if ((current[day] ?? []).includes(shift.id)) kept.add(shift.id);
       else kept.delete(shift.id);
     }

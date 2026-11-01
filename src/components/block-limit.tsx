@@ -172,9 +172,14 @@ export function BlockNumberFields({
 
 function bucketText(lang: Lang, bucket: BlockBucket, home: Business, grid: RotaState): string {
   const t = copy[lang];
-  if (bucket.kind === "general") return t.blockLimitStatus(bucket.used, bucket.max);
-  if (bucket.kind === "weekday") return t.blockLimitBucket(t.blockWeekdays, bucket.used, bucket.max);
-  if (bucket.kind === "weekend") return t.blockLimitBucket(t.blockWeekend, bucket.used, bucket.max);
+  if (bucket.kind === "general") {
+    const line = t.blockLimitStatus(bucket.used, bucket.max);
+    return bucket.role ? `${bucket.role} · ${line}` : line;
+  }
+  if (bucket.kind === "weekday" || bucket.kind === "weekend") {
+    const line = t.blockLimitBucket(bucket.kind === "weekday" ? t.blockWeekdays : t.blockWeekend, bucket.used, bucket.max);
+    return bucket.role ? `${bucket.role} · ${line}` : line;
+  }
   const shifts = bucket.kind === "unmatched" ? grid.biz.shifts : home.shifts;
   const shift = shifts.find((item) => item.id === bucket.shiftId);
   const name = shift ? shiftLabel(shift.name, lang) : "";

@@ -86,6 +86,41 @@ function ClockSpin({
   );
 }
 
+export function RoleChoice({
+  value,
+  roles,
+  emptyLabel,
+  label,
+  readOnly,
+  onChange,
+}: {
+  value: string;
+  roles: string[];
+  emptyLabel: string;
+  label: string;
+  readOnly: boolean;
+  onChange: (role: string) => void;
+}) {
+  const options = [...roles];
+  if (value && !options.some((role) => role.toLowerCase() === value.toLowerCase())) options.unshift(value);
+  return (
+    <select
+      aria-label={label}
+      className={`${select} h-9`}
+      value={options.find((role) => role.toLowerCase() === value.toLowerCase()) ?? ""}
+      disabled={readOnly}
+      onChange={(event) => onChange(event.target.value)}
+    >
+      <option value="">{emptyLabel}</option>
+      {options.map((role) => (
+        <option key={role} value={role}>
+          {role}
+        </option>
+      ))}
+    </select>
+  );
+}
+
 /** Commits on Enter or blur. `shown` may be a translated label; committing it unchanged is a no-op. */
 function CommitInput({
   shown,
@@ -159,6 +194,8 @@ export function BusinessScreen({
   onRequirement,
   onAddShift,
   onRemoveShift,
+  onAddRole,
+  onRemoveRole,
   onBackupJson,
   onRestoreJson,
   onDraft,
@@ -180,6 +217,8 @@ export function BusinessScreen({
   onRequirement: (shiftId: string, day: number, count: number) => void;
   onAddShift: (name: string) => void;
   onRemoveShift: (shiftId: string) => void;
+  onAddRole: (name: string) => void;
+  onRemoveRole: (name: string) => void;
   onBackupJson?: () => void;
   onRestoreJson?: (raw: string) => boolean;
   onDraft?: (draft: { dirty: boolean; save: () => void; discard: () => void } | null) => void;
@@ -188,6 +227,7 @@ export function BusinessScreen({
   const biz = state.biz;
   const readOnly = !canWrite;
   const [newSite, setNewSite] = useState("");
+  const [newRole, setNewRole] = useState("");
   const [siteError, setSiteError] = useState(false);
   const [backupNote, setBackupNote] = useState<"restored" | "invalid" | null>(null);
   const numbers: { key: "minRest" | "maxHours" | "maxShift" | "maxDayHours"; label: string }[] = [
@@ -513,6 +553,48 @@ export function BusinessScreen({
       </section>
 
 
+      <section className={card} data-testid="roles-section">
+        <h2 className={cardTitle}>{t.rolesTitle}</h2>
+        <p className={cardHint}>{t.rolesHint}</p>
+        <ul className="mt-4 flex flex-col">
+          {(biz.roles ?? []).map((role) => (
+            <li key={role} className="flex items-center justify-between gap-3 border-t border-line py-2">
+              <span className="text-sm font-medium text-ink">{role}</span>
+              {canWrite ? (
+                <button type="button" data-testid={`delete-role-${role}`} className={`${button.small} text-danger-text`} onClick={() => onRemoveRole(role)}>
+                  {t.deleteRole}
+                </button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+        {canWrite ? (
+          <form
+            className="mt-4 flex flex-wrap items-end gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              const name = newRole.trim();
+              if (!name) return;
+              onAddRole(name);
+              setNewRole("");
+            }}
+          >
+            <label className={`${label} min-w-48 flex-1`}>
+              <span className={labelText}>{t.roleName}</span>
+              <input
+                value={newRole}
+                data-testid="new-role"
+                className={field}
+                onChange={(event) => setNewRole(event.target.value)}
+              />
+            </label>
+            <button type="submit" data-testid="add-role" className={button.quiet}>
+              + {t.addRole}
+            </button>
+          </form>
+        ) : null}
+      </section>
+
       <section className={card}>
         <h2 className={cardTitle}>{t.shiftsTitle}</h2>
         <div className="-mx-1 mt-4 overflow-x-auto px-1">
@@ -550,13 +632,14 @@ export function BusinessScreen({
                   <td className="whitespace-nowrap">
                     <TimeStepper value={shift.end} label={t.shiftEnd} readOnly={readOnly} onCommit={(end) => onShift(shift.id, { end })} />
                   </td>
-                  <td className="w-36">
-                    <CommitInput
-                      shown={shift.role}
-                      label={`${t.requiredRole} ${t.anyRole}`}
+                  <td className="w-40">
+                    <RoleChoice
+                      value={shift.role}
+                      roles={biz.roles ?? []}
+                      emptyLabel={t.anyRole}
+                      label={t.requiredRole}
                       readOnly={readOnly}
-                      className={cell}
-                      onCommit={(role) => onShift(shift.id, { role })}
+                      onChange={(role) => onShift(shift.id, { role })}
                     />
                   </td>
                   {[0, 1, 2, 3, 4, 5, 6].map((day) => (

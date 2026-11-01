@@ -72,7 +72,7 @@ export function suggest(state: RotaState, week: string, target: Slot): CoverageO
     roles.map((role) => {
       const employee = state.emps.find((item) => item.id === employeeId);
       if (!employee?.active) return false;
-      if (needs(role).some((slot) => staticReason(state, employee, slot, week))) return false;
+      if (needs(role).some((slot) => staticReason(state, employee, slot, week, "any"))) return false;
       const [start, end] = interval(role);
       if (end - start > maxLength + 1e-9) return false;
       const proposed: Slot = { ...role.slot, start, end };
@@ -159,7 +159,7 @@ export function suggestExtra(state: RotaState, week: string, slot: Slot): ExtraS
   for (const employee of state.emps) {
     if (!employee.active || !employee.perWeek || isRelief(employee, state.siteId)) continue;
     if ((schedule.assign[slot.key] ?? []).includes(employee.id)) continue;
-    if (staticReason(state, employee, slot, week)) continue;
+    if (staticReason(state, employee, slot, week, "any")) continue;
     const mine: Slot[] = [];
     for (const other of openSlots) {
       if ((schedule.assign[other.key] ?? []).includes(employee.id)) {

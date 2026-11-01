@@ -198,6 +198,36 @@ describe("people edits", () => {
     expect(setWholeAgreement(open, MANAGER, SENTINEL.dana, false).avail[open.week][SENTINEL.dana]).toEqual([[], [], [], [], [], [], []]);
   });
 
+  it("keeps a new role's shifts to the hours already blocked", () => {
+    const open = sentinelState("2026-10-11");
+    const shifts = [
+      { id: "am", name: "בוקר חמוש", start: "07:00", end: "15:00", role: "חמוש", req: [1, 1, 1, 1, 1, 1, 1] },
+      { id: "aa", name: "צהריים חמוש", start: "15:00", end: "23:00", role: "חמוש", req: [1, 1, 1, 1, 1, 1, 1] },
+      { id: "rm", name: "בוקר אחמש", start: "07:00", end: "15:00", role: "אחמש", req: [1, 1, 1, 1, 1, 1, 1] },
+      { id: "ri", name: "אחמש קצר", start: "08:00", end: "14:00", role: "אחמש", req: [1, 1, 1, 1, 1, 1, 1] },
+      { id: "ro", name: "אחמש אחר", start: "16:00", end: "22:00", role: "אחמש", req: [1, 1, 1, 1, 1, 1, 1] },
+    ];
+    open.biz.shifts = shifts;
+    open.biz.blockLimit = true;
+    open.biz.maxBlocks = 5;
+    open.biz.shiftBlocks = { am: 3, aa: 1, rm: 0, ri: 9, ro: 4 };
+    const dana = open.emps.find((employee) => employee.id === SENTINEL.dana)!;
+    dana.role = "חמוש";
+    dana.secondaryRoles = undefined;
+    dana.grid = [0, 1, 2, 3, 4, 5, 6].map(() => ["am", "aa"]);
+    open.avail[open.week] = { [SENTINEL.dana]: [0, 1, 2, 3, 4, 5, 6].map(() => ["aa"]) };
+
+    const next = updateEmployee(open, MANAGER, SENTINEL.dana, { secondaryRoles: ["אחמש"] });
+    const person = next.emps.find((employee) => employee.id === SENTINEL.dana)!;
+    expect(person.grid?.[0]).toEqual(["am", "aa", "rm", "ri", "ro"]);
+    expect(next.avail[next.week][SENTINEL.dana][0]).toEqual(["aa", "ro"]);
+    expect(person.customBlocks).toMatchObject({ max: 5, shifts: { am: 3, rm: 3, ri: 9, ro: 4 } });
+
+    dana.grid = [0, 1, 2, 3, 4, 5, 6].map(() => ["aa"]);
+    const agreed = updateEmployee(open, MANAGER, SENTINEL.dana, { secondaryRoles: ["אחמש"] });
+    expect(agreed.emps.find((employee) => employee.id === SENTINEL.dana)?.grid?.[0]).toEqual(["aa", "ro"]);
+  });
+
   it("keeps a reinforcement employee's constraints unchanged away from the primary site", () => {
     const open = sentinelState("2026-10-11");
     const away = {

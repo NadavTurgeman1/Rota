@@ -23,6 +23,7 @@ export interface SiteRow {
   constraint_extension_until: string | null;
   org_name: string;
   org_kind: string;
+  roles: unknown;
 }
 
 export interface ShiftRow {
@@ -55,6 +56,7 @@ export interface EmployeeRow {
   home_site_id: string | null;
   constraint_limits: unknown;
   job_title: string;
+  secondary_roles: unknown;
   weekly_shift_quota: number;
   max_weekly_hours: number | null;
   active: boolean;

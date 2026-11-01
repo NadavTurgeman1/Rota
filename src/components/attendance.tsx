@@ -90,6 +90,12 @@ function problemText(code: string, t: Copy): string {
   return t.saveFailed;
 }
 
+function dayKey(iso: string, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone, year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(new Date(iso));
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  return `${value("year")}-${value("month")}-${value("day")}`;
+}
+
 function MapLink({ punch, label }: { punch: AttendancePunch; label: string }) {
   const href = `https://maps.google.com/maps?q=${punch.latitude},${punch.longitude}`;
   return (
@@ -104,15 +110,40 @@ export function AttendanceTable({
   lang,
   timeZone,
   punches,
+  recentDays,
 }: {
   lang: Lang;
   timeZone: string;
   punches: AttendancePunch[];
+  /** When set, only this many latest days are shown until the list is opened. */
+  recentDays?: number;
 }) {
   const t = copy[lang];
+  const [opened, setOpened] = useState(false);
+  const [seen, setSeen] = useState(punches);
+  if (seen !== punches) {
+    setSeen(punches);
+    setOpened(false);
+  }
   const sessions = pairPunches(punches);
   if (sessions.length === 0) return <p className="text-sm text-muted">{t.attendanceEmpty}</p>;
+  const days: string[] = [];
+  for (const session of sessions) {
+    const anchor = session.in ?? session.out;
+    if (!anchor) continue;
+    const key = dayKey(anchor.punchedAt, timeZone);
+    if (!days.includes(key)) days.push(key);
+  }
+  const keep = recentDays !== undefined && !opened ? new Set(days.slice(0, recentDays)) : null;
+  const shown = keep
+    ? sessions.filter((session) => {
+        const anchor = session.in ?? session.out;
+        return anchor ? keep.has(dayKey(anchor.punchedAt, timeZone)) : false;
+      })
+    : sessions;
+  const more = recentDays !== undefined && days.length > recentDays;
   return (
+    <div>
     <div className="overflow-x-auto">
       <table data-testid="attendance-table" className="w-full min-w-[40rem] border-collapse text-sm">
         <thead>
@@ -125,7 +156,7 @@ export function AttendanceTable({
           </tr>
         </thead>
         <tbody>
-          {sessions.map((session) => {
+          {shown.map((session) => {
             const anchor = session.in ?? session.out;
             if (!anchor) return null;
             const when = formatWhen(anchor.punchedAt, timeZone, lang);
@@ -151,6 +182,12 @@ export function AttendanceTable({
           })}
         </tbody>
       </table>
+    </div>
+    {more ? (
+      <button type="button" data-testid="attendance-show-more" className={`${button.small} mt-3`} onClick={() => setOpened((current) => !current)}>
+        {opened ? t.attendanceShowLess : t.attendanceShowMore}
+      </button>
+    ) : null}
     </div>
   );
 }
@@ -384,7 +421,7 @@ export function EmployeeAttendance({
             {error}
           </p>
         ) : (shared ?? snapshot) ? (
-          <AttendanceTable lang={lang} timeZone={(shared ?? snapshot)!.timeZone} punches={(shared ?? snapshot)!.punches} />
+          <AttendanceTable lang={lang} timeZone={(shared ?? snapshot)!.timeZone} punches={(shared ?? snapshot)!.punches} recentDays={3} />
         ) : (
           <p className="text-sm text-muted">{t.attendanceLoading}</p>
         )}

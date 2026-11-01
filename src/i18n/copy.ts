@@ -187,6 +187,10 @@ export interface Copy {
   reliefConstraints: string;
   reliefHeld: string;
   role: string;
+  primaryRole: string;
+  secondaryRoles: string;
+  secondaryRolesHint: string;
+  noRole: string;
   qualifications: string;
   quota: string;
   hourCap: string;
@@ -304,6 +308,11 @@ export interface Copy {
   shiftEnd: string;
   requiredRole: string;
   anyRole: string;
+  rolesTitle: string;
+  rolesHint: string;
+  addRole: string;
+  roleName: string;
+  deleteRole: string;
   staffingHint: string;
   blockLimitTitle: string;
   blockLimitHint: string;
@@ -323,6 +332,7 @@ export interface Copy {
   blockLimitHome: (name: string) => string;
   customBlocksTitle: string;
   customBlocksHint: string;
+  customBlocksPerRole: string;
   customBlocksHome: (name: string) => string;
   markAll: string;
   clearEverything: string;
@@ -524,6 +534,8 @@ export interface Copy {
   attendanceSince: (time: string) => string;
   attendanceLog: string;
   attendanceLogHint: string;
+  attendanceShowMore: string;
+  attendanceShowLess: string;
   attendanceLoading: string;
   staffConstraintsHint: string;
   staffUnpublished: string;
@@ -789,6 +801,10 @@ export const copy: Record<Lang, Copy> = {
     reliefConstraints: "האילוצים נקבעים באתר הראשי. כאן אפשר רק לראות אותם.",
     reliefHeld: "{name} יכול להשלים את המשמרת רק כשהסידור באתר הראשי מוכן לפרסום, בלי הפרות ובלי משמרות פתוחות.",
     role: "תפקיד",
+    primaryRole: "תפקיד ראשי",
+    secondaryRoles: "תפקידים משניים",
+    secondaryRolesHint: "השיבוץ האוטומטי משתמש רק בתפקיד הראשי. תפקיד משני אפשר לשבץ ידנית, או כפתרון לחור במשמרת שדורשת אותו.",
+    noRole: "ללא תפקיד",
     qualifications: "הסמכות",
     quota: "משמרות בשבוע",
     hourCap: "תקרת שעות",
@@ -907,6 +923,11 @@ export const copy: Record<Lang, Copy> = {
     shiftEnd: "סיום",
     requiredRole: "תפקיד נדרש",
     anyRole: "כל תפקיד",
+    rolesTitle: "תפקידים",
+    rolesHint: "התפקידים שמהם בוחרים לעובדים ולמשמרות.",
+    addRole: "הוספת תפקיד",
+    roleName: "שם התפקיד",
+    deleteRole: "מחיקה",
     staffingHint: "המספרים הם עובדים נדרשים בכל יום (0 = סגור). משמרת שמסתיימת לפני שעת ההתחלה שלה חוצה חצות. ביום חג התקן של שבת חל על יום החג.",
     blockLimitTitle: "הגבלת כמות חסימות באילוצים השבועיים",
     blockLimitHint: "כבוי: בלי הגבלה. דלוק: בוחרים איך לחלק את החסימות, ומספר לכל חלק.",
@@ -926,6 +947,7 @@ export const copy: Record<Lang, Copy> = {
     blockLimitHome: (name) => `החלוקה לפי האתר הראשי, ${name}.`,
     customBlocksTitle: "אילוצים מותאמים אישית",
     customBlocksHint: "כבוי: המספרים של האתר הראשי. דלוק: מספרים משלו, באותה חלוקה.",
+    customBlocksPerRole: "כשיש כמה תפקידים, כל תפקיד מקבל את המכסה הזו בנפרד. משמרות באותן שעות מקבלות את אותה מכסה.",
     customBlocksHome: (name) => `החלוקה נקבעת באתר הראשי, ${name}.`,
     markAll: "סמן הכל",
     clearEverything: "נקה הכל",
@@ -1127,6 +1149,8 @@ export const copy: Record<Lang, Copy> = {
     attendanceSince: (time) => `נכנסת ב-${time}`,
     attendanceLog: "כניסות ויציאות",
     attendanceLogHint: "השעה היא שעת השרת. המיקום והרדיוס הם מה שהטלפון מדד.",
+    attendanceShowMore: "הצג עוד",
+    attendanceShowLess: "הצג פחות",
     attendanceLoading: "טוען…",
     staffConstraintsHint: "בלי מגבלת חסימות, השליחה יוצרת בקשה למנהל המשמרות. האילוצים השבועיים משתנים רק אחרי אישור.",
     staffUnpublished: "הסידור לשבוע הזה עוד לא פורסם.",
@@ -1403,6 +1427,10 @@ export const copy: Record<Lang, Copy> = {
     reliefConstraints: "Constraints are set on the primary site. Here they can only be viewed.",
     reliefHeld: "{name} can fill this shift only once the primary site's schedule is ready to publish, with no violations and no open shifts.",
     role: "Role",
+    primaryRole: "Primary role",
+    secondaryRoles: "Secondary roles",
+    secondaryRolesHint: "Automatic scheduling uses only the primary role. A secondary role can be placed by hand, or offered as a solution when a shift requiring it is short.",
+    noRole: "No role",
     qualifications: "Qualifications",
     quota: "Shifts per week",
     hourCap: "Weekly hour cap",
@@ -1521,6 +1549,11 @@ export const copy: Record<Lang, Copy> = {
     shiftEnd: "End",
     requiredRole: "Required role",
     anyRole: "Any role",
+    rolesTitle: "Roles",
+    rolesHint: "The roles people and shifts can be given.",
+    addRole: "Add a role",
+    roleName: "Role name",
+    deleteRole: "Delete",
     staffingHint: "Numbers are employees required per day (0 = closed). A shift ending at or before its start crosses midnight. A festival day uses the Saturday staffing.",
     blockLimitTitle: "Limit weekly constraint blocks",
     blockLimitHint: "Off: no cap. On: choose how the blocks are split, and a number for each part.",
@@ -1540,6 +1573,7 @@ export const copy: Record<Lang, Copy> = {
     blockLimitHome: (name) => `The split follows the primary site, ${name}.`,
     customBlocksTitle: "Custom constraints",
     customBlocksHint: "Off: the primary site's numbers. On: this person's own numbers, in the same split.",
+    customBlocksPerRole: "With more than one role, each role gets this cap on its own. Shifts at the same hours share the same cap.",
     customBlocksHome: (name) => `The split is set on the primary site, ${name}.`,
     markAll: "Select all",
     clearEverything: "Clear all",
@@ -1741,6 +1775,8 @@ export const copy: Record<Lang, Copy> = {
     attendanceSince: (time) => `Clocked in at ${time}`,
     attendanceLog: "Clock-ins and clock-outs",
     attendanceLogHint: "The time is the server time. The location and radius are what the phone measured.",
+    attendanceShowMore: "Show more",
+    attendanceShowLess: "Show less",
     attendanceLoading: "Loading…",
     staffConstraintsHint: "Without a block cap, sending creates a request for the shift manager. Weekly constraints change only after it is approved.",
     staffUnpublished: "This week's schedule is not published yet.",

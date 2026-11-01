@@ -53,7 +53,7 @@ export function generate(state: RotaState, week: string, random?: () => number):
       dropped.push({ token, why: "rule", reason: { code: "home_schedule" } });
       continue;
     }
-    const reason = staticReason(state, employee, slot, week) ?? dynamicReason(state, employee, slot, mine[employee.id]);
+    const reason = staticReason(state, employee, slot, week, "any") ?? dynamicReason(state, employee, slot, mine[employee.id]);
     if (reason) {
       dropped.push({ token, why: "rule", reason });
       continue;

@@ -37,7 +37,7 @@ export function analyze(state: RotaState, week: string, lang: Lang = "he"): Anal
       const employee = employees.find((item) => item.id === employeeId);
       if (!employee) continue;
       const reason =
-        staticReason(state, employee, slot, week) ||
+        staticReason(state, employee, slot, week, "any") ||
         dynamicReason(state, employee, effectiveSlot(schedule, slot, employeeId), mine[employeeId], lang);
       if (!reason || reason.code === "weekly_shifts" || reason.code === "consecutive_days") continue;
       violations.push({

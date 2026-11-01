@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
 import type { Lang } from "../domain";
 import { confirmDeleteForm, copy } from "../i18n/copy";
+import { FilePreview } from "./file-preview";
 import type { EmployeeFormRecord } from "../people/forms";
 import { FORM_BYTE_LIMIT, FORM_COUNT_LIMIT, formContentType, formFileName } from "../people/forms";
 import { button, card, cardHint, cardTitle } from "./ui";
@@ -43,11 +43,10 @@ export function EmployeeForms({
 }) {
   const t = copy[lang];
   const input = useRef<HTMLInputElement>(null);
-  const dialog = useRef<HTMLDivElement>(null);
   const [forms, setForms] = useState<EmployeeFormRecord[] | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
-  const [preview, setPreview] = useState<{ url: string; name: string; type: string } | null>(null);
+  const [preview, setPreview] = useState<{ url: string; name: string; type: string; text: string | null } | null>(null);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -68,16 +67,6 @@ export function EmployeeForms({
     });
     return () => controller.abort();
   }, [api, employeeId]);
-
-  useEffect(() => {
-    if (!preview) return;
-    dialog.current?.focus();
-    function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") closePreview();
-    }
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [preview]);
 
   function closePreview() {
     setPreview((current) => {
@@ -118,7 +107,9 @@ export function EmployeeForms({
         return;
       }
       closePreview();
-      setPreview({ url: URL.createObjectURL(result.blob), name: result.name, type: result.type });
+      const type = result.type.split(";")[0].trim().toLowerCase();
+      const text = type.startsWith("text/") || type === "application/json" ? await result.blob.text() : null;
+      setPreview({ url: URL.createObjectURL(result.blob), name: result.name, type, text });
     } catch {
       setNote("failed");
     }
@@ -207,47 +198,9 @@ export function EmployeeForms({
           ))}
         </ul>
       ) : null}
-      {preview
-        ? createPortal(
-            <div
-              className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4"
-              onClick={closePreview}
-            >
-              <div
-                ref={dialog}
-                role="dialog"
-                aria-modal="true"
-                aria-labelledby="employee-forms-preview-title"
-                tabIndex={-1}
-                data-testid="employee-forms-preview"
-                className={`${card} pop-in pop-in-center flex min-h-0 max-h-[min(44rem,calc(100dvh-2rem))] w-full max-w-3xl flex-col overflow-y-auto outline-none`}
-                onClick={(event) => event.stopPropagation()}
-              >
-                <div className="flex flex-wrap items-start justify-between gap-3">
-                  <h2 id="employee-forms-preview-title" className={`${cardTitle} min-w-0 break-words`}>
-                    <bdi>{preview.name}</bdi>
-                  </h2>
-                  <div className="flex shrink-0 gap-2">
-                    <a href={preview.url} download={preview.name} className={button.quiet}>
-                      {t.employeeFormsDownload}
-                    </a>
-                    <button type="button" className={button.primary} onClick={closePreview}>
-                      {t.employeeFormsClose}
-                    </button>
-                  </div>
-                </div>
-                {preview.type.startsWith("image/") ? (
-                  <img src={preview.url} alt={preview.name} className="mt-4 max-h-[70vh] w-full object-contain" />
-                ) : preview.type === "application/pdf" ? (
-                  <iframe title={preview.name} src={preview.url} className="mt-4 h-[70vh] w-full rounded-lg border border-line bg-card" />
-                ) : (
-                  <p className="mt-4 text-sm leading-6 text-muted">{t.employeeFormsOpenHint}</p>
-                )}
-              </div>
-            </div>,
-            document.body,
-          )
-        : null}
+      {preview ? (
+        <FilePreview lang={lang} name={preview.name} url={preview.url} type={preview.type} text={preview.text} onClose={closePreview} />
+      ) : null}
     </section>
   );
 }

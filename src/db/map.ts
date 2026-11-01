@@ -1,4 +1,5 @@
 import { normalizeCapabilities } from "../access/hierarchy";
+import { roleNames, secondaryRoles } from "../domain/rules";
 import { cleanProfile } from "../domain/profile";
 import { HOUR_SPAN_GROUP } from "../domain/schedule";
 import { normalizeCustom } from "../people/blocks";
@@ -61,6 +62,10 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
         phone: employee.phone ?? "",
         ...(employee.home_site_id ? { homeSiteId: employee.home_site_id } : {}),
         role: employee.job_title,
+        ...(() => {
+          const extra = secondaryRoles({ role: employee.job_title, secondaryRoles: roleNames(employee.secondary_roles) });
+          return extra.length ? { secondaryRoles: extra } : {};
+        })(),
         quals: quals.join(","),
         perWeek: Number(employee.weekly_shift_quota),
         maxHours: employee.max_weekly_hours == null ? 0 : Number(employee.max_weekly_hours),
@@ -162,6 +167,7 @@ export function toRotaState(bundle: SiteBundle, week: string): RotaState {
       ...shiftBlockFields(bundle.site.constraint_shift_blocks),
       ...(bundle.site.constraint_extension_until ? { constraintExtensionUntil: bundle.site.constraint_extension_until } : {}),
       assume: bundle.site.assume_available,
+      roles: catalogRoles(bundle.site.roles, shifts, roster.map((employee) => employee.job_title)),
       shifts,
     },
     emps: people,
@@ -277,6 +283,12 @@ function scheduleFromBundle(
     ...(calloffs.length ? { calloffs } : {}),
     ...(Object.keys(staffing).length ? { staffing } : {}),
   };
+}
+
+/** Null means the site never saved a catalog, so names already in use become the list. An empty array stays empty. */
+function catalogRoles(stored: unknown, shifts: ShiftDefinition[], jobTitles: string[]): string[] {
+  if (stored == null) return roleNames([...shifts.map((shift) => shift.role), ...jobTitles]);
+  return roleNames(stored);
 }
 
 function idList(value: unknown): string[] {

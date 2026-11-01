@@ -79,6 +79,8 @@ export interface Employee {
   /** Primary site. Other linked sites are reinforcement. Omitted until a site is chosen. */
   homeSiteId?: string;
   role: string;
+  /** Other roles this person may fill by hand, or as a solution for an open seat. Not used by automatic scheduling. */
+  secondaryRoles?: string[];
   /**
    * Personal block numbers. Present only when this person overrides the primary site.
    * The split itself stays the primary site's: general uses `max`, weekdays use `weekday`
@@ -168,6 +170,8 @@ export interface Business {
   shiftBlocks?: Record<string, number>;
   /** Extra submission window. An ISO time. A missing or past time means it is closed. */
   constraintExtensionUntil?: string;
+  /** Role names this site can assign to people and shifts. */
+  roles?: string[];
   /**
    * Stored by the prototype when availability was not submitted.
    * The engine still treats a missing week as "available per contract".

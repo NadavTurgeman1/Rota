@@ -11,6 +11,8 @@ import {
   effectiveSlot,
   ensureSchedule,
   formatReason,
+  shiftById,
+  hasRequiredRole,
   generate,
   slots,
   staticReason,
@@ -436,7 +438,8 @@ function spanIsLegal(state: RotaState, employeeId: string, home: Slot, start: nu
 }
 
 /**
- * A neighbor who can start earlier or stay later, or the person whose extra hour can move back.
+ * A neighbor of the same required role who can start earlier or stay later,
+ * or the person whose extra hour can move back.
  * Only a change that shrinks the week's shortage and surplus is offered.
  */
 export function hourFixes(state: RotaState, gap: CoverageGap): HourFix[] {
@@ -445,13 +448,15 @@ export function hourFixes(state: RotaState, gap: CoverageGap): HourFix[] {
   if (!schedule) return [];
   const before = coverageImbalance(state);
   const cap = state.biz.maxShift > 0 ? state.biz.maxShift : 12;
+  const gapRole = shiftById(state, gap.slot.shiftId).role.trim();
   const found: (HourFix & { change: number })[] = [];
   const seen = new Set<string>();
 
   for (const slot of slots(state, state.week)) {
+    if (shiftById(state, slot.shiftId).role.trim().toLowerCase() !== gapRole.toLowerCase()) continue;
     for (const employeeId of schedule.assign[slot.key] ?? []) {
       const employee = state.emps.find((item) => item.id === employeeId);
-      if (!employee) continue;
+      if (!employee || (gapRole && !hasRequiredRole(employee, gapRole, "any"))) continue;
       const span = assignmentSpan(schedule, slot, employeeId);
       const proposals: { start: number; end: number; edge: HourFix["edge"] }[] = [];
       if (gap.delta < 0 && Math.abs(span.end - gap.start) < HOUR_FIX_EPS) {
@@ -527,7 +532,7 @@ function assignmentBlocked(state: RotaState, slotKey: string, employeeId: string
   const employee = state.emps.find((item) => item.id === employeeId);
   if (!slot || !employee) return true;
   if (!reliefAllowed(state, employee)) return true;
-  if (staticReason(state, employee, slot, state.week)) return true;
+  if (staticReason(state, employee, slot, state.week, "any")) return true;
   const schedule = state.sched[state.week];
   const mine = slots(state, state.week)
     .filter((open) => open.key !== exceptKey && (schedule?.assign[open.key] ?? []).includes(employeeId))
@@ -541,7 +546,7 @@ export function placementIssue(state: RotaState, slot: Slot, employeeId: string,
   const employee = state.emps.find((item) => item.id === employeeId);
   if (!employee) return { code: "inactive" };
   if (!reliefAllowed(state, employee)) return { code: "home_schedule" };
-  const blocked = staticReason(state, employee, slot, state.week);
+  const blocked = staticReason(state, employee, slot, state.week, "any");
   if (blocked) return blocked;
   const schedule = state.sched[state.week];
   const mine = slots(state, state.week)
@@ -579,7 +584,7 @@ export function reliefChoices(state: RotaState, slot: Slot): ReliefChoice[] {
   for (const employee of state.emps) {
     if (!employee.active || !isRelief(employee, state.siteId)) continue;
     if ((schedule?.assign[slot.key] ?? []).includes(employee.id)) continue;
-    if (staticReason(state, employee, slot, state.week)) continue;
+    if (staticReason(state, employee, slot, state.week, "any")) continue;
     const mine = slots(state, state.week)
       .filter((open) => (schedule?.assign[open.key] ?? []).includes(employee.id))
       .map((open) => (schedule ? effectiveSlot(schedule, open, employee.id) : open));

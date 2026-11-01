@@ -1,10 +1,12 @@
 import { useRef, useState } from "react";
 import type { Lang } from "../domain";
 import type { AbsenceKind } from "../domain/absence";
-import type { AbsenceRequest } from "../db/absences";
+import type { AbsenceFile, AbsenceRequest } from "../db/absences";
 import { copy } from "../i18n/copy";
+import { formContentType } from "../people/forms";
 import { formatCalendarDate } from "../schedule/display";
 import { AbsenceCalendar } from "./absence-calendar";
+import { FilePreview } from "./file-preview";
 import { button, card, cardHint, cardTitle, label, labelText, pill, select } from "./ui";
 
 const ACCEPT = ".pdf,.png,.jpg,.jpeg,.webp,.gif,.txt,.csv,.doc,.docx,.xls,.xlsx";
@@ -21,7 +23,7 @@ export interface AbsencesApi {
   }) => Promise<string | null>;
   decide: (requestId: string, approve: boolean) => Promise<string | null>;
   remove: (requestId: string) => Promise<string | null>;
-  openFile: (fileId: string) => Promise<string | null>;
+  openFile: (fileId: string) => Promise<{ blob: Blob; name: string; type: string } | string>;
 }
 
 function kindLabel(lang: Lang, kind: AbsenceKind): string {
@@ -228,10 +230,40 @@ function AbsenceList({
   api: AbsencesApi;
 }) {
   const t = copy[lang];
+  const [note, setNote] = useState<string | null>(null);
+  const [preview, setPreview] = useState<{ url: string; name: string; type: string; text: string | null } | null>(null);
+  function closePreview() {
+    setPreview((current) => {
+      if (current) URL.revokeObjectURL(current.url);
+      return null;
+    });
+  }
+  async function view(file: AbsenceFile) {
+    setNote(null);
+    try {
+      const result = await api.openFile(file.id);
+      if (typeof result === "string") {
+        setNote(result);
+        return;
+      }
+      closePreview();
+      const header = result.type.split(";")[0].trim().toLowerCase();
+      const type = !header || header === "application/octet-stream" ? formContentType(file.name, file.type) ?? header : header;
+      const text = type.startsWith("text/") || type === "application/json" ? await result.blob.text() : null;
+      setPreview({ url: URL.createObjectURL(result.blob), name: result.name || file.name, type, text });
+    } catch {
+      setNote("failed");
+    }
+  }
   return (
     <section className={card}>
       <h2 className={cardTitle}>{t.navAbsences}</h2>
       {requests.length === 0 ? <p className={cardHint}>{t.absencesNone}</p> : null}
+      {note ? (
+        <p role="alert" className="mt-3 text-sm leading-6 text-danger-text">
+          {errorText(lang, note)}
+        </p>
+      ) : null}
       <ul className="mt-4 flex flex-col gap-3">
         {requests.map((row) => (
           <li key={row.id} data-testid={`absence-row-${row.id}`} className="rounded-xl border border-line bg-well/40 p-4">
@@ -256,7 +288,7 @@ function AbsenceList({
                         type="button"
                         className={button.small}
                         data-testid={`absence-file-${file.id}`}
-                        onClick={() => void api.openFile(file.id)}
+                        onClick={() => void view(file)}
                       >
                         {file.name}
                       </button>
@@ -285,6 +317,9 @@ function AbsenceList({
           </li>
         ))}
       </ul>
+      {preview ? (
+        <FilePreview lang={lang} name={preview.name} url={preview.url} type={preview.type} text={preview.text} onClose={closePreview} />
+      ) : null}
     </section>
   );
 }

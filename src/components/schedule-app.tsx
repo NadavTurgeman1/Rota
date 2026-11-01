@@ -6,7 +6,7 @@ import { addDays, analyze, applyTrade, slots, sundayOnOrBefore, type Analysis, t
 import type { VersionStamp } from "../domain/versions";
 import { peerDuties } from "../domain/peers";
 import { isRelief } from "../domain/relief";
-import { addShift, removeShift, setShiftRequirement, updateBusiness, updateShift } from "../business/edit";
+import { addJobRole, addShift, removeJobRole, removeShift, setShiftRequirement, updateBusiness, updateShift } from "../business/edit";
 import { constraintBlocked, copy, deleteEmployeeBlocked, publishWillAsk, selectionHint } from "../i18n/copy";
 import { exportFileName, formatWeekRange, pngFileName, siteLabel } from "../schedule/display";
 import { backupJson, parseBackupJson, siteShiftsIcs, weekCsv, weekExcelXml, weekExport, weekText } from "../schedule/export";
@@ -591,10 +591,16 @@ export function ScheduleApp() {
       const response = await fetch(`/api/absences?fileId=${encodeURIComponent(fileId)}`, { headers }).catch(() => null);
       if (!response?.ok) return "failed";
       const blob = await response.blob();
-      const url = URL.createObjectURL(blob);
-      window.open(url, "_blank", "noopener");
-      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
-      return null;
+      const encoded = /filename\*=UTF-8''([^;]+)/i.exec(response.headers.get("content-disposition") ?? "")?.[1];
+      let name = "file";
+      if (encoded) {
+        try {
+          name = decodeURIComponent(encoded);
+        } catch {
+          name = "file";
+        }
+      }
+      return { blob, name, type: response.headers.get("content-type") || blob.type || "" };
     },
   };
 
@@ -2098,6 +2104,8 @@ export function ScheduleApp() {
             onRequirement={(shiftId, dayIndex, count) => change((current) => setShiftRequirement(current, actor, shiftId, dayIndex, count))}
             onAddShift={(name) => change((current) => addShift(current, actor, { id: crypto.randomUUID(), name }))}
             onRemoveShift={(shiftId) => change((current) => removeShift(current, actor, shiftId))}
+            onAddRole={(name) => change((current) => addJobRole(current, actor, name))}
+            onRemoveRole={(name) => change((current) => removeJobRole(current, actor, name))}
             onBackupJson={operator ? exportJson : undefined}
             onRestoreJson={operator ? restoreJson : undefined}
             onDraft={rememberDraft}

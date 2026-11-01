@@ -1,5 +1,5 @@
 import { absenceOnWeekDay } from "../domain/absence";
-import { agreementAllows, parseClock, shiftKind, type Business, type Employee, type RotaState, type ShiftDefinition } from "../domain";
+import { agreementAllows, heldRoles, parseClock, shiftKind, shiftVisible, type Business, type Employee, type RotaState, type ShiftDefinition } from "../domain";
 import { shiftRest, staffedCount } from "../domain/rest";
 
 export type BlockSplit = "general" | "weekday" | "shift";
@@ -7,6 +7,8 @@ export type BlockSplit = "general" | "weekday" | "shift";
 export interface BlockBucket {
   id: string;
   kind: "general" | "weekday" | "weekend" | "shift" | "unmatched";
+  /** Set when each of this person's roles has its own cap. */
+  role?: string;
   /** Home shift, or the grid shift when nothing on the primary site matches. */
   shiftId?: string;
   used: number;
@@ -92,6 +94,7 @@ export function blockedCells(state: RotaState, employeeId: string, grid: string[
     if (absenceOnWeekDay(state, employeeId, day)) continue;
     const marked = new Set(grid[day] ?? []);
     for (const shift of state.biz.shifts) {
+      if (!shiftVisible(employee, shift)) continue;
       if (!agreementAllows(employee, day, shift.id, shift) || staffedCount(shift, day, state.week) <= 0) continue;
       if (shiftRest(employee, shift, day, state.week)) continue;
       if (!marked.has(shift.id)) cells.push({ day, shiftId: shift.id });
@@ -124,14 +127,39 @@ export function blockBuckets(state: RotaState, employeeId: string, grid: string[
   const caps = capsFor(home, employee);
   if (!caps) return [];
   const blocks = blockedCells(state, employeeId, grid);
+  const roles = employee ? heldRoles(employee) : [];
+  const forRole = (role: string) => {
+    const key = role.trim().toLowerCase();
+    return blocks.filter((cell) => state.biz.shifts.find((shift) => shift.id === cell.shiftId)?.role.trim().toLowerCase() === key);
+  };
+  if (roles.length >= 2 && caps.split === "general") {
+    return roles.map((role) => ({
+      id: `all:${role.toLowerCase()}`,
+      kind: "general" as const,
+      role,
+      used: forRole(role).length,
+      max: caps.max,
+    }));
+  }
+  if (roles.length >= 2 && caps.split === "weekday") {
+    return roles.flatMap((role) => {
+      const mine = forRole(role);
+      const weekend = mine.filter((cell) => WEEKEND.has(cell.day)).length;
+      const key = role.toLowerCase();
+      return [
+        { id: `weekday:${key}`, kind: "weekday" as const, role, used: mine.length - weekend, max: caps.weekday },
+        { id: `weekend:${key}`, kind: "weekend" as const, role, used: weekend, max: caps.weekend },
+      ];
+    });
+  }
   if (caps.split === "general") {
-    return [{ id: "all", kind: "general", used: blocks.length, max: caps.max }];
+    return [{ id: "all", kind: "general" as const, used: blocks.length, max: caps.max }];
   }
   if (caps.split === "weekday") {
     const weekend = blocks.filter((cell) => WEEKEND.has(cell.day)).length;
     return [
-      { id: "weekday", kind: "weekday", used: blocks.length - weekend, max: caps.weekday },
-      { id: "weekend", kind: "weekend", used: weekend, max: caps.weekend },
+      { id: "weekday", kind: "weekday" as const, used: blocks.length - weekend, max: caps.weekday },
+      { id: "weekend", kind: "weekend" as const, used: weekend, max: caps.weekend },
     ];
   }
   const used = new Map<string, number>();
@@ -145,7 +173,8 @@ export function blockBuckets(state: RotaState, employeeId: string, grid: string[
     }
     used.set(homeShift.id, (used.get(homeShift.id) ?? 0) + 1);
   }
-  const buckets: BlockBucket[] = home.shifts.map((shift) => ({
+  const hidden = new Set(state.biz.shifts.filter((shift) => employee && !shiftVisible(employee, shift)).map((shift) => shift.id));
+  const buckets: BlockBucket[] = home.shifts.filter((shift) => !hidden.has(shift.id)).map((shift) => ({
     id: shift.id,
     kind: "shift",
     shiftId: shift.id,

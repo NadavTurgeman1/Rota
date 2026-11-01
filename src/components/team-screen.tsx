@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { dayName, type Business, type Employee, type Lang, type RotaState } from "../domain";
+import { dayName, heldRoles, shiftVisible, type Business, type Employee, type Lang, type RotaState } from "../domain";
 import { employeeProfile } from "../domain/profile";
 import { isRelief } from "../domain/relief";
 import { confirmDeleteEmployee, copy } from "../i18n/copy";
@@ -16,6 +16,7 @@ import type { Capabilities } from "../domain";
 import { EmployeeAuthority } from "./employee-authority";
 import { CreatePerson, type NewPerson } from "./create-person";
 import { isSchedulable, isSiteManager, withoutShiftCapabilities, capabilitiesOf, type ReportNode } from "../access/hierarchy";
+import { RoleChoice } from "./business-screen";
 import { button, card, cardHint, cardTitle, field, label as labelClass, labelText, select, surface } from "./ui";
 
 export function TeamScreen({
@@ -226,6 +227,7 @@ function EmployeeCard({
           blockHome={blockHome}
           onUpdate={(patch) => onUpdate(employeeId, patch)}
           onDraft={onDraft}
+          roles={state.biz.roles ?? []}
           siteId={siteId}
           people={directory}
           editorId={editorId}
@@ -398,7 +400,7 @@ function EmployeeCard({
           <h3 className="text-sm font-semibold text-ink">{t.preferenceTitle}</h3>
           <p className={cardHint}>{t.preferenceHint}</p>
           <div className="mt-3 flex flex-wrap gap-2">
-            {state.biz.shifts.map((shift) => {
+            {state.biz.shifts.filter((shift) => shiftVisible(employee, shift)).map((shift) => {
               const preferred = (employee.pref ?? []).includes(shift.id);
               return (
                 <label
@@ -451,6 +453,8 @@ export function WeekGrid({
   onToggle: (day: number, shiftId: string, checked: boolean) => void;
 }) {
   const t = copy[lang];
+  const person = state.emps.find((item) => item.id === employeeId);
+  const shifts = person ? state.biz.shifts.filter((shift) => shiftVisible(person, shift)) : state.biz.shifts;
   return (
     <div className="mt-4 overflow-x-auto">
       <table className="w-full min-w-[40rem] border-separate border-spacing-1 text-sm">
@@ -476,7 +480,7 @@ export function WeekGrid({
           </tr>
         </thead>
         <tbody>
-          {state.biz.shifts.map((shift) => (
+          {shifts.map((shift) => (
             <tr key={shift.id}>
               <th scope="row" className="pe-2 text-start text-xs font-semibold text-ink-soft">
                 {shiftLabel(shift.name, lang)}
@@ -630,6 +634,7 @@ function detailKey(person: Employee): string {
     contact: person.contact,
     phone: person.phone ?? "",
     role: person.role,
+    secondaryRoles: person.secondaryRoles ?? [],
     quals: person.quals,
     perWeek: person.perWeek,
     maxHours: person.maxHours,
@@ -656,6 +661,7 @@ function EmployeeDetails({
   blockHome,
   onUpdate,
   onDraft,
+  roles,
   people,
   editorId,
   editorCapabilities,
@@ -670,6 +676,7 @@ function EmployeeDetails({
   blockHome: { biz: Business; name: string; away: boolean } | null;
   onUpdate: (patch: EmployeePatch) => void;
   onDraft?: (draft: { dirty: boolean; save: () => void; discard: () => void } | null) => void;
+  roles: string[];
   people: (ReportNode & { name: string })[];
   editorId: string | null;
   editorCapabilities: Capabilities;
@@ -693,6 +700,7 @@ function EmployeeDetails({
       contact: employee.contact,
       phone: employee.phone ?? "",
       role: employee.role,
+      secondaryRoles: employee.secondaryRoles ?? [],
       quals: employee.quals,
       perWeek: employee.perWeek,
       maxHours: employee.maxHours,
@@ -824,8 +832,51 @@ function EmployeeDetails({
             testId="employee-number"
             onCommit={(employeeNumber) => setProfile({ employeeNumber })}
           />
-          <TextField label={t.role} value={employee.role} readOnly={readOnly} onCommit={(role) => edit({ role })} />
+          <label className={labelClass}>
+            <span className={labelText}>{t.primaryRole}</span>
+            <RoleChoice
+              value={employee.role}
+              roles={roles}
+              emptyLabel={t.noRole}
+              label={t.primaryRole}
+              readOnly={readOnly}
+              onChange={(role) => edit({ role })}
+            />
+          </label>
           <TextField label={t.department} value={profile.department} readOnly={readOnly} onCommit={(department) => setProfile({ department })} />
+          <div className="sm:col-span-2 lg:col-span-3">
+            <p className="text-sm font-medium text-ink-soft">{t.secondaryRoles}</p>
+            <p className="mt-1 text-sm leading-6 text-muted">{t.secondaryRolesHint}</p>
+            {roles.filter((role) => role.toLowerCase() !== employee.role.trim().toLowerCase()).length > 0 ? (
+              <div className="mt-2 flex flex-col gap-2">
+                {roles
+                  .filter((role) => role.toLowerCase() !== employee.role.trim().toLowerCase())
+                  .map((role) => {
+                    const checked = (employee.secondaryRoles ?? []).some((item) => item.toLowerCase() === role.toLowerCase());
+                    return (
+                      <label key={role} className="flex items-center gap-2 text-sm">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4"
+                          checked={checked}
+                          disabled={readOnly}
+                          data-testid={`secondary-role-${role}`}
+                          onChange={() => {
+                            const current = employee.secondaryRoles ?? [];
+                            edit({
+                              secondaryRoles: checked
+                                ? current.filter((item) => item.toLowerCase() !== role.toLowerCase())
+                                : [...current, role],
+                            });
+                          }}
+                        />
+                        <span>{role}</span>
+                      </label>
+                    );
+                  })}
+              </div>
+            ) : null}
+          </div>
           <TextField label={t.qualifications} value={employee.quals} readOnly={readOnly} onCommit={(quals) => edit({ quals })} />
           <DateField
             label={t.startedOn}
@@ -927,6 +978,7 @@ function EmployeeDetails({
               <div className="min-w-0">
                 <p className="text-sm font-medium text-ink">{t.customBlocksTitle}</p>
                 <p className="mt-1 text-sm leading-6 text-muted">{t.customBlocksHint}</p>
+                {heldRoles(employee).length >= 2 ? <p className="mt-1 text-sm leading-6 text-muted">{t.customBlocksPerRole}</p> : null}
                 {blockHome.away ? <p className="mt-1 text-sm text-muted">{t.customBlocksHome(blockHome.name)}</p> : null}
               </div>
               <button
@@ -950,7 +1002,7 @@ function EmployeeDetails({
               <BlockNumberFields
                 lang={lang}
                 split={blockSplitOf(blockHome.biz)}
-                shifts={blockHome.biz.shifts}
+                shifts={blockHome.biz.shifts.filter((shift) => shiftVisible(employee, shift))}
                 max={employee.customBlocks.max}
                 weekday={employee.customBlocks.weekday}
                 weekend={employee.customBlocks.weekend}

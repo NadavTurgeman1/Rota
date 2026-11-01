@@ -56,13 +56,62 @@ export function agreementAllows(
   return (employee.allowed ?? []).includes(shiftId) && !(employee.blocked ?? []).includes(day);
 }
 
-function hasRequiredRole(employee: Employee, required: string): boolean {
+/** Trimmed role names, without duplicates. Comparison ignores letter case. */
+export function roleNames(value: unknown): string[] {
+  const source = Array.isArray(value)
+    ? value
+    : typeof value === "string" && value.trim().startsWith("[")
+      ? parsedList(value)
+      : [];
+  const seen = new Set<string>();
+  const names: string[] = [];
+  for (const item of source) {
+    if (typeof item !== "string") continue;
+    const name = item.trim().replace(/\s+/g, " ");
+    const key = name.toLowerCase();
+    if (!name || seen.has(key)) continue;
+    seen.add(key);
+    names.push(name);
+  }
+  return names;
+}
+
+function parsedList(value: string): unknown[] {
+  try {
+    const parsed = JSON.parse(value) as unknown;
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/** The primary role, then the secondary ones, without duplicates. */
+export function heldRoles(employee: { role: string; secondaryRoles?: string[] }): string[] {
+  return roleNames([employee.role, ...secondaryRoles(employee)]);
+}
+
+/** A shift with no role is for everyone. A role-specific shift is only for someone who holds that role. */
+export function shiftVisible(employee: { role: string; secondaryRoles?: string[] }, shift: { role: string }): boolean {
+  const role = shift.role.trim().toLowerCase();
+  if (!role) return true;
+  return heldRoles(employee).some((item) => item.toLowerCase() === role);
+}
+
+/** Roles besides the primary one. The primary role is never repeated here. */
+export function secondaryRoles(employee: { role: string; secondaryRoles?: string[] }): string[] {
+  const primary = employee.role.trim().toLowerCase();
+  return roleNames(employee.secondaryRoles).filter((role) => role.toLowerCase() !== primary);
+}
+
+/**
+ * `primary` is the role automatic scheduling uses.
+ * `any` also accepts a secondary role, for a manual placement or a solution to an open seat.
+ */
+export function hasRequiredRole(employee: Employee, required: string, match: "primary" | "any" = "primary"): boolean {
   const needle = required.trim().toLowerCase();
+  if (!needle) return true;
   if (employee.role.trim().toLowerCase() === needle) return true;
-  return employee.quals
-    .split(",")
-    .map((item) => item.trim().toLowerCase())
-    .includes(needle);
+  return match === "any" && secondaryRoles(employee).some((role) => role.toLowerCase() === needle);
 }
 
 /** Contract, role, and this week's submitted availability. Not rest or hours. */
@@ -71,6 +120,7 @@ export function staticReason(
   employee: Employee,
   slot: Slot,
   week: string,
+  match: "primary" | "any" = "primary",
 ): Reason | null {
   const shift = shiftById(state, slot.shiftId);
   if (!employee.active) return { code: "inactive" };
@@ -81,7 +131,7 @@ export function staticReason(
   if (!agreementAllows(employee, slot.day, slot.shiftId, shift)) {
     return { code: "agreement", day: slot.day, shiftName: shift.name };
   }
-  if (shift.role && !hasRequiredRole(employee, shift.role)) {
+  if (shift.role && !hasRequiredRole(employee, shift.role, match)) {
     return { code: "role", role: shift.role };
   }
   const submitted = state.avail[week]?.[employee.id];

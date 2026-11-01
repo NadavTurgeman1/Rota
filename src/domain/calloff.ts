@@ -206,7 +206,7 @@ export function planCallOff(state: RotaState, slot: Slot): CallOffPlan {
 }
 
 function blockedReason(state: RotaState, week: string, employee: Employee, slot: Slot): Reason | null {
-  return staticReason(state, employee, slot, week) || dynamicReason(state, employee, slot, heldShifts(state, week, employee.id));
+  return staticReason(state, employee, slot, week, "any") || dynamicReason(state, employee, slot, heldShifts(state, week, employee.id));
 }
 
 function near(left: number, right: number): boolean {
@@ -245,7 +245,7 @@ function suggestSplits(state: RotaState, slot: Slot): CoverageOption[] {
         continue;
       }
       if (end - start > maxLength + 1e-9) continue;
-      if (staticReason(state, employee, slot, week)) continue;
+      if (staticReason(state, employee, slot, week, "any")) continue;
       const proposed: Slot = { ...home, start, end };
       if (dynamicReason(state, employee, proposed, heldShifts(state, week, employeeId, home.key))) continue;
       found.push({ employee, start, end });

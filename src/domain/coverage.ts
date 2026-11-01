@@ -1,5 +1,5 @@
 import { slots } from "./rules";
-import { coveredSeats } from "./schedule";
+import { coveredSeats, shiftById } from "./schedule";
 import type { CoverageGap, RotaState, Schedule, Slot } from "./types";
 
 const EPS = 0.02;
@@ -50,16 +50,47 @@ export function assignmentSpan(schedule: Schedule, slot: Slot, employeeId: strin
   return { start: span?.start ?? slot.start, end: span?.end ?? slot.end };
 }
 
+/** Shifts that ask for the same role share one coverage pool. Shifts with no required role share one pool of their own. */
+function roleKey(state: RotaState, shiftId: string): string {
+  return shiftById(state, shiftId).role.trim().toLowerCase();
+}
+
+interface RolePool {
+  open: Slot[];
+  spans: WorkSpan[];
+}
+
+function rolePools(state: RotaState, week: string): RolePool[] {
+  const open = slots(state, week);
+  const spans = workSpans(state, week);
+  const roleOf = new Map(open.map((slot) => [slot.key, roleKey(state, slot.shiftId)]));
+  const grouped = new Map<string, RolePool>();
+  for (const slot of open) {
+    const role = roleOf.get(slot.key) ?? "";
+    const pool = grouped.get(role) ?? { open: [], spans: [] };
+    pool.open.push(slot);
+    grouped.set(role, pool);
+  }
+  for (const span of spans) {
+    const role = roleOf.get(span.slotKey);
+    if (role === undefined) continue;
+    grouped.get(role)?.spans.push(span);
+  }
+  return [...grouped.values()];
+}
+
 /**
- * A slot is touched when someone's manual clock overlaps it.
- * Headcount on a touched slot follows who is actually there, including neighbors.
+ * A slot is touched when a manual clock of the same required role overlaps it.
+ * Headcount then follows people of that role, including a neighbor who stayed on.
  */
 export function touchedSlotKeys(state: RotaState, week = state.week): Set<string> {
-  const open = slots(state, week);
-  const custom = workSpans(state, week).filter((span) => span.custom);
   const keys = new Set<string>();
-  for (const slot of open) {
-    if (custom.some((span) => span.slotKey === slot.key || overlaps(span.start, span.end, slot))) keys.add(slot.key);
+  for (const pool of rolePools(state, week)) {
+    const custom = pool.spans.filter((span) => span.custom);
+    if (custom.length === 0) continue;
+    for (const slot of pool.open) {
+      if (custom.some((span) => span.slotKey === slot.key || overlaps(span.start, span.end, slot))) keys.add(slot.key);
+    }
   }
   return keys;
 }
@@ -71,9 +102,7 @@ interface Segment {
   demand: number;
 }
 
-function segmentsOf(state: RotaState, week: string): { open: Slot[]; spans: WorkSpan[]; segments: Segment[] } {
-  const open = slots(state, week);
-  const spans = workSpans(state, week);
+function buildSegments(open: Slot[], spans: WorkSpan[]): Segment[] {
   const points = new Set<number>();
   for (const slot of open) {
     points.add(slot.start);
@@ -94,7 +123,7 @@ function segmentsOf(state: RotaState, week: string): { open: Slot[]; spans: Work
     const supply = spans.filter((span) => covers(span, mid)).length;
     segments.push({ start, end, supply, demand });
   }
-  return { open, spans, segments };
+  return segments;
 }
 
 function ownerOf(open: Slot[], spans: WorkSpan[], segment: Segment): Slot | undefined {
@@ -105,19 +134,23 @@ function ownerOf(open: Slot[], spans: WorkSpan[], segment: Segment): Slot | unde
   return sticking ? open.find((slot) => slot.key === sticking.slotKey) : undefined;
 }
 
-/** Hour shortages and surpluses, counted across neighboring shifts. */
+/** Hour shortages and surpluses, counted across neighboring shifts of the same required role. */
 export function weekCoverage(state: RotaState, week = state.week): CoverageGap[] {
   const touched = touchedSlotKeys(state, week);
   if (touched.size === 0) return [];
-  const { open, spans, segments } = segmentsOf(state, week);
   const gaps: CoverageGap[] = [];
-  for (const segment of segments) {
-    if (segment.supply === segment.demand) continue;
-    const slot = ownerOf(open, spans, segment);
-    if (!slot || !touched.has(slot.key)) continue;
-    gaps.push({ slot, start: segment.start, end: segment.end, delta: segment.supply - segment.demand });
+  for (const pool of rolePools(state, week)) {
+    const local: CoverageGap[] = [];
+    for (const segment of buildSegments(pool.open, pool.spans)) {
+      if (segment.supply === segment.demand) continue;
+      const slot = ownerOf(pool.open, pool.spans, segment);
+      if (!slot || !touched.has(slot.key)) continue;
+      local.push({ slot, start: segment.start, end: segment.end, delta: segment.supply - segment.demand });
+    }
+    gaps.push(...mergeGaps(local));
   }
-  return mergeGaps(gaps);
+  gaps.sort((left, right) => left.start - right.start || left.end - right.end || left.slot.key.localeCompare(right.slot.key));
+  return gaps;
 }
 
 function mergeGaps(gaps: CoverageGap[]): CoverageGap[] {
@@ -136,8 +169,8 @@ export function coverageGaps(state: RotaState, slot: Slot, week = state.week): C
 }
 
 /**
- * The shift is short a whole seat, and neighboring clocks cover that seat
- * for every hour of the shift. A one-hour hole does not count.
+ * The shift is short a whole seat, and people who meet its required role
+ * cover that seat for every hour. Covering only part of the shift does not count.
  */
 export function fullShiftCoveredByHours(state: RotaState, slot: Slot, week = state.week): boolean {
   const schedule = state.sched[week];
@@ -150,13 +183,14 @@ export function fullShiftCoveredByHours(state: RotaState, slot: Slot, week = sta
 }
 
 /**
- * Fewest people present at once during the shift, once a manual clock overlaps it.
+ * Fewest people of this shift's required role present at once, once a manual clock overlaps it.
  * `null` means the shift still uses its assigned headcount.
  */
 export function slotPresence(state: RotaState, slot: Slot, week = state.week): number | null {
   if (!touchedSlotKeys(state, week).has(slot.key)) return null;
-  const { segments } = segmentsOf(state, week);
-  const inside = segments.filter((segment) => overlaps(segment.start, segment.end, slot));
+  const pool = rolePools(state, week).find((item) => item.open.some((open) => open.key === slot.key));
+  if (!pool) return 0;
+  const inside = buildSegments(pool.open, pool.spans).filter((segment) => overlaps(segment.start, segment.end, slot));
   if (inside.length === 0) return 0;
   return Math.min(...inside.map((segment) => segment.supply));
 }

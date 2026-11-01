@@ -169,6 +169,7 @@ function addPerson(target: RotaState, origin: RotaState, source: Employee, homeS
       contact: source.contact,
       phone: source.phone ?? "",
       role: source.role,
+      ...(source.secondaryRoles?.length ? { secondaryRoles: source.secondaryRoles } : {}),
       quals: source.quals,
       perWeek: source.perWeek,
       maxHours: source.maxHours,

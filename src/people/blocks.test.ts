@@ -117,6 +117,28 @@ describe("block splits", () => {
     expect(overBucketIds(relief, "p", grid(reliefShifts, [{ day: 3, id: "overnight" }]), home)).toEqual(["unmatched:overnight"]);
   });
 
+  it("gives every role its own copy of the cap", () => {
+    const armed = shift("am", "Armed morning", "07:00", "15:00");
+    const armor = shift("rm", "Armor morning", "07:00", "15:00");
+    armed.role = "חמוש";
+    armor.role = "אחמש";
+    const employee = person([armed.id, armor.id]);
+    employee.role = "חמוש";
+    employee.secondaryRoles = ["אחמש"];
+    const site = state([armed, armor], employee);
+    site.biz.maxBlocks = 1;
+    expect(withinBlockLimit(site, "p", grid([armed, armor], [{ day: 0, id: "am" }]))).toBe(true);
+    expect(withinBlockLimit(site, "p", grid([armed, armor], [{ day: 0, id: "am" }, { day: 1, id: "rm" }]))).toBe(true);
+    expect(withinBlockLimit(site, "p", grid([armed, armor], [{ day: 0, id: "am" }, { day: 1, id: "am" }]))).toBe(false);
+
+    site.biz.blockSplit = "weekday";
+    site.biz.weekdayBlocks = 1;
+    site.biz.weekendBlocks = 1;
+    expect(withinBlockLimit(site, "p", grid([armed, armor], [{ day: 0, id: "am" }, { day: 0, id: "rm" }]))).toBe(true);
+    expect(withinBlockLimit(site, "p", grid([armed, armor], [{ day: 0, id: "am" }, { day: 1, id: "am" }]))).toBe(false);
+    expect(overBucketIds(site, "p", grid([armed, armor], [{ day: 5, id: "rm" }, { day: 5, id: "am" }, { day: 6, id: "am" }]))).toEqual(["weekend:חמוש"]);
+  });
+
   it("does not count an approved absence day as a weekly constraint block", () => {
     const site = state(shifts);
     site.biz.maxBlocks = 0;

@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { clockNear, coverageGaps, type Lang, type RotaState, type Slot } from "../domain";
 import { callOffLabel, coverageGapText, copy } from "../i18n/copy";
@@ -7,7 +7,111 @@ import { employeeName } from "../people/edit";
 import { hourFixLine, slotTitle } from "../schedule/display";
 import { assignmentToken, clockLabel, hourFixBucket, hourFixes, slotLocked } from "../schedule/edit";
 import { SolutionGroups } from "./solution-groups";
-import { button, card, cardTitle, field } from "./ui";
+import { button, card, cardTitle } from "./ui";
+
+function ClockField({
+  testId,
+  label,
+  fieldLabel,
+  clock,
+  onCommit,
+}: {
+  testId: string;
+  label: string;
+  fieldLabel: string;
+  clock: string;
+  onCommit: (value: string) => void;
+}) {
+  const [hourText, minuteText] = clock.split(":");
+  const hour = Number(hourText);
+  const minute = Number(minuteText);
+  return (
+    <div className="flex min-w-0 flex-col gap-1">
+      <span className="text-xs font-medium text-ink-soft">{label}</span>
+      <div dir="ltr" data-testid={testId} role="group" aria-label={fieldLabel} className="flex items-center gap-1">
+        <ClockPart
+          value={hour}
+          max={23}
+          label={fieldLabel}
+          onCommit={(next) => onCommit(`${String(next).padStart(2, "0")}:${minuteText}`)}
+        />
+        <span className="text-sm font-semibold text-ink" aria-hidden="true">
+          :
+        </span>
+        <ClockPart
+          value={minute}
+          max={59}
+          label={fieldLabel}
+          onCommit={(next) => onCommit(`${hourText}:${String(next).padStart(2, "0")}`)}
+        />
+      </div>
+    </div>
+  );
+}
+
+function ClockPart({
+  value,
+  max,
+  label,
+  onCommit,
+}: {
+  value: number;
+  max: number;
+  label: string;
+  onCommit: (next: number) => void;
+}) {
+  const [text, setText] = useState(String(value).padStart(2, "0"));
+  useEffect(() => setText(String(value).padStart(2, "0")), [value]);
+  function step(delta: number) {
+    const typed = /^\d{1,2}$/.test(text) ? Number(text) : value;
+    const base = typed >= 0 && typed <= max ? typed : value;
+    onCommit((base + delta + (max + 1)) % (max + 1));
+  }
+  function finish() {
+    if (!/^\d{1,2}$/.test(text)) {
+      setText(String(value).padStart(2, "0"));
+      return;
+    }
+    const next = Number(text);
+    if (next < 0 || next > max) {
+      setText(String(value).padStart(2, "0"));
+      return;
+    }
+    if (next !== value) onCommit(next);
+    setText(String(value).padStart(2, "0"));
+  }
+  return (
+    <div className="flex items-center gap-1">
+      <button type="button" aria-label={`${label} −`} className={button.icon} onClick={() => step(-1)}>
+        −
+      </button>
+      <input
+        inputMode="numeric"
+        dir="ltr"
+        aria-label={label}
+        className="h-9 w-12 rounded-lg border border-field-line bg-card px-1 text-center text-sm tabular-nums text-ink"
+        value={text}
+        onChange={(event) => setText(event.target.value.replace(/\D/g, "").slice(0, 2))}
+        onBlur={finish}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowUp") {
+            event.preventDefault();
+            step(1);
+          } else if (event.key === "ArrowDown") {
+            event.preventDefault();
+            step(-1);
+          } else if (event.key === "Enter") {
+            event.preventDefault();
+            finish();
+          }
+        }}
+      />
+      <button type="button" aria-label={`${label} +`} className={button.icon} onClick={() => step(1)}>
+        +
+      </button>
+    </div>
+  );
+}
 
 /** Edits one cell. A draft changes headcount and each person's hours. A published week only records a call-off. */
 export function SlotEditor({
@@ -183,33 +287,21 @@ export function SlotEditor({
                   ) : null}
                 </div>
                 {published ? null : (
-                  <div className="grid grid-cols-2 gap-2">
-                    <label className="flex min-w-0 flex-col gap-1">
-                      <span className="text-xs font-medium text-ink-soft">{t.shiftStart}</span>
-                      <input
-                        type="time"
-                        dir="ltr"
-                        step={60}
-                        data-testid={`hours-start-${slot.day}-${shiftName}-${name}`}
-                        aria-label={t.startHourLabel(name)}
-                        className={`${field} tabular-nums focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus`}
-                        value={clockLabel(span.start)}
-                        onChange={(event) => commit("start", event.target.value)}
-                      />
-                    </label>
-                    <label className="flex min-w-0 flex-col gap-1">
-                      <span className="text-xs font-medium text-ink-soft">{t.shiftEnd}</span>
-                      <input
-                        type="time"
-                        dir="ltr"
-                        step={60}
-                        data-testid={`hours-end-${slot.day}-${shiftName}-${name}`}
-                        aria-label={t.endHourLabel(name)}
-                        className={`${field} tabular-nums focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-focus`}
-                        value={clockLabel(span.end)}
-                        onChange={(event) => commit("end", event.target.value)}
-                      />
-                    </label>
+                  <div className="flex flex-col gap-3">
+                    <ClockField
+                      testId={`hours-start-${slot.day}-${shiftName}-${name}`}
+                      label={t.shiftStart}
+                      fieldLabel={t.startHourLabel(name)}
+                      clock={clockLabel(span.start)}
+                      onCommit={(value) => commit("start", value)}
+                    />
+                    <ClockField
+                      testId={`hours-end-${slot.day}-${shiftName}-${name}`}
+                      label={t.shiftEnd}
+                      fieldLabel={t.endHourLabel(name)}
+                      clock={clockLabel(span.end)}
+                      onCommit={(value) => commit("end", value)}
+                    />
                   </div>
                 )}
                 {!published && (custom || extension) ? (

@@ -555,6 +555,96 @@ describe("setAssignmentHours", () => {
     const afternoonSlot = slots(fixed, fixed.week).find((slot) => slot.key === afternoon);
     expect(afternoonSlot && fullShiftCoveredByHours(fixed, afternoonSlot)).toBe(true);
   });
+
+  it("keeps each role's headcount and only covers a hole with that role for the whole shift", () => {
+    const state = sentinelState("2026-10-11");
+    const armedMorning = "armed-morning";
+    const armedAfternoon = "armed-afternoon";
+    const armedNight = "armed-night";
+    const patrolMorning = "patrol-morning";
+    const patrolAfternoon = "patrol-afternoon";
+    const patrolNight = "patrol-night";
+    const sunday = (count: number) => [count, 0, 0, 0, 0, 0, 0];
+    const shift = (id: string, name: string, start: string, end: string, role: string, count: number) => ({
+      id,
+      name,
+      start,
+      end,
+      role,
+      req: sunday(count),
+    });
+    state.biz = {
+      ...state.biz,
+      shifts: [
+        shift(armedMorning, "בוקר · חמוש", "07:00", "15:00", "חמוש", 1),
+        shift(patrolMorning, "בוקר · סיור", "07:00", "15:00", "סיור", 2),
+        shift(armedAfternoon, "צהריים · חמוש", "15:00", "23:00", "חמוש", 1),
+        shift(patrolAfternoon, "צהריים · סיור", "15:00", "23:00", "סיור", 2),
+        shift(armedNight, "לילה · חמוש", "23:00", "07:00", "חמוש", 1),
+        shift(patrolNight, "לילה · סיור", "23:00", "07:00", "סיור", 1),
+      ],
+    };
+    const roles: Array<[string, string]> = [
+      [SENTINEL.dana, "חמוש"],
+      [SENTINEL.maya, "חמוש"],
+      [SENTINEL.noa, "חמוש"],
+      [SENTINEL.yossi, "סיור"],
+      [SENTINEL.tal, "סיור"],
+      [SENTINEL.eli, "סיור"],
+      [SENTINEL.ron, "סיור"],
+    ];
+    for (const [id, role] of roles) {
+      const employee = state.emps.find((item) => item.id === id)!;
+      employee.role = role;
+      employee.quals = role;
+    }
+    const key = (id: string) => `0|${id}`;
+    state.sched[state.week] = {
+      assign: {
+        [key(armedMorning)]: [SENTINEL.dana],
+        [key(patrolMorning)]: [SENTINEL.yossi, SENTINEL.tal],
+        [key(armedAfternoon)]: [SENTINEL.maya],
+        [key(patrolAfternoon)]: [SENTINEL.eli],
+        [key(armedNight)]: [SENTINEL.noa],
+        [key(patrolNight)]: [SENTINEL.ron],
+      },
+      locked: [],
+      status: "draft",
+    };
+
+    const extended = setAssignmentHours(state, key(patrolMorning), SENTINEL.yossi, 7, 19);
+    const report = analyze(extended, extended.week);
+    const gap = report.coverage.find((item) => item.delta < 0);
+    const slotById = (id: string) => slots(extended, extended.week).find((slot) => slot.key === key(id));
+    const patrolHole = slotById(patrolAfternoon);
+    const armedDay = slotById(armedAfternoon);
+    const armedOpen = slotById(armedMorning);
+    const patrolOpen = slotById(patrolMorning);
+
+    expect(gap).toMatchObject({ start: 19, end: 23, delta: -1, slot: { key: key(patrolAfternoon) } });
+    expect(report.coverage.filter((item) => item.slot.shiftId === armedAfternoon)).toEqual([]);
+    expect(patrolHole && slotPresence(extended, patrolHole)).toBe(1);
+    expect(patrolHole && fullShiftCoveredByHours(extended, patrolHole)).toBe(false);
+    expect(armedDay && slotPresence(extended, armedDay)).toBeNull();
+    expect(armedOpen && slotPresence(extended, armedOpen)).toBeNull();
+    expect(patrolOpen && slotPresence(extended, patrolOpen)).toBe(2);
+    expect(armedDay && fullShiftCoveredByHours(extended, armedDay)).toBe(false);
+
+    const offered = hourFixes(extended, gap!).map((fix) => fix.employeeId);
+    expect(offered).toContain(SENTINEL.ron);
+    expect(offered).not.toContain(SENTINEL.noa);
+    expect(offered).not.toContain(SENTINEL.maya);
+    expect(offered).not.toContain(SENTINEL.dana);
+
+    const ron = hourFixes(extended, gap!).find((fix) => fix.employeeId === SENTINEL.ron)!;
+    const covered = setAssignmentHours(extended, ron.slotKey, ron.employeeId, ron.start, ron.end);
+    const coveredHole = slots(covered, covered.week).find((slot) => slot.key === key(patrolAfternoon));
+    const stillArmed = slots(covered, covered.week).find((slot) => slot.key === key(armedAfternoon));
+    expect(analyze(covered, covered.week).coverage).toEqual([]);
+    expect(coveredHole && slotPresence(covered, coveredHole)).toBe(2);
+    expect(coveredHole && fullShiftCoveredByHours(covered, coveredHole)).toBe(true);
+    expect(stillArmed && slotPresence(covered, stillArmed)).toBeNull();
+  });
 });
 
 describe("clearSchedule", () => {

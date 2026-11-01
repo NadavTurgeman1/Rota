@@ -86,7 +86,7 @@ function reasonsOf(state: RotaState, week: string, employeeId: string): Map<stri
   const mine = seatsOf(state, week, employeeId);
   for (const { slot, effective } of mine) {
     const reason =
-      staticReason(state, employee, slot, week) ??
+      staticReason(state, employee, slot, week, "any") ??
       dynamicReason(
         state,
         employee,
