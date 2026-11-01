@@ -165,7 +165,7 @@ export function AbsenceCalendar({
                   title={hebrew ? (names ? `${hebrewDay(day, lang)} · ${names}` : hebrewDay(day, lang)) : undefined}
                   className={`flex ${hebrew ? "h-14" : "h-9"} min-w-0 flex-col items-center justify-start gap-0.5 rounded-xl px-0.5 pt-0.5 disabled:opacity-50 ${
                     picked ? "bg-brand-soft" : "hover:bg-well"
-                  } ${inMonth ? "" : "opacity-35"}`}
+                  } ${inMonth ? "" : "text-muted"}`}
                   onClick={() => onChange(clickAbsenceDay(start, end, day))}
                 >
                   <span
@@ -177,8 +177,10 @@ export function AbsenceCalendar({
                           : rest
                             ? "font-semibold text-danger-text"
                             : picked
-                              ? "font-semibold text-ink"
-                              : "text-ink"
+                            ? "font-semibold text-ink"
+                            : inMonth
+                              ? "text-ink"
+                              : "text-muted"
                     }`}
                   >
                     {Number(day.slice(8))}

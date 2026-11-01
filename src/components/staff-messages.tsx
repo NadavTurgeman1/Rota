@@ -3,6 +3,7 @@ import { localeOf, type Lang } from "../domain";
 import type { ManagerMessage } from "../db/messages";
 import { copy } from "../i18n/copy";
 import { button, card, cardHint, cardTitle } from "./ui";
+import { useDialog } from "./use-dialog";
 
 function dueLabel(iso: string, lang: Lang): string {
   return new Intl.DateTimeFormat(localeOf(lang), {
@@ -62,9 +63,10 @@ export function StaffMessageInbox({
   onClose: () => void;
 }) {
   const t = copy[lang];
+  const dialog = useDialog(onClose);
   return (
     <div className="fixed inset-0 z-50 grid place-items-end bg-ink/40 p-4 sm:place-items-center" data-testid="staff-message-inbox">
-      <div className={`${card} flex max-h-[80dvh] w-full max-w-md flex-col`} role="dialog" aria-modal="true" aria-labelledby="staff-inbox-title">
+      <div ref={dialog} tabIndex={-1} className={`${card} flex max-h-[80dvh] w-full max-w-md flex-col outline-none`} role="dialog" aria-modal="true" aria-labelledby="staff-inbox-title">
         <div className="flex items-start justify-between gap-3">
           <div>
             <h2 id="staff-inbox-title" className={cardTitle}>
@@ -103,14 +105,27 @@ export function StaffMessagePopup({
   const t = copy[lang];
   const [busy, setBusy] = useState(false);
   const [failed, setFailed] = useState(false);
+  function acknowledge() {
+    setBusy(true);
+    setFailed(false);
+    void onClose().then((ok) => {
+      if (!ok) {
+        setFailed(true);
+        setBusy(false);
+      }
+    });
+  }
+  const dialog = useDialog(acknowledge);
   return (
     <div className="fixed inset-0 z-[60] grid place-items-center bg-ink/40 p-4">
       <div
+        ref={dialog}
+        tabIndex={-1}
         role="dialog"
         aria-modal="true"
         aria-labelledby="manager-message-title"
         data-testid="staff-message-popup"
-        className={`${card} w-full max-w-md`}
+        className={`${card} w-full max-w-md outline-none`}
       >
         <h2 id="manager-message-title" className={cardTitle}>
           {t.messagesPopupTitle}
@@ -129,17 +144,7 @@ export function StaffMessagePopup({
           data-testid="staff-message-popup-ok"
           className={`${button.primary} mt-4`}
           disabled={busy}
-          autoFocus
-          onClick={() => {
-            setBusy(true);
-            setFailed(false);
-            void onClose().then((ok) => {
-              if (!ok) {
-                setFailed(true);
-                setBusy(false);
-              }
-            });
-          }}
+          onClick={acknowledge}
         >
           {t.messagesPopupOk}
         </button>

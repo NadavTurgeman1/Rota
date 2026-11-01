@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import type { Lang } from "../domain";
 import { copy } from "../i18n/copy";
 import type { CalendarPrefs } from "../schedule/shown-calendars";
+import { LegalLinks } from "./legal-links";
 import { button } from "./ui";
 
 export type Theme = "light" | "dark";
@@ -17,6 +18,7 @@ export function SettingsMenu({
   onTheme,
   onCalendar,
   onSignOut,
+  onDeleteData,
 }: {
   lang: Lang;
   theme: Theme;
@@ -25,10 +27,16 @@ export function SettingsMenu({
   onTheme: (theme: Theme) => void;
   onCalendar: (key: keyof CalendarPrefs, on: boolean) => void;
   onSignOut?: () => void;
+  onDeleteData?: () => void;
 }) {
   const t = copy[lang];
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (open) panel.current?.focus();
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -59,10 +67,12 @@ export function SettingsMenu({
       </button>
       {open ? (
         <div
+          ref={panel}
           role="dialog"
           aria-label={t.settings}
+          tabIndex={-1}
           data-testid="settings-panel"
-          className="pop-in material-pop absolute end-0 top-full z-40 mt-2 w-80 rounded-lg border border-line p-3 shadow-pop"
+          className="pop-in material-pop absolute end-0 top-full z-40 mt-2 w-80 rounded-lg border border-line p-3 shadow-pop outline-none"
         >
           <Group title={t.appearance}>
             <Segment
@@ -95,6 +105,24 @@ export function SettingsMenu({
               <Switch testId="calendar-muslim" label={t.muslimHolidays} on={calendars.muslim} onChange={(on) => onCalendar("muslim", on)} />
             </div>
           </Group>
+          <div className="mt-3 border-t border-line pt-3">
+            <LegalLinks lang={lang} />
+          </div>
+          {onDeleteData ? (
+            <div className="mt-3 border-t border-line pt-3">
+              <button
+                type="button"
+                data-testid="delete-data"
+                className={`${button.quiet} w-full shadow-none`}
+                onClick={() => {
+                  setOpen(false);
+                  onDeleteData();
+                }}
+              >
+                {t.deleteData}
+              </button>
+            </div>
+          ) : null}
           {onSignOut ? (
             <div className="mt-3 border-t border-line pt-3">
               <button type="button" data-testid="sign-out" className={`${button.quiet} w-full shadow-none`} onClick={onSignOut}>

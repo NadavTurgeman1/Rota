@@ -76,6 +76,28 @@ export async function withRulesReader<T>(run: (sql: SqlClient) => Promise<T>, si
   }) as Promise<T>;
 }
 
+/**
+ * Runs as the database role, so row-level policies do not apply.
+ * Only for deleting the account that was just confirmed from the bearer token.
+ */
+export async function withDatabase<T>(run: (sql: SqlClient) => Promise<T>, signal?: AbortSignal): Promise<T> {
+  const db = database();
+  if (!db) throw new SaveError("db_unconfigured");
+  closed(signal);
+  return db.begin(async (tx) => {
+    closed(signal);
+    const sql: SqlClient = {
+      async query<Row>(text: string, params?: readonly unknown[]): Promise<Row[]> {
+        closed(signal);
+        const rows = await tx.unsafe(text, (params ? [...params] : []) as never[]);
+        closed(signal);
+        return [...rows] as Row[];
+      },
+    };
+    return run(sql);
+  }) as Promise<T>;
+}
+
 export async function withUserDb<T>(
   userId: string,
   run: (sql: SqlClient) => Promise<T>,

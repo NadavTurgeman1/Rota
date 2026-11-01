@@ -8,7 +8,7 @@ import { peerDuties } from "../domain/peers";
 import { isRelief } from "../domain/relief";
 import { addJobRole, addShift, removeJobRole, removeShift, setShiftRequirement, updateBusiness, updateShift } from "../business/edit";
 import { constraintBlocked, copy, deleteEmployeeBlocked, publishWillAsk, selectionHint } from "../i18n/copy";
-import { exportFileName, formatWeekRange, pngFileName, siteLabel } from "../schedule/display";
+import { exportFileName, formatWeekRange, orgTypeLabel, pngFileName, siteLabel } from "../schedule/display";
 import { backupJson, parseBackupJson, siteShiftsIcs, weekCsv, weekExcelXml, weekExport, weekText } from "../schedule/export";
 import {
   addEmployee,
@@ -107,6 +107,8 @@ import { HebrewCalendarContext } from "./day-dates";
 import { ManagerTradePrompt, tradeStillHeld, useSetAside, type ShiftTrade, type TradeApi, type TradeSite } from "./trades";
 import { useAiEnabled } from "./use-ai";
 import { CALENDARS_OFF, type CalendarPrefs } from "../schedule/shown-calendars";
+import { CookieNotice } from "./cookie-notice";
+import { DeleteAccount } from "./delete-account";
 import { SettingsMenu, type Theme } from "./settings-menu";
 import { VersionsPanel } from "./versions-panel";
 import { closeExtraSubmissionWindow, millisUntilConstraintWindowChange, settleClosedConstraintWindow, staffCanSubmitConstraints, withConstraintExtension } from "../schedule/constraint-window";
@@ -356,6 +358,7 @@ export function ScheduleApp() {
   const [absenceRequests, setAbsenceRequests] = useState<AbsenceRequest[]>([]);
   const draftRef = useRef<{ dirty: boolean; save: () => void; discard: () => void } | null>(null);
   const [draftDirty, setDraftDirty] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [leaveAction, setLeaveAction] = useState<(() => void) | null>(null);
   const rememberDraft = useCallback((draft: { dirty: boolean; save: () => void; discard: () => void } | null) => {
     draftRef.current = draft;
@@ -927,9 +930,15 @@ export function ScheduleApp() {
     return true;
   }
 
-  async function createAccount(fullName: string, email: string, password: string): Promise<"signed-in" | "confirm" | "failed" | "denied" | "short" | "rate"> {
+  async function createAccount(
+    fullName: string,
+    email: string,
+    password: string,
+    accepted: boolean,
+  ): Promise<"signed-in" | "confirm" | "failed" | "denied" | "short" | "rate" | "consent"> {
     const name = fullName.trim();
     const address = email.trim();
+    if (!accepted) return "consent";
     if (!name || !address) return "failed";
     if (password.length < 6) return "short";
     const allowed = await browserClient().rpc("signup_allowed", { target_email: address });
@@ -937,7 +946,7 @@ export function ScheduleApp() {
     const { data, error } = await browserClient().auth.signUp({
       email: address,
       password,
-      options: { data: { name } },
+      options: { data: { name, terms_accepted_at: new Date().toISOString(), adult: true } },
     });
     if (error || !data.user) {
       const detail = `${error?.message ?? ""} ${error?.code ?? ""}`;
@@ -1442,6 +1451,7 @@ export function ScheduleApp() {
       onTheme={setTheme}
       onCalendar={(key, on) => setCalendars((current) => ({ ...current, [key]: on }))}
       onSignOut={user ? signOut : undefined}
+      onDeleteData={user ? () => setDeleteOpen(true) : undefined}
     />
   );
 
@@ -1690,6 +1700,13 @@ export function ScheduleApp() {
               </button>
             ))}
           </nav>
+          {live.org.name ? (
+            <p className="px-4 pb-3 text-xs leading-5 text-muted md:mt-auto md:px-5 md:pb-5">
+              <span className="sr-only">{t.businessDetails}</span>
+              <span className="font-medium text-ink">{live.org.name}</span>
+              {live.org.type ? <span className="ms-2 md:ms-0 md:mt-0.5 md:block">{orgTypeLabel(live.org.type, lang)}</span> : null}
+            </p>
+          ) : null}
         </aside>
         <div className="flex min-w-0 flex-1 flex-col">
       {saveNote ? (
@@ -1698,6 +1715,9 @@ export function ScheduleApp() {
         </p>
       ) : null}
       {supportOrg ? <p className="px-6 pt-4 text-sm text-ink-soft sm:px-8">{t.supportBanner}</p> : null}
+      <div className="px-6 sm:px-8">
+        <CookieNotice lang={lang} />
+      </div>
       <main className={`flex flex-col gap-8 px-6 py-6 sm:px-8 ${selection ? "pb-28" : ""}`}>
         {draftDirty ? (
           <div className="sticky top-0 z-20 -mx-6 flex flex-wrap items-center gap-2 border-b border-line bg-paper px-6 py-3 sm:-mx-8 sm:px-8">
@@ -2281,6 +2301,21 @@ export function ScheduleApp() {
             </div>
           </div>
         </div>
+      ) : null}
+      {deleteOpen && user ? (
+        <DeleteAccount
+          lang={lang}
+          owner={owner}
+          orgId={live.org.id}
+          orgName={live.org.name}
+          support={Boolean(supportOrg)}
+          onClose={() => setDeleteOpen(false)}
+          onDeleted={() => {
+            setDeleteOpen(false);
+            signOut();
+          }}
+          headers={() => authHeaders(true)}
+        />
       ) : null}
       {laborAsk ? (
         <LaborAsk

@@ -376,6 +376,32 @@ export interface Copy {
   passwordTooShort: string;
   signupFailed: string;
   signupRateLimit: string;
+  privacyPolicy: string;
+  termsOfService: string;
+  refundPolicy: string;
+  cookiePolicy: string;
+  legalDocuments: string;
+  signupTermsBefore: string;
+  signupTermsBetween: string;
+  signupTermsAfter: string;
+  signupAdult: string;
+  signupConsentNeeded: string;
+  cookieNotice: string;
+  cookieNoticeDismiss: string;
+  deleteData: string;
+  deleteLogin: string;
+  deleteLoginHint: string;
+  deleteBusiness: string;
+  deleteBusinessHint: string;
+  deleteTypeName: string;
+  deleteSoleOwner: string;
+  deleteUnavailable: string;
+  deleteFailed: string;
+  deleteWorking: string;
+  deleteClose: string;
+  profileOptional: string;
+  bankOptional: string;
+  businessDetails: string;
   fullName: string;
   accountNotApproved: string;
   approvalsTitle: string;
@@ -1002,6 +1028,32 @@ export const copy: Record<Lang, Copy> = {
     passwordTooShort: "הסיסמה צריכה 6 תווים לפחות.",
     signupFailed: "יצירת החשבון נכשלה. נסו שוב.",
     signupRateLimit: "נשלחו יותר מדי אימיילי אישור, והחשבון לא נוצר. ממתינים כשעה ולוחצים שוב על יצירת חשבון עם אותו מייל ואותה סיסמה.",
+    privacyPolicy: "מדיניות פרטיות",
+    termsOfService: "תנאי שימוש",
+    refundPolicy: "מדיניות החזרים",
+    cookiePolicy: "מדיניות עוגיות",
+    legalDocuments: "מסמכים",
+    signupTermsBefore: "קראתי את ",
+    signupTermsBetween: " ואת ",
+    signupTermsAfter: ", ואני מסכים/ה להם.",
+    signupAdult: "אני בגיל 18 או יותר. החשבון מיועד למי שפותח עסק, לא לילדים.",
+    signupConsentNeeded: "אפשר ליצור חשבון רק אחרי שתי ההסכמות.",
+    cookieNotice: "במכשיר הזה נשמרים החיבור, ערכת הנושא ולוחות השנה. אין עוגיות פרסום ואין מדידת תנועה.",
+    cookieNoticeDismiss: "הבנתי",
+    deleteData: "מחיקת נתונים",
+    deleteLogin: "מחיקת הכניסה שלי",
+    deleteLoginHint: "החשבון נמחק. שם, שיבוצים ומסמכים שהעסק שמר נשארים אצלו, עד שמנהל מוחק את העובד.",
+    deleteBusiness: "מחיקת העסק",
+    deleteBusinessHint: "נמחקים האתרים, הסידורים, העובדים, המסמכים וההחתמות של העסק הזה. חשבונות של אנשים אחרים לא נמחקים. אם זו הכניסה היחידה שלך, גם היא נמחקת.",
+    deleteTypeName: "כדי לאשר, כותבים כאן את שם העסק בדיוק.",
+    deleteSoleOwner: "זה החשבון היחיד של העסק. מחיקת הכניסה לבד תשאיר עסק בלי בעלים, ולכן היא נעצרת. מוחקים את העסק.",
+    deleteUnavailable: "אי אפשר למחוק נתונים מתוך כניסת מנהל המערכת לעסק של מישהו אחר.",
+    deleteFailed: "המחיקה לא הושלמה. נסו שוב.",
+    deleteWorking: "מוחקים…",
+    deleteClose: "סגירה",
+    profileOptional: "רשות. השיבוץ לא משתמש בפרטים האלה. משאירים ריק כל מה שהעסק לא צריך.",
+    bankOptional: "רשות. Rota לא מעבירה כסף ולא גובה עמלה.",
+    businessDetails: "פרטי העסק",
     fullName: "שם מלא",
     accountNotApproved: "המייל הזה לא מאושר. אפשר ליצור חשבון רק אחרי שמנהל המערכת פותח את העסק.",
     approvalsTitle: "אישור מייל",
@@ -1639,6 +1691,32 @@ export const copy: Record<Lang, Copy> = {
     passwordTooShort: "The password needs at least 6 characters.",
     signupFailed: "The account could not be created. Try again.",
     signupRateLimit: "Too many confirmation emails were sent, so the account was not created. Wait about an hour, then create the account again with the same email and password.",
+    privacyPolicy: "Privacy policy",
+    termsOfService: "Terms of service",
+    refundPolicy: "Refund policy",
+    cookiePolicy: "Cookie policy",
+    legalDocuments: "Documents",
+    signupTermsBefore: "I have read the ",
+    signupTermsBetween: " and the ",
+    signupTermsAfter: " and I agree.",
+    signupAdult: "I am 18 or older. This account is for someone opening a business, not for children.",
+    signupConsentNeeded: "An account can be created only after both agreements.",
+    cookieNotice: "This device stores the sign-in, the theme, and the calendars. There are no advertising cookies and no traffic measurement.",
+    cookieNoticeDismiss: "OK",
+    deleteData: "Delete data",
+    deleteLogin: "Delete my sign-in",
+    deleteLoginHint: "The account is deleted. The name, assignments, and documents the business kept stay until a manager deletes the person.",
+    deleteBusiness: "Delete the business",
+    deleteBusinessHint: "This deletes the sites, schedules, people, documents, and punches of this business. Other people's accounts are not deleted. If this is your only sign-in, it is deleted too.",
+    deleteTypeName: "To confirm, type the business name exactly.",
+    deleteSoleOwner: "This is the only account for the business. Deleting the sign-in alone would leave a business with no owner, so it stops. Delete the business.",
+    deleteUnavailable: "Data cannot be deleted while the platform admin is inside someone else's business.",
+    deleteFailed: "The deletion did not finish. Try again.",
+    deleteWorking: "Deleting…",
+    deleteClose: "Close",
+    profileOptional: "Optional. Scheduling does not use these details. Leave blank anything the business does not need.",
+    bankOptional: "Optional. Rota does not move money and does not charge a fee.",
+    businessDetails: "Business details",
     fullName: "Full name",
     accountNotApproved: "This email is not approved. An account can be created only after the system owner opens the company.",
     approvalsTitle: "Approve an email",

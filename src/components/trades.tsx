@@ -8,6 +8,7 @@ import { hoursSinceWeek } from "../schedule/edit";
 import { hebrewWeek } from "../schedule/hebrew-calendar";
 import { DayDates, useCalendars } from "./day-dates";
 import { button, card, cardTitle, pill } from "./ui";
+import { useDialog } from "./use-dialog";
 
 export type { ShiftTrade };
 
@@ -167,9 +168,13 @@ export interface PromptAction {
 export function TradePrompt({ title, note, lang, testId, children, actions }: { title: string; note?: string; lang: Lang; testId: string; children: ReactNode; actions: PromptAction[] }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const dismiss = actions.find((action) => action.tone === "quiet");
+  const dialog = useDialog(() => {
+    if (dismiss && !busy) void dismiss.run();
+  });
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-ink/40 p-4">
-      <div role="dialog" aria-modal="true" aria-labelledby={`${testId}-title`} data-testid={testId} className={`${card} w-full max-w-lg`}>
+      <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby={`${testId}-title`} data-testid={testId} className={`${card} w-full max-w-lg outline-none`}>
         <h2 id={`${testId}-title`} className={cardTitle}>
           {title}
         </h2>
@@ -326,6 +331,7 @@ function TradeComposer({
   onClose: () => void;
 }) {
   const t = copy[lang];
+  const dialog = useDialog(onClose);
   const [siteId, setSiteId] = useState<string | null>(null);
   const [mine, setMine] = useState<TradeSeat | null>(null);
   const [targets, setTargets] = useState<TradeSeat[] | "loading" | null>(null);
@@ -373,7 +379,7 @@ function TradeComposer({
 
   return (
     <div className="fixed inset-0 z-50 overflow-y-auto bg-ink/40 p-4">
-      <div role="dialog" aria-modal="true" aria-labelledby="trade-composer-title" data-testid="trade-composer" data-kind={kind} className={`${card} mx-auto my-6 w-full max-w-5xl`}>
+      <div ref={dialog} tabIndex={-1} role="dialog" aria-modal="true" aria-labelledby="trade-composer-title" data-testid="trade-composer" data-kind={kind} className={`${card} mx-auto my-6 w-full max-w-5xl outline-none`}>
         <div className="flex items-start gap-3">
           <h2 id="trade-composer-title" className={cardTitle}>
             {kind === "swap" ? t.tradeSwap : t.tradeGiveaway}
@@ -387,11 +393,11 @@ function TradeComposer({
         ) : targets === "loading" ? (
           <p className="mt-2 text-sm font-semibold leading-6 text-ink">{t.tradeChecking}</p>
         ) : Array.isArray(targets) && targets.length === 0 && !error ? (
-          <p role="alert" className="mt-2 rounded-lg bg-[#ff1744] px-3 py-2 text-sm font-semibold leading-6 text-white">
+          <p role="alert" className="mt-2 rounded-lg bg-danger-soft px-3 py-2 text-sm font-semibold leading-6 text-danger-text">
             {t.tradeNoTargets}
           </p>
         ) : Array.isArray(targets) && targets.length > 0 && hint ? (
-          <p className="mt-2 rounded-lg bg-[#00e676] px-3 py-2 text-sm font-semibold leading-6 text-[#052e16]">
+          <p className="mt-2 rounded-lg bg-ok-soft px-3 py-2 text-sm font-semibold leading-6 text-ok-text">
             {hint}
           </p>
         ) : hint ? (

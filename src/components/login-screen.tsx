@@ -1,15 +1,38 @@
 import { useState, type ReactNode } from "react";
 import type { Lang } from "../domain";
 import { copy } from "../i18n/copy";
+import { CookieNotice } from "./cookie-notice";
+import { LegalLinks } from "./legal-links";
 import { accessLabel } from "./users-panel";
 
 /** The wordmark. Letters switch to light in the dark theme; the mark itself stays. */
 export function Logo({ className = "h-9" }: { className?: string }) {
   return (
     <span className={`inline-flex shrink-0 ${className}`}>
-      <img src="/rota-logo.png" alt="Rota" className="rota-logo-light h-full w-auto" />
-      <img src="/rota-logo-dark.png" alt="Rota" className="rota-logo-dark h-full w-auto" />
+      <span className="sr-only">Rota</span>
+      <img src="/rota-logo.png" alt="" className="rota-logo-light h-full w-auto" />
+      <img src="/rota-logo-dark.png" alt="" className="rota-logo-dark h-full w-auto" />
     </span>
+  );
+}
+
+/** Original shift board for the sign-in screen. Decorative; the column is hidden from assistive tech. */
+function LoginArt() {
+  return (
+    <svg viewBox="0 0 640 800" className="absolute inset-0 h-full w-full" aria-hidden="true">
+      <rect width="640" height="800" fill="#f4f0e6" />
+      <rect x="96" y="72" width="448" height="656" rx="36" fill="#fffdf8" />
+      <rect x="128" y="112" width="168" height="28" rx="14" fill="#2b5bff" />
+      <rect x="312" y="112" width="92" height="28" rx="14" fill="#e7edff" />
+      <rect x="416" y="112" width="92" height="28" rx="14" fill="#f2eeff" />
+      {[0, 1, 2, 3, 4].map((row) => (
+        <g key={row}>
+          <rect x="128" y={176 + row * 104} width="120" height="72" rx="18" fill={row % 2 === 0 ? "#ebf3ff" : "#fff7e8"} />
+          <rect x="260" y={176 + row * 104} width="120" height="72" rx="18" fill={row % 2 === 0 ? "#f2eeff" : "#ebf3ff"} />
+          <rect x="392" y={176 + row * 104} width="120" height="72" rx="18" fill={row % 2 === 0 ? "#fff7e8" : "#f2eeff"} />
+        </g>
+      ))}
+    </svg>
   );
 }
 
@@ -79,7 +102,7 @@ function PasswordField({
 }
 
 /** Form on the start side, calendar on the other. Settings sit on the opposite edge from the wordmark. */
-function AuthSplit({ toolbar, children }: { toolbar: ReactNode; children: ReactNode }) {
+function AuthSplit({ lang, toolbar, children }: { lang: Lang; toolbar: ReactNode; children: ReactNode }) {
   return (
     <div className="relative flex min-h-dvh bg-card">
       <div className="absolute end-4 top-4 z-30 sm:end-6 sm:top-6">{toolbar}</div>
@@ -88,11 +111,15 @@ function AuthSplit({ toolbar, children }: { toolbar: ReactNode; children: ReactN
           <Logo className="h-8" />
         </div>
         <div className="flex flex-1 flex-col justify-center py-10">
-          <div className="w-full max-w-[400px]">{children}</div>
+          <div className="w-full max-w-[400px]">
+            {children}
+            <LegalLinks lang={lang} className="mt-8" />
+            <CookieNotice lang={lang} />
+          </div>
         </div>
       </section>
       <aside aria-hidden="true" className="relative hidden min-h-dvh flex-1 lg:block">
-        <img src="/login-calendar.jpg?v=2" alt="" className="absolute inset-0 h-full w-full object-cover object-center" />
+        <LoginArt />
       </aside>
     </div>
   );
@@ -142,7 +169,7 @@ export function LoginScreen({
   const hint = orgName && orgName !== "Rota" ? `${orgName} · ${t.signInHint}` : t.signInHint;
 
   return (
-    <AuthSplit toolbar={toolbar}>
+    <AuthSplit lang={lang} toolbar={toolbar}>
       <form
         data-testid="login-form"
         method="post"
@@ -299,7 +326,12 @@ export function SignupScreen({
 }: {
   lang: Lang;
   toolbar: ReactNode;
-  onCreateAccount: (fullName: string, email: string, password: string) => Promise<"signed-in" | "confirm" | "failed" | "denied" | "short" | "rate">;
+  onCreateAccount: (
+    fullName: string,
+    email: string,
+    password: string,
+    accepted: boolean,
+  ) => Promise<"signed-in" | "confirm" | "failed" | "denied" | "short" | "rate" | "consent">;
   onShowLogin: () => void;
 }) {
   const t = copy[lang];
@@ -308,8 +340,11 @@ export function SignupScreen({
   const [pending, setPending] = useState(false);
   const [short, setShort] = useState(false);
   const [rateLimited, setRateLimited] = useState(false);
+  const [terms, setTerms] = useState(false);
+  const [adult, setAdult] = useState(false);
+  const [consentMissing, setConsentMissing] = useState(false);
   return (
-    <AuthSplit toolbar={toolbar}>
+    <AuthSplit lang={lang} toolbar={toolbar}>
       <form
         data-testid="signup-form"
         method="post"
@@ -321,13 +356,17 @@ export function SignupScreen({
           const fullName = String(data.get("name") ?? "");
           const email = String(data.get("email") ?? "");
           const password = String(data.get("password") ?? "");
+          const accepted = terms && adult;
+          setConsentMissing(!accepted);
+          if (!accepted) return;
           void (async () => {
-            const result = await onCreateAccount(fullName, email, password);
-            setFailed(result === "failed");
+            const result = await onCreateAccount(fullName, email, password, true);
+            setFailed(result === "failed" || result === "consent");
             setDenied(result === "denied");
             setShort(result === "short");
             setRateLimited(result === "rate");
             setPending(result === "confirm");
+            setConsentMissing(result === "consent");
           })();
         }}
       >
@@ -364,6 +403,51 @@ export function SignupScreen({
             hideLabel={t.hidePassword}
           />
         </label>
+        <div className="mt-5 flex items-start gap-3">
+          <input
+            id="signup-terms"
+            data-testid="signup-terms"
+            type="checkbox"
+            checked={terms}
+            className="mt-0.5 h-6 w-6 shrink-0"
+            onChange={(event) => {
+              setTerms(event.target.checked);
+              setConsentMissing(false);
+            }}
+          />
+          <label htmlFor="signup-terms" className="text-sm leading-6 text-ink">
+            {t.signupTermsBefore}
+            <a href={`/legal/terms?lang=${lang}`} target="_blank" rel="noopener noreferrer" className="font-semibold underline decoration-1 underline-offset-4">
+              {t.termsOfService}
+            </a>
+            {t.signupTermsBetween}
+            <a href={`/legal/privacy?lang=${lang}`} target="_blank" rel="noopener noreferrer" className="font-semibold underline decoration-1 underline-offset-4">
+              {t.privacyPolicy}
+            </a>
+            {t.signupTermsAfter}
+          </label>
+        </div>
+        <div className="mt-4 flex items-start gap-3">
+          <input
+            id="signup-adult"
+            data-testid="signup-adult"
+            type="checkbox"
+            checked={adult}
+            className="mt-0.5 h-6 w-6 shrink-0"
+            onChange={(event) => {
+              setAdult(event.target.checked);
+              setConsentMissing(false);
+            }}
+          />
+          <label htmlFor="signup-adult" className="text-sm leading-6 text-ink">
+            {t.signupAdult}
+          </label>
+        </div>
+        {consentMissing ? (
+          <p role="alert" data-testid="signup-consent" className="mt-4 text-sm leading-6 text-danger-text">
+            {t.signupConsentNeeded}
+          </p>
+        ) : null}
         {short ? <p role="alert" className="mt-4 text-sm text-danger-text">{t.passwordTooShort}</p> : null}
         {rateLimited ? <p role="alert" className="mt-4 text-sm leading-6 text-danger-text">{t.signupRateLimit}</p> : null}
         {failed ? <p role="alert" className="mt-4 text-sm text-danger-text">{t.signupFailed}</p> : null}
@@ -399,7 +483,7 @@ export function CreateOrgScreen({
   const [type, setType] = useState("");
   const [failed, setFailed] = useState(false);
   return (
-    <AuthSplit toolbar={toolbar}>
+    <AuthSplit lang={lang} toolbar={toolbar}>
       <form
         className="flex flex-col"
         onSubmit={(event) => {
@@ -439,7 +523,7 @@ export function CreateSiteScreen({
   const [name, setName] = useState("");
   const [failed, setFailed] = useState(false);
   return (
-    <AuthSplit toolbar={toolbar}>
+    <AuthSplit lang={lang} toolbar={toolbar}>
       <form
         className="flex flex-col"
         onSubmit={(event) => {
@@ -475,7 +559,7 @@ export function NewPasswordScreen({
   const [short, setShort] = useState(false);
   const [failed, setFailed] = useState(false);
   return (
-    <AuthSplit toolbar={toolbar}>
+    <AuthSplit lang={lang} toolbar={toolbar}>
       <form
         data-testid="new-password-form"
         method="post"

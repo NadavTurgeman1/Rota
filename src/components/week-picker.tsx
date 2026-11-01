@@ -199,12 +199,12 @@ export function WeekPicker({ lang, week, onPick, className = "" }: { lang: Lang;
                           type="button"
                           data-testid={`picker-day-${day}`}
                           title={names ? (hebrew ? `${hebrewDay(day, lang)} · ${names}` : names) : hebrew ? hebrewDay(day, lang) : undefined}
-                          className={`flex ${hebrew || events.length > 0 ? "h-[3.75rem]" : "h-10"} min-w-0 flex-col items-center justify-start gap-0.5 rounded-xl px-0.5 pt-1 ${inMonth ? "" : "opacity-35"}`}
+                          className={`flex ${hebrew || events.length > 0 ? "h-[3.75rem]" : "h-10"} min-w-0 flex-col items-center justify-start gap-0.5 rounded-xl px-0.5 pt-1 ${inMonth ? "" : "text-muted"}`}
                           onClick={() => pick(day)}
                         >
                           <span
                             className={`grid h-6 w-6 place-items-center rounded-full text-sm tabular-nums ${
-                              day === today ? "bg-brand font-semibold text-on-brand" : rest ? "font-semibold text-danger-text" : current ? "font-semibold text-ink" : "text-ink"
+                              day === today ? "bg-brand font-semibold text-on-brand" : rest ? "font-semibold text-danger-text" : current ? "font-semibold text-ink" : inMonth ? "text-ink" : "text-muted"
                             }`}
                           >
                             {Number(day.slice(8))}
