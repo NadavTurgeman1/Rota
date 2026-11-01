@@ -97,7 +97,7 @@ export function SlotCard({
         }
         if (canEdit) setEditing(true);
       }}
-      className={`flex h-full min-h-[4.75rem] flex-col gap-1 rounded-lg border border-line p-1.5 ${FILL[kind]} ${
+      className={`flex w-full flex-col gap-1 rounded-lg border border-line p-1.5 ${FILL[kind]} ${
         selectedToken && !published ? "cursor-pointer hover:ring-2 hover:ring-focus/60" : canEdit ? "cursor-pointer hover:ring-2 hover:ring-focus/40" : ""
       }`}
     >
@@ -144,7 +144,7 @@ export function SlotCard({
           )}
         </span>
       </div>
-      <div className="flex flex-1 flex-col gap-1">
+      <div className="flex flex-col gap-1">
         {ids.map((employeeId) => {
           const token = assignmentToken(slot.key, employeeId);
           const extension = schedule?.ext?.[token];
@@ -180,7 +180,7 @@ export function SlotCard({
                 onSwap(slot.key, parsed.employeeId, employeeId);
               }}
               onClick={(event) => event.stopPropagation()}
-              className={`flex items-center gap-0.5 rounded-md border border-line bg-chip py-0.5 ps-1.5 pe-0.5 text-xs font-medium shadow-card hover:border-field-line ${
+              className={`flex w-full shrink-0 items-center gap-0.5 overflow-hidden rounded-md border border-line bg-chip py-0.5 pe-0.5 ps-1.5 text-xs font-medium leading-5 shadow-card hover:border-field-line ${
                 selectedToken === token || dropTarget === employeeId || focusEmployeeId === employeeId ? "ring-2 ring-focus" : ""
               } ${dragging === employeeId ? "opacity-50" : ""} ${
                 focusEmployeeId && focusEmployeeId !== employeeId ? "opacity-40" : ""
@@ -209,7 +209,7 @@ export function SlotCard({
                   onToggleSelect(token);
                 }}
               >
-                <span className="max-w-full truncate leading-5" title={name}>
+                <span className="block w-full truncate" title={name}>
                   {name}
                 </span>
                 {span ? (

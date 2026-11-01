@@ -1641,7 +1641,7 @@ export function ScheduleApp() {
             </button>
           </div>
         ) : null}
-        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
+        <div className="flex shrink-0 flex-wrap items-start justify-between gap-x-6 gap-y-3">
           <div className="min-w-0">
             <h1 className="text-[2rem] font-semibold leading-none tracking-[-0.03em] text-ink">
               {shown === "approvals" ? t.approvalsTitle : (tabs.find((tab) => tab.id === shown)?.label ?? t.navEmpty)}
@@ -1696,7 +1696,7 @@ export function ScheduleApp() {
           </p>
         )}
         {weekly ? (
-          <section className="flex flex-wrap items-center gap-2">
+          <section className="flex shrink-0 flex-wrap items-center gap-2">
             <div className="flex items-center gap-1 rounded-lg border border-line bg-card p-1">
               <button
                 type="button"
@@ -1834,7 +1834,7 @@ export function ScheduleApp() {
         {shown === "schedule" ? (
           <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(17rem,22rem)]">
             <div className="min-w-0">
-              <WeekBoard {...boardProps} />
+              <WeekBoard {...boardProps} fit />
             </div>
             <div
               className={`flex min-w-0 flex-col rounded-xl border border-line bg-card p-3 lg:sticky lg:top-4 lg:overflow-hidden ${
