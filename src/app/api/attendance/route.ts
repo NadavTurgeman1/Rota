@@ -6,6 +6,7 @@ import { userIdFromAuthorization } from "../../../supabase/user";
 export const dynamic = "force-dynamic";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
 
 function failed(error: unknown): Response {
   if (error instanceof RequestClosed) return new Response(null, { status: 499 });
@@ -31,7 +32,12 @@ export async function GET(request: Request) {
     const body = await withUserDb(
       userId,
       async (sql) => {
-        if (roster && UUID.test(siteId)) return loadRosterAttendance(sql, siteId);
+        if (roster && UUID.test(siteId)) {
+          const from = url.searchParams.get("from") ?? "";
+          const to = url.searchParams.get("to") ?? "";
+          const range = DAY.test(from) && DAY.test(to) && from <= to ? { from, to } : undefined;
+          return loadRosterAttendance(sql, siteId, range);
+        }
         if (UUID.test(employeeId)) return loadEmployeeAttendance(sql, employeeId);
         return loadOwnAttendance(sql, siteId);
       },

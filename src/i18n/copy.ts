@@ -423,6 +423,7 @@ export interface Copy {
   clearAll: string;
   navDashboard: string;
   navInsights: string;
+  navReports: string;
   navMessages: string;
   messagesHint: string;
   messagesCompose: string;
@@ -1039,6 +1040,7 @@ export const copy: Record<Lang, Copy> = {
     clearAll: "נקה",
     navDashboard: "דשבורד",
     navInsights: "תובנות",
+    navReports: "הפקת דוחות",
     navMessages: "הודעות",
     messagesHint: "הודעה לעובדים באתר הזה. בוחרים למי, ומתי היא תופיע אצלם.",
     messagesCompose: "הודעה חדשה",
@@ -1666,6 +1668,7 @@ export const copy: Record<Lang, Copy> = {
     clearAll: "Clear",
     navDashboard: "Dashboard",
     navInsights: "Insights",
+    navReports: "Reports",
     navMessages: "Messages",
     messagesHint: "A note to staff at this site. Choose who receives it, and when it appears for them.",
     messagesCompose: "New message",

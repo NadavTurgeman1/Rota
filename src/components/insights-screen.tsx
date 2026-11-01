@@ -162,7 +162,7 @@ function lensCount(lens: Lens, report: InsightReport, clocks: "loading" | "missi
   if (lens === "late") return clocks === "ready" ? report.late.length : 0;
   if (lens === "noshow") return clocks === "ready" ? report.noShows.length : 0;
   if (lens === "recurring") return report.recurring.length;
-  if (lens === "idle") return clocks === "loading" ? 0 : report.idle.length;
+  if (lens === "idle") return report.idle.length;
   if (lens === "patterns") return clocks === "loading" ? 0 : report.patterns.length;
   if (lens === "hiring") return report.hiring.length;
   return report.burnout.length;
@@ -170,14 +170,14 @@ function lensCount(lens: Lens, report: InsightReport, clocks: "loading" | "missi
 
 function lensHealth(lens: Lens, report: InsightReport, clocks: "loading" | "missing" | "ready"): "good" | "bad" | "wait" {
   if ((lens === "late" || lens === "noshow") && clocks !== "ready") return "wait";
-  if ((lens === "idle" || lens === "patterns") && clocks === "loading") return "wait";
+  if (lens === "patterns" && clocks === "loading") return "wait";
   return lensCount(lens, report, clocks) > 0 ? "bad" : "good";
 }
 
 function lensValue(lens: Lens, report: InsightReport, clocks: "loading" | "missing" | "ready"): string {
   const count = lensCount(lens, report, clocks);
   if ((lens === "late" || lens === "noshow") && clocks !== "ready") return "—";
-  if ((lens === "idle" || lens === "patterns") && clocks === "loading") return "—";
+  if (lens === "patterns" && clocks === "loading") return "—";
   return String(count);
 }
 
@@ -207,7 +207,7 @@ function LensBody({
   const t = screenCopy[lang];
   if (lens === "late" && clocks !== "ready") return <p className="mt-3 text-sm text-muted">{clocks === "loading" ? t.loadingClocks : t.clocksMissing}</p>;
   if (lens === "noshow" && clocks !== "ready") return <p className="mt-3 text-sm text-muted">{clocks === "loading" ? t.loadingClocks : t.clocksMissing}</p>;
-  if ((lens === "idle" || lens === "patterns") && clocks === "loading") return <p className="mt-3 text-sm text-muted">{t.loadingClocks}</p>;
+  if (lens === "patterns" && clocks === "loading") return <p className="mt-3 text-sm text-muted">{t.loadingClocks}</p>;
 
   const rows = lensRows(lens, report, lang);
   if (rows.length === 0) return <p className="mt-3 text-sm text-muted">{lensEmpty(lens, t)}</p>;

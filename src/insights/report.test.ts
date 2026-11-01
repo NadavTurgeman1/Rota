@@ -142,16 +142,18 @@ describe("insights", () => {
     expect(report.late).toEqual([]);
   });
 
-  it("flags someone whose last clock-in was more than 15 days ago", () => {
+  it("flags someone whose last assignment was more than 15 days ago", () => {
     const state = stateFor({}, [morning], {
       sched: {
-        [week]: { assign: {}, locked: [], status: "published" },
+        [week]: { assign: { "0|m": ["yossi"] }, locked: [], status: "published" },
         "2026-08-30": { assign: { "0|m": ["dana"] }, locked: [], status: "published" },
       },
     });
-    const report = buildInsights(state, "day", "he", zone, new Date(at(week, "08:00")), [punch("old", "dana", "2026-08-30", "06:05")]);
+    const report = buildInsights(state, "day", "he", zone, new Date(at(week, "08:00")), [punch("today", "dana", week, "06:00")]);
     expect(report.idle.find((item) => item.employeeId === "dana")?.days).toBeGreaterThan(15);
     expect(report.idle.find((item) => item.employeeId === "yossi")).toBeUndefined();
+    const quiet = buildInsights(state, "day", "he", zone, new Date(at(week, "08:00")), null);
+    expect(quiet.idle.find((item) => item.employeeId === "dana")?.last).toBe("2026-08-30");
   });
 
   it("keeps someone on site until they clock out, and only for 18 hours", () => {

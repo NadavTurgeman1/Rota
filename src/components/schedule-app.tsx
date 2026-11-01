@@ -85,6 +85,8 @@ import {
 import { BusinessScreen } from "./business-screen";
 import { ConstraintsScreen, ExtraWindowMenu } from "./constraints-screen";
 import { InsightsScreen } from "./insights-screen";
+import { ReportsScreen } from "./reports-screen";
+import type { ReportPunch } from "../reports/build";
 import { DashboardScreen } from "./dashboard-screen";
 import { MessagesScreen, type MessagesApi } from "./messages-screen";
 import type { ManagerMessage } from "../db/messages";
@@ -167,7 +169,7 @@ function blankWorkspace(userId: string, email: string): Workspace {
   };
 }
 
-type Screen = "business" | "team" | "constraints" | "insights" | "dashboard" | "messages" | "absences" | "schedule" | "mine" | "approvals";
+type Screen = "business" | "team" | "constraints" | "insights" | "reports" | "dashboard" | "messages" | "absences" | "schedule" | "mine" | "approvals";
 
 function visibleScreens(caps: Capabilities, hasSelf: boolean, owner: boolean, schedulable: boolean): Screen[] {
   const screens: Screen[] = [];
@@ -176,6 +178,7 @@ function visibleScreens(caps: Capabilities, hasSelf: boolean, owner: boolean, sc
   if (caps.people_edit || caps.people_site || caps.documents) screens.push("team");
   if ((schedulable && caps.constraints) || caps.schedule_edit || caps.people_edit) screens.push("constraints");
   if (caps.insights) screens.push("insights");
+  if (caps.insights || caps.schedule_edit || caps.people_edit) screens.push("reports");
   if (caps.messages) screens.push("messages");
   if (caps.absences || caps.people_edit) screens.push("absences");
   if (caps.site_settings) screens.push("business");
@@ -1602,6 +1605,7 @@ export function ScheduleApp() {
       { id: "team", label: t.navTeam },
       { id: "constraints", label: t.navConstraints },
       { id: "insights", label: t.navInsights },
+      { id: "reports", label: t.navReports },
       { id: "messages", label: t.navMessages },
       { id: "absences", label: t.navAbsences },
       { id: "business", label: t.navBusiness },
@@ -2162,6 +2166,33 @@ export function ScheduleApp() {
         ) : null}
         {shown === "insights" ? (
           <InsightsScreen state={peered} lang={lang} timeZone={clockZone} punches={clockPunches} clocks={clocks} />
+        ) : null}
+        {shown === "reports" ? (
+          <ReportsScreen
+            lang={lang}
+            timeZone={clockZone}
+            sites={live.sites.map((site) => ({ id: site.id, name: siteLabel(site.state.biz.name, lang), state: site.state }))}
+            loadPunches={async (siteId, from, to) => {
+              if (!remote) return null;
+              const response = await fetch(
+                `/api/attendance?siteId=${encodeURIComponent(siteId)}&roster=1&from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+                { headers: authHeaders() },
+              ).catch(() => null);
+              if (!response?.ok) return null;
+              const body = (await response.json().catch(() => null)) as { timeZone?: string; employees?: { id: string; punches: { id: string; siteId: string; kind: "in" | "out"; punchedAt: string }[] }[] } | null;
+              if (!body?.employees) return null;
+              const punches: ReportPunch[] = body.employees.flatMap((person) =>
+                person.punches.map((punch) => ({
+                  id: punch.id,
+                  employeeId: person.id,
+                  siteId: punch.siteId,
+                  kind: punch.kind === "out" ? "out" : "in",
+                  punchedAt: punch.punchedAt,
+                })),
+              );
+              return { timeZone: body.timeZone || clockZone, punches };
+            }}
+          />
         ) : null}
       </main>
         </div>

@@ -116,8 +116,14 @@ export type AttendanceRoster = {
   employees: { id: string; timeZone: string; punches: AttendancePunch[] }[];
 };
 
-/** One read for the team screen: the punches a manager of this site is allowed to see. */
-export async function loadRosterAttendance(sql: SqlClient, siteId: string): Promise<AttendanceRoster> {
+const DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+/** One read for the team screen: the punches a manager of this site is allowed to see. A date range reads that window instead of the latest 200. */
+export async function loadRosterAttendance(
+  sql: SqlClient,
+  siteId: string,
+  range?: { from: string; to: string },
+): Promise<AttendanceRoster> {
   if (!UUID.test(siteId)) throw new SaveError("forbidden");
   const site = await sql.query<{ timezone: string; ok: boolean }>(
     `select timezone,
@@ -156,10 +162,18 @@ export async function loadRosterAttendance(sql: SqlClient, siteId: string): Prom
          from public.attendance_punches p
          left join public.sites s on s.id = p.site_id and s.org_id = p.org_id
          where p.employee_id = any($1::uuid[])
+           and ($2::date is null or p.punched_at >= ($2::date::timestamp at time zone $4))
+           and ($3::date is null or p.punched_at < (($3::date + interval '1 day') at time zone $4))
        ) recent
-       where n <= 200
+       where n <= $5
        order by punched_at`,
-      [people.map((person) => person.id)],
+      [
+        people.map((person) => person.id),
+        range && DAY.test(range.from) && DAY.test(range.to) && range.from <= range.to ? range.from : null,
+        range && DAY.test(range.from) && DAY.test(range.to) && range.from <= range.to ? range.to : null,
+        timeZone,
+        range ? 5000 : 200,
+      ],
     );
     for (const row of rows) {
       const list = punches.get(row.employee_id) ?? [];

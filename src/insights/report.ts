@@ -86,7 +86,7 @@ export interface RecurringGap {
 export interface IdlePerson {
   employeeId: string;
   name: string;
-  /** Days since the last clock-in, or since the last assignment when there is no clock-in. */
+  /** Days since the last assignment on or before today. */
   days: number;
   last: string | null;
 }
@@ -459,55 +459,17 @@ function lastAssignment(state: RotaState, employeeId: string, today: string): st
   return last;
 }
 
-function firstAssignment(state: RotaState, employeeId: string): string | null {
-  let first: string | null = null;
-  for (const [week, schedule] of Object.entries(state.sched)) {
-    for (const [key, ids] of Object.entries(schedule.assign ?? {})) {
-      if (!ids?.includes(employeeId)) continue;
-      const day = Number(key.slice(0, key.indexOf("|")));
-      if (day < 0 || day > 6) continue;
-      const date = addDays(week, day);
-      if (first === null || date < first) first = date;
-    }
-  }
-  return first;
-}
-
-function idlePeople(state: RotaState, clocks: ClockPunch[] | null, today: string, timeZone: string): IdlePerson[] {
-  const punchesKnown = clocks !== null;
-  const lastPunch = new Map<string, string>();
-  if (clocks) {
-    for (const punch of clocks) {
-      if (punch.kind !== "in") continue;
-      const at = new Date(punch.punchedAt);
-      if (Number.isNaN(at.getTime())) continue;
-      const date = zonedDate(at, timeZone);
-      if (date > today) continue;
-      const prev = lastPunch.get(punch.employeeId);
-      if (!prev || date > prev) lastPunch.set(punch.employeeId, date);
-    }
-  }
+function idlePeople(state: RotaState, today: string): IdlePerson[] {
   const idle: IdlePerson[] = [];
   for (const employee of state.emps) {
     if (employee.active === false) continue;
     const started = employee.profile?.startedOn ?? "";
     if (/^\d{4}-\d{2}-\d{2}$/.test(started) && daySpan(started, today) <= IDLE_DAYS) continue;
-    const punched = lastPunch.get(employee.id) ?? null;
-    if (punched) {
-      const days = daySpan(punched, today);
-      if (days > IDLE_DAYS) idle.push({ employeeId: employee.id, name: employee.name, days, last: punched });
-      continue;
-    }
-    if (!punchesKnown) {
-      const last = lastAssignment(state, employee.id, today);
-      if (!last) continue;
-      const days = daySpan(last, today);
-      if (days > IDLE_DAYS) idle.push({ employeeId: employee.id, name: employee.name, days, last });
-      continue;
-    }
-    const first = firstAssignment(state, employee.id);
-    if (!first || daySpan(first, today) <= IDLE_DAYS) continue;
-    idle.push({ employeeId: employee.id, name: employee.name, days: daySpan(first, today), last: null });
+    const last = lastAssignment(state, employee.id, today);
+    if (!last) continue;
+    const days = daySpan(last, today);
+    if (days <= IDLE_DAYS) continue;
+    idle.push({ employeeId: employee.id, name: employee.name, days, last });
   }
   idle.sort((left, right) => right.days - left.days || left.name.localeCompare(right.name));
   return idle;
@@ -643,7 +605,7 @@ export function buildInsights(
     late,
     noShows,
     recurring: recurringGaps(shortages),
-    idle: idlePeople(state, clocks, today, timeZone),
+    idle: idlePeople(state, today),
     patterns: patternsFrom(late, noShows, notes),
     hiring: hireHints(shortages, span),
     burnout: burnoutFrom(notes, state),
