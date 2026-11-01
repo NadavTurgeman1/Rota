@@ -32,7 +32,7 @@ const TEXT: [string, string[]][] = [
   ["muted", [...SURFACES, "brand-soft", "track", ...BOARD]],
   ["subtle", [...SURFACES, "well-strong", ...BOARD]],
   ["brand-text", ["brand-soft", "card", "page", ...BOARD]],
-  ["on-brand", ["brand", "brand-hover"]],
+  ["on-brand", ["brand", "brand-hover", "punch-out"]],
   ["ok-text", ["ok-soft", "ok-softer", "card"]],
   ["danger-text", ["danger-soft", "danger-softer", "card", "page", ...BOARD]],
   ["warn-text", ["warn-soft", "warn-softer", "warn-softest", "card", "page"]],

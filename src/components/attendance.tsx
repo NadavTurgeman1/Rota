@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GPS_WAIT_MS, TARGET_ACCURACY_METERS, clockProblem, deviceOffsetMinutes } from "../attendance/clock";
 import { followFix, type Fix, type LockState } from "../attendance/locate";
-import { formatDuration, formatWhen, pairPunches, type AttendancePunch } from "../attendance/sessions";
+import { formatDuration, formatLiveDuration, formatPunchStamp, formatWhen, pairPunches, type AttendancePunch } from "../attendance/sessions";
 import type { Lang } from "../domain";
 import { copy, type Copy } from "../i18n/copy";
 import { button, card, cardHint, cardTitle, pill } from "./ui";
@@ -83,6 +83,8 @@ function problemText(code: string, t: Copy): string {
   if (code === "timezone") return t.attendanceClockZone;
   if (code === "accuracy") return t.attendanceWide;
   if (code === "denied") return t.attendanceDenied;
+  if (code === "open") return t.attendanceAlreadyIn;
+  if (code === "closed") return t.attendanceAlreadyOut;
   if (code === "forbidden") return t.attendanceForbidden;
   if (code === "location" || code === "unavailable") return t.attendanceNoFix;
   return t.saveFailed;
@@ -154,7 +156,17 @@ export function AttendanceTable({
 }
 
 /** The employee's home: a live phone clock, checked against the server, then a punch with GPS. */
-export function AttendanceScreen({ lang, siteId, api }: { lang: Lang; siteId: string; api: AttendanceApi }) {
+export function AttendanceScreen({
+  lang,
+  siteId,
+  api,
+  person,
+}: {
+  lang: Lang;
+  siteId: string;
+  api: AttendanceApi;
+  person?: { name: string; role: string };
+}) {
   const t = copy[lang];
   const now = useNow();
   const [snapshot, setSnapshot] = useState<AttendanceSnapshot | null>(null);
@@ -196,7 +208,6 @@ export function AttendanceScreen({ lang, siteId, api }: { lang: Lang; siteId: st
   const skew = snapshot && serverNow ? clockProblem({ deviceNow: now, serverNow, timeZone: snapshot.timeZone }) : null;
   const newest = snapshot ? [...snapshot.punches].sort((left, right) => right.punchedAt.localeCompare(left.punchedAt))[0] : undefined;
   const open = newest?.kind === "in";
-  const since = open && snapshot && newest ? formatWhen(newest.punchedAt, snapshot.timeZone, lang).time : null;
   const locale = lang === "he" ? "he-IL" : "en-GB";
   const clock = new Intl.DateTimeFormat(locale, { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).format(now);
   const date = new Intl.DateTimeFormat(locale, { weekday: "long", day: "numeric", month: "long" }).format(now);
@@ -230,6 +241,7 @@ export function AttendanceScreen({ lang, siteId, api }: { lang: Lang; siteId: st
     setSaved(true);
   }
 
+  const nextOut = open;
   const buttonLabel = saving
     ? t.attendanceLoading
     : lock.status === "seeking"
@@ -240,21 +252,26 @@ export function AttendanceScreen({ lang, siteId, api }: { lang: Lang; siteId: st
         ? t.attendanceAllow
         : lock.status === "wide" || lock.status === "unavailable"
           ? t.attendanceRetry
-          : open
-            ? t.attendanceOut
-            : t.attendanceIn;
+          : nextOut
+            ? t.attendanceReportOut
+            : t.attendanceReportIn;
   const lockNotice =
     lock.status === "denied" ? t.attendanceDenied : lock.status === "wide" ? t.attendanceWide : lock.status === "unavailable" ? t.attendanceNoFix : null;
 
   return (
     <section data-testid="staff-attendance" className="flex flex-col gap-6">
-      <div className={`${card} flex flex-col items-start gap-5`}>
-        <div>
+      <div className={`${card} flex flex-col items-center gap-5 px-5 py-8 text-center`}>
+        {person ? (
+          <div>
+            <h2 className="text-2xl font-semibold tracking-tight text-ink">{t.attendanceHello(person.name)}</h2>
+            {person.role ? <p className="mt-1 text-sm text-muted">{person.role}</p> : null}
+          </div>
+        ) : (
           <p className="text-[11px] font-medium uppercase tracking-[0.06em] text-muted">{date}</p>
-          <p data-testid="attendance-clock" className={`mt-3 text-6xl font-semibold tabular-nums tracking-[-0.04em] ${open ? "text-brand-text" : "text-ink"}`}>
-            <span dir="ltr">{clock}</span>
-          </p>
-        </div>
+        )}
+        <p data-testid="attendance-clock" className="sr-only">
+          <span dir="ltr">{clock}</span>
+        </p>
         <span className={`${pill} ${skew ? "bg-danger-soft text-danger-text" : "bg-ok-soft text-ok-text"}`}>
           {skew ? t.attendanceClockBad : snapshot ? t.attendanceClockOk : t.attendanceLoading}
         </span>
@@ -263,17 +280,11 @@ export function AttendanceScreen({ lang, siteId, api }: { lang: Lang; siteId: st
             {skew === "timezone" ? t.attendanceClockZone : t.attendanceClockSkew}
           </p>
         ) : null}
-        <p className="max-w-md text-sm leading-6 text-muted">{t.attendanceHint}</p>
-        {since ? <p className="text-sm font-medium text-ink">{t.attendanceSince(since)}</p> : null}
-        {lock.status === "seeking" && lock.accuracy !== null && lock.accuracy > TARGET_ACCURACY_METERS ? (
-          <p className="max-w-md text-sm leading-6 text-muted">{t.attendanceCoarse(radiusText(lock.accuracy))}</p>
-        ) : null}
-        {locked ? <p className="text-sm font-medium text-ok-text">{t.attendanceLocked(radiusText(locked.accuracy))}</p> : null}
         <button
           type="button"
-          data-testid={locked ? (open ? "attendance-out" : "attendance-in") : "attendance-lock"}
-          className={`${button.primary} h-12 min-w-40 px-8 text-base`}
+          data-testid={locked ? (nextOut ? "attendance-out" : "attendance-in") : "attendance-lock"}
           disabled={!canPunch && !canRetry}
+          className={`punch-disc ${nextOut ? "punch-disc-out" : "punch-disc-in"} disabled:opacity-50`}
           onClick={() => {
             if (canRetry) beginLock();
             else void punch();
@@ -281,6 +292,31 @@ export function AttendanceScreen({ lang, siteId, api }: { lang: Lang; siteId: st
         >
           {buttonLabel}
         </button>
+        {open && newest ? (
+          <p data-testid="attendance-elapsed" className="text-sm font-medium tabular-nums text-ink">
+            {formatLiveDuration(newest.punchedAt, now, lang)}
+          </p>
+        ) : null}
+        {newest && snapshot ? (
+          <p className="text-sm text-muted">
+            {t.attendanceLast(newest.kind === "in" ? t.attendanceIn : t.attendanceOut, formatPunchStamp(newest.punchedAt, snapshot.timeZone, lang))}
+          </p>
+        ) : null}
+        <div dir="ltr" className="flex items-center gap-3 text-base font-semibold text-ink">
+          <span className={nextOut ? "text-muted" : "text-ink"}>{t.attendanceIn}</span>
+          <span
+            className={`relative h-7 w-12 rounded-full ${nextOut ? "bg-punch-out" : "bg-brand"}`}
+            role="img"
+            aria-label={nextOut ? t.attendanceOut : t.attendanceIn}
+          >
+            <span className={`absolute top-0.5 h-6 w-6 rounded-full bg-on-brand shadow-card transition-[inset-inline-start] duration-200 ${nextOut ? "start-[1.35rem]" : "start-0.5"}`} />
+          </span>
+          <span className={nextOut ? "text-ink" : "text-muted"}>{t.attendanceOut}</span>
+        </div>
+        {lock.status === "seeking" && lock.accuracy !== null && lock.accuracy > TARGET_ACCURACY_METERS ? (
+          <p className="max-w-md text-sm leading-6 text-muted">{t.attendanceCoarse(radiusText(lock.accuracy))}</p>
+        ) : null}
+        {locked ? <p className="text-sm font-medium text-ok-text">{t.attendanceLocked(radiusText(locked.accuracy))}</p> : null}
         {lockNotice && !notice ? (
           <p role="alert" className="max-w-md text-sm leading-6 text-danger-text">
             {lockNotice}

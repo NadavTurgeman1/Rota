@@ -1720,50 +1720,54 @@ export function ScheduleApp() {
             </div>
             {shown === "schedule" ? (
               <>
-                <button
-                  type="button"
-                  data-testid="generate"
-                  className={button.primary}
-                  disabled={!writer || published}
-                  onClick={() => change((current) => (hasAssignments(current) ? reshuffleWeek(current) : generateWeek(current)))}
-                >
-                  {schedule ? t.regenerate : t.generate}
-                </button>
-                <button
-                  type="button"
-                  data-testid="copy-schedule"
-                  className={`${button.quiet} ${scheduleClip ? "border-brand bg-brand-soft" : ""}`}
-                  aria-pressed={scheduleClip !== null}
-                  disabled={!writer || !hasAssignments(state)}
-                  onClick={() => {
-                    const snapshot = copySchedule(state);
-                    if (snapshot) setScheduleClip({ week: state.week, schedule: snapshot });
-                  }}
-                >
-                  {t.copySchedule}
-                </button>
-                <button
-                  type="button"
-                  data-testid="paste-schedule"
-                  className={button.quiet}
-                  title={scheduleClip ? formatWeekRange(scheduleClip.week, lang) : undefined}
-                  disabled={!writer || published || !scheduleClip}
-                  onClick={() => {
-                    const source = scheduleClip?.schedule ?? null;
-                    change((current) => pasteSchedule(current, source));
-                  }}
-                >
-                  {t.pasteSchedule}
-                </button>
-                <button
-                  type="button"
-                  data-testid="clear-schedule"
-                  className={button.quiet}
-                  disabled={!writer || published || !hasDraftAssignments(state)}
-                  onClick={() => change(clearSchedule)}
-                >
-                  {t.clearSchedule}
-                </button>
+                {writer && !published ? (
+                  <button
+                    type="button"
+                    data-testid="generate"
+                    className={button.primary}
+                    onClick={() => change((current) => (hasAssignments(current) ? reshuffleWeek(current) : generateWeek(current)))}
+                  >
+                    {schedule ? t.regenerate : t.generate}
+                  </button>
+                ) : null}
+                {writer && hasAssignments(state) ? (
+                  <button
+                    type="button"
+                    data-testid="copy-schedule"
+                    className={`${button.quiet} ${scheduleClip ? "border-brand bg-brand-soft" : ""}`}
+                    aria-pressed={scheduleClip !== null}
+                    onClick={() => {
+                      const snapshot = copySchedule(state);
+                      if (snapshot) setScheduleClip({ week: state.week, schedule: snapshot });
+                    }}
+                  >
+                    {t.copySchedule}
+                  </button>
+                ) : null}
+                {writer && !published && scheduleClip ? (
+                  <button
+                    type="button"
+                    data-testid="paste-schedule"
+                    className={button.quiet}
+                    title={formatWeekRange(scheduleClip.week, lang)}
+                    onClick={() => {
+                      const source = scheduleClip.schedule;
+                      change((current) => pasteSchedule(current, source));
+                    }}
+                  >
+                    {t.pasteSchedule}
+                  </button>
+                ) : null}
+                {writer && !published && hasDraftAssignments(state) ? (
+                  <button
+                    type="button"
+                    data-testid="clear-schedule"
+                    className={button.quiet}
+                    onClick={() => change(clearSchedule)}
+                  >
+                    {t.clearSchedule}
+                  </button>
+                ) : null}
                 <PublishButton
                   lang={lang}
                   canPublish={writer && Boolean(schedule) && !published && issuesOpen && check.constraint === 0}
@@ -1775,37 +1779,41 @@ export function ScheduleApp() {
                   onIcs={exportIcs}
                   onText={exportText}
                 />
-                <button type="button" data-testid="revert" className={button.quiet} disabled={!writer || !published} onClick={() => change(revertToDraft)}>
-                  {t.revert}
-                </button>
+                {writer && published ? (
+                  <button type="button" data-testid="revert" className={button.quiet} onClick={() => change(revertToDraft)}>
+                    {t.revert}
+                  </button>
+                ) : null}
               </>
             ) : null}
             {writer ? (
               <>
-                <button
-                  type="button"
-                  data-testid="undo"
-                  className={button.quiet}
-                  disabled={!canUndo}
-                  onClick={() => {
-                    setSelection(null);
-                    undoHistory();
-                  }}
-                >
-                  {t.undo}
-                </button>
-                <button
-                  type="button"
-                  data-testid="redo"
-                  className={button.quiet}
-                  disabled={!canRedo}
-                  onClick={() => {
-                    setSelection(null);
-                    redoHistory();
-                  }}
-                >
-                  {t.redo}
-                </button>
+                {canUndo ? (
+                  <button
+                    type="button"
+                    data-testid="undo"
+                    className={button.quiet}
+                    onClick={() => {
+                      setSelection(null);
+                      undoHistory();
+                    }}
+                  >
+                    {t.undo}
+                  </button>
+                ) : null}
+                {canRedo ? (
+                  <button
+                    type="button"
+                    data-testid="redo"
+                    className={button.quiet}
+                    onClick={() => {
+                      setSelection(null);
+                      redoHistory();
+                    }}
+                  >
+                    {t.redo}
+                  </button>
+                ) : null}
                 {shown === "constraints" ? (
                   <ExtraWindowMenu
                     lang={lang}
@@ -2230,108 +2238,71 @@ function PublishButton({
     };
   }, [open]);
 
-  const item =
-    "block w-full rounded-lg px-3 py-2 text-start text-sm font-medium hover:bg-well disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-transparent";
+  const item = "block w-full rounded-lg px-3 py-2 text-start text-sm font-medium hover:bg-well";
+  if (!canPublish && !published) return null;
   return (
-    <div ref={root} className="relative flex rounded-xl shadow-card">
-      <button
-        type="button"
-        data-testid="publish"
-        className={`${button.primary} rounded-e-none shadow-none`}
-        disabled={!canPublish}
-        onClick={onPublish}
-      >
-        {t.publish}
-      </button>
-      <button
-        type="button"
-        data-testid="export-menu"
-        aria-label={t.exportMenu}
-        aria-haspopup="menu"
-        aria-expanded={open}
-        className={`${button.primary} rounded-s-none border-s border-on-brand/25 px-2.5 shadow-none`}
-        onClick={() => setOpen((current) => !current)}
-      >
-        <svg aria-hidden="true" viewBox="0 0 20 20" className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} fill="currentColor">
-          <path d="M5.2 7.5a.75.75 0 0 1 1.06 0L10 11.2l3.74-3.7a.75.75 0 1 1 1.06 1.06l-4.27 4.24a.75.75 0 0 1-1.06 0L5.2 8.56a.75.75 0 0 1 0-1.06Z" />
-        </svg>
-      </button>
-      {open ? (
-        <div role="menu" className="absolute start-0 top-full z-30 mt-2 w-64 rounded-xl border border-line bg-card p-1.5 shadow-pop">
-          <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted">{t.exportMenu}</p>
+    <div ref={root} className={`relative flex ${canPublish && published ? "rounded-xl shadow-card" : ""}`}>
+      {canPublish ? (
+        <button
+          type="button"
+          data-testid="publish"
+          className={`${button.primary} ${published ? "rounded-e-none shadow-none" : ""}`}
+          onClick={onPublish}
+        >
+          {t.publish}
+        </button>
+      ) : null}
+      {published ? (
+        <>
           <button
             type="button"
-            role="menuitem"
-            data-testid="export-png"
-            className={item}
-            disabled={!published}
-            onClick={() => {
-              setOpen(false);
-              onPng();
-            }}
+            data-testid="export-menu"
+            aria-label={t.exportMenu}
+            aria-haspopup="menu"
+            aria-expanded={open}
+            className={canPublish ? `${button.primary} rounded-s-none border-s border-on-brand/25 px-2.5 shadow-none` : button.quiet}
+            onClick={() => setOpen((current) => !current)}
           >
-            {t.exportPng}
-            {published ? null : <span className="block text-xs font-normal text-subtle">{t.exportPublishedOnly}</span>}
+            {canPublish ? (
+              <svg aria-hidden="true" viewBox="0 0 20 20" className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} fill="currentColor">
+                <path d="M5.2 7.5a.75.75 0 0 1 1.06 0L10 11.2l3.74-3.7a.75.75 0 1 1 1.06 1.06l-4.27 4.24a.75.75 0 0 1-1.06 0L5.2 8.56a.75.75 0 0 1 0-1.06Z" />
+              </svg>
+            ) : (
+              t.exportMenu
+            )}
           </button>
-          <button
-            type="button"
-            role="menuitem"
-            data-testid="export-excel"
-            className={item}
-            disabled={!published}
-            onClick={() => {
-              setOpen(false);
-              onExcel();
-            }}
-          >
-            {t.exportExcel}
-            {published ? null : <span className="block text-xs font-normal text-subtle">{t.exportPublishedOnly}</span>}
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            data-testid="export-csv"
-            className={item}
-            disabled={!published}
-            onClick={() => {
-              setOpen(false);
-              onCsv();
-            }}
-          >
-            {t.exportCsv}
-            {published ? null : <span className="block text-xs font-normal text-subtle">{t.exportPublishedOnly}</span>}
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            data-testid="export-ics"
-            className={item}
-            disabled={!published}
-            onClick={() => {
-              setOpen(false);
-              onIcs();
-            }}
-          >
-            {t.exportCalendar}
-            {published ? null : <span className="block text-xs font-normal text-subtle">{t.exportPublishedOnly}</span>}
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            data-testid="export-text"
-            className={item}
-            disabled={!published}
-            onClick={() => {
-              void Promise.resolve(onText()).then(() => {
-                setCopied(true);
-                setTimeout(() => setCopied(false), 1800);
-              });
-            }}
-          >
-            {copied ? t.exportTextCopied : t.exportText}
-            {published ? null : <span className="block text-xs font-normal text-subtle">{t.exportPublishedOnly}</span>}
-          </button>
-        </div>
+          {open ? (
+            <div role="menu" className="absolute start-0 top-full z-30 mt-2 w-64 rounded-xl border border-line bg-card p-1.5 shadow-pop">
+              <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-muted">{t.exportMenu}</p>
+              <button type="button" role="menuitem" data-testid="export-png" className={item} onClick={() => { setOpen(false); onPng(); }}>
+                {t.exportPng}
+              </button>
+              <button type="button" role="menuitem" data-testid="export-excel" className={item} onClick={() => { setOpen(false); onExcel(); }}>
+                {t.exportExcel}
+              </button>
+              <button type="button" role="menuitem" data-testid="export-csv" className={item} onClick={() => { setOpen(false); onCsv(); }}>
+                {t.exportCsv}
+              </button>
+              <button type="button" role="menuitem" data-testid="export-ics" className={item} onClick={() => { setOpen(false); onIcs(); }}>
+                {t.exportCalendar}
+              </button>
+              <button
+                type="button"
+                role="menuitem"
+                data-testid="export-text"
+                className={item}
+                onClick={() => {
+                  void Promise.resolve(onText()).then(() => {
+                    setCopied(true);
+                    setTimeout(() => setCopied(false), 1800);
+                  });
+                }}
+              >
+                {copied ? t.exportTextCopied : t.exportText}
+              </button>
+            </div>
+          ) : null}
+        </>
       ) : null}
     </div>
   );

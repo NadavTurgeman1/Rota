@@ -529,7 +529,12 @@ export function StaffHome({
         ) : !tabs.some((item) => item.id === tab) ? (
           <p className={`${card} text-sm leading-6 text-ink`}>{t.navEmpty}</p>
         ) : tab === "attendance" ? (
-          <AttendanceScreen lang={lang} siteId={activeSiteId} api={attendanceApi} />
+          <AttendanceScreen
+            lang={lang}
+            siteId={activeSiteId}
+            api={attendanceApi}
+            person={employee ? { name: employee.name, role: employee.role } : undefined}
+          />
         ) : tab === "absences" && absencesApi ? (
           <AbsenceScreen lang={lang} canWrite={Boolean(selfId)} manager={false} requests={absences} api={absencesApi} />
         ) : tab === "constraints" ? (

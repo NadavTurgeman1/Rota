@@ -53,6 +53,8 @@ colors:
   danger-softer: "#fff1f2"
   danger-line: "#fda4af"
   danger-text: "#9f1239"
+  punch-out: "#c42b3b"
+  punch-out-hover: "#ad2433"
   danger-soft-dark: "#4a1d2a"
   danger-softer-dark: "#3a1820"
   danger-line-dark: "#be4a5e"

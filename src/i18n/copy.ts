@@ -491,6 +491,12 @@ export interface Copy {
   attendanceHint: string;
   attendanceIn: string;
   attendanceOut: string;
+  attendanceHello: (name: string) => string;
+  attendanceReportIn: string;
+  attendanceReportOut: string;
+  attendanceLast: (kind: string, when: string) => string;
+  attendanceAlreadyIn: string;
+  attendanceAlreadyOut: string;
   attendanceClockOk: string;
   attendanceClockBad: string;
   attendanceClockSkew: string;
@@ -1088,6 +1094,12 @@ export const copy: Record<Lang, Copy> = {
     attendanceHint: "השעה נלקחת משעון הטלפון ונבדקת מול השרת ואזור הזמן של האתר. הגישה למיקום מתבקשת עם פתיחת המסך, והכניסה נפתחת רק אחרי שהמיקום נעול.",
     attendanceIn: "כניסה",
     attendanceOut: "יציאה",
+    attendanceHello: (name) => `שלום, ${name}`,
+    attendanceReportIn: "דיווח כניסה",
+    attendanceReportOut: "דיווח יציאה",
+    attendanceLast: (kind, when) => `דיווח אחרון: ${kind} ${when}`,
+    attendanceAlreadyIn: "כבר יש כניסה פתוחה.",
+    attendanceAlreadyOut: "אין כניסה פתוחה ליציאה.",
     attendanceClockOk: "השעון מעודכן",
     attendanceClockBad: "השעון לא תקין",
     attendanceClockSkew: "שעון הטלפון לא מעודכן. מפעילים שעון אוטומטי ומרעננים.",
@@ -1696,6 +1708,12 @@ export const copy: Record<Lang, Copy> = {
     attendanceHint: "The time comes from the phone clock and is checked against the server and the site timezone. Location access is requested when this screen opens, and clock-in appears after the location locks.",
     attendanceIn: "Clock in",
     attendanceOut: "Clock out",
+    attendanceHello: (name) => `Hello, ${name}`,
+    attendanceReportIn: "Clock in",
+    attendanceReportOut: "Clock out",
+    attendanceLast: (kind, when) => `Last report: ${kind} ${when}`,
+    attendanceAlreadyIn: "There is already an open clock-in.",
+    attendanceAlreadyOut: "There is no open clock-in to leave.",
     attendanceClockOk: "Clock is current",
     attendanceClockBad: "Clock needs a fix",
     attendanceClockSkew: "The phone clock is not current. Turn on automatic time, then refresh.",

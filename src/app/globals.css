@@ -37,6 +37,8 @@
   --danger-softer: #fff1f2;
   --danger-line: #fda4af;
   --danger-text: #9f1239;
+  --punch-out: #c42b3b;
+  --punch-out-hover: #ad2433;
   --warn-soft: #fef3c7;
   --warn-softer: #fffbeb;
   --warn-softest: #fff7ed;
@@ -86,6 +88,8 @@
   --danger-softer: #3a1820;
   --danger-line: #be4a5e;
   --danger-text: #fda4af;
+  --punch-out: #c42b3b;
+  --punch-out-hover: #e85a6a;
   --warn-soft: #3b2f12;
   --warn-softer: #30270f;
   --warn-softest: #33241a;
@@ -134,6 +138,8 @@
   --color-danger-softer: var(--danger-softer);
   --color-danger-line: var(--danger-line);
   --color-danger-text: var(--danger-text);
+  --color-punch-out: var(--punch-out);
+  --color-punch-out-hover: var(--punch-out-hover);
   --color-warn-soft: var(--warn-soft);
   --color-warn-softer: var(--warn-softer);
   --color-warn-softest: var(--warn-softest);
@@ -472,4 +478,53 @@ input[type="time"]::-webkit-datetime-edit-text {
 
 :root.dark .rota-logo-dark {
   display: block;
+}
+
+.punch-disc {
+  display: grid;
+  place-items: center;
+  width: min(17.5rem, 72vw);
+  height: min(17.5rem, 72vw);
+  border-radius: 999px;
+  padding: 1.5rem;
+  font-size: 1.65rem;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: -0.03em;
+  color: var(--on-brand);
+}
+
+.punch-disc-in {
+  background: var(--brand);
+  box-shadow: 0 0 0 14px color-mix(in srgb, var(--brand) 22%, transparent);
+}
+
+.punch-disc-in:hover:not(:disabled) {
+  background: var(--brand-hover);
+}
+
+.punch-disc-out {
+  background: var(--punch-out);
+  box-shadow: 0 0 0 14px color-mix(in srgb, var(--punch-out) 24%, transparent);
+  animation: punch-glow 2.6s cubic-bezier(0.22, 1, 0.36, 1) infinite;
+}
+
+.punch-disc-out:hover:not(:disabled) {
+  background: var(--punch-out-hover);
+}
+
+@keyframes punch-glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 12px color-mix(in srgb, var(--punch-out) 26%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 20px color-mix(in srgb, var(--punch-out) 12%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .punch-disc-out {
+    animation: none;
+  }
 }

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formatDuration, pairPunches, type AttendancePunch } from "./sessions";
+import { formatDuration, formatLiveDuration, pairPunches, type AttendancePunch } from "./sessions";
 
 function punch(id: string, kind: "in" | "out", at: string): AttendancePunch {
   return { id, siteId: "site", siteName: "אתר", kind, punchedAt: at, latitude: 32.07, longitude: 34.78, accuracyMeters: 12 };
@@ -18,5 +18,6 @@ describe("attendance sessions", () => {
     ]);
     expect(formatDuration("2026-10-27T06:00:00Z", "2026-10-27T14:07:00Z", "he")).toBe("8 שע׳ 07 דק׳");
     expect(formatDuration("2026-10-27T06:00:00Z", "2026-10-27T14:07:00Z", "en")).toBe("8h 07m");
+    expect(formatLiveDuration("2026-10-27T06:00:00Z", new Date("2026-10-27T10:40:26Z"), "he")).toBe("4 שעות 40 דקות 26 שניות");
   });
 });
