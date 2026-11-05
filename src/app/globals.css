@@ -592,3 +592,56 @@ input[type="time"]::-webkit-datetime-edit-text {
     animation: none;
   }
 }
+
+.landing-close {
+  background: #1c1917;
+  color: #faf6f0;
+}
+
+.landing-close-muted {
+  color: #d4cdc2;
+}
+
+.landing-hero {
+  background:
+    radial-gradient(circle at 12% 20%, color-mix(in srgb, var(--brand) 14%, transparent), transparent 36%),
+    radial-gradient(circle at 90% 0%, color-mix(in srgb, var(--warn-line) 16%, transparent), transparent 32%);
+}
+
+.landing-rise {
+  animation: landing-rise 600ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes landing-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.landing-reveal {
+  opacity: 0;
+  transform: translateY(20px);
+  transition:
+    opacity 600ms cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0ms),
+    transform 600ms cubic-bezier(0.22, 1, 0.36, 1) var(--reveal-delay, 0ms);
+}
+
+.landing-reveal.is-in {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landing-rise,
+  .landing-reveal {
+    animation: none;
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+}
