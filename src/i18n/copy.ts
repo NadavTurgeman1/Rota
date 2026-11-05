@@ -367,6 +367,9 @@ export interface Copy {
   forgotSent: string;
   forgotFailed: string;
   backToSignIn: string;
+  backToLanding: string;
+  rememberMe: string;
+  rememberMeHint: string;
   newPasswordTitle: string;
   newPasswordHint: string;
   savePassword: string;
@@ -1019,6 +1022,9 @@ export const copy: Record<Lang, Copy> = {
     forgotSent: "הסיסמה עודכנה. אפשר להיכנס.",
     forgotFailed: "לא הצלחנו לעדכן את הסיסמה. בדקו את האימייל ונסו שוב.",
     backToSignIn: "חזרה לכניסה",
+    backToLanding: "חזרה לעמוד הראשי",
+    rememberMe: "תזכור אותי",
+    rememberMeHint: "נשארים מחוברים במכשיר הזה, בלי להקליד סיסמה בכל כניסה.",
     newPasswordTitle: "סיסמה חדשה",
     newPasswordHint: "בחרו סיסמה של 6 תווים לפחות.",
     savePassword: "שמירת סיסמה",
@@ -1682,6 +1688,9 @@ export const copy: Record<Lang, Copy> = {
     forgotSent: "The password is updated. You can sign in.",
     forgotFailed: "The password could not be updated. Check the email and try again.",
     backToSignIn: "Back to sign in",
+    backToLanding: "Back to the main page",
+    rememberMe: "Remember me",
+    rememberMeHint: "Stay signed in on this device, without typing the password each time.",
     newPasswordTitle: "New password",
     newPasswordHint: "Choose a password of at least 6 characters.",
     savePassword: "Save password",

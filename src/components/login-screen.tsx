@@ -1,5 +1,6 @@
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import type { Lang } from "../domain";
+import { REMEMBER_EMAIL_KEY, REMEMBER_KEY, rememberOn } from "../auth/remember";
 import { copy } from "../i18n/copy";
 import { CookieNotice } from "./cookie-notice";
 import { LegalLinks } from "./legal-links";
@@ -102,13 +103,21 @@ function PasswordField({
 }
 
 /** Form on the start side, calendar on the other. Settings sit on the opposite edge from the wordmark. */
-function AuthSplit({ lang, toolbar, children }: { lang: Lang; toolbar: ReactNode; children: ReactNode }) {
+function AuthSplit({ lang, toolbar, home = false, children }: { lang: Lang; toolbar: ReactNode; home?: boolean; children: ReactNode }) {
+  const t = copy[lang];
   return (
     <div className="relative flex min-h-dvh bg-card">
       <div className="absolute end-4 top-4 z-30 sm:end-6 sm:top-6">{toolbar}</div>
       <section className="flex min-h-dvh w-full flex-col px-6 py-6 sm:px-12 lg:w-1/2 lg:px-16 lg:py-8">
         <div className="pe-14">
-          <Logo className="h-8" />
+          <div>
+            <Logo className="h-8" />
+          </div>
+          {home ? (
+            <a href="/" className="mt-4 inline-flex h-11 items-center text-sm font-semibold text-ink underline decoration-1 underline-offset-4">
+              {t.backToLanding}
+            </a>
+          ) : null}
         </div>
         <div className="flex flex-1 flex-col justify-center py-10">
           <div className="w-full max-w-[400px]">
@@ -155,7 +164,7 @@ export function LoginScreen({
   demoPassword: string;
   toolbar: ReactNode;
   /** Returns false when the email or password is wrong. */
-  onSignIn: (email: string, password: string) => boolean | Promise<boolean>;
+  onSignIn: (email: string, password: string, remember: boolean) => boolean | Promise<boolean>;
   onShowSignup?: () => void;
   /** Sets a new password for this email. Returns false when the account cannot be updated. */
   onRequestReset?: (email: string, password: string) => Promise<boolean>;
@@ -165,11 +174,20 @@ export function LoginScreen({
   const [password, setPassword] = useState("");
   const [failed, setFailed] = useState(false);
   const [forgot, setForgot] = useState(false);
+  const [remember, setRemember] = useState(true);
   const [resetState, setResetState] = useState<"idle" | "sent" | "failed" | "short">("idle");
   const hint = orgName && orgName !== "Rota" ? `${orgName} · ${t.signInHint}` : t.signInHint;
 
+  useEffect(() => {
+    const on = rememberOn(window.localStorage.getItem(REMEMBER_KEY));
+    setRemember(on);
+    if (!on) return;
+    const saved = window.localStorage.getItem(REMEMBER_EMAIL_KEY);
+    if (saved) setEmail(saved);
+  }, []);
+
   return (
-    <AuthSplit lang={lang} toolbar={toolbar}>
+    <AuthSplit lang={lang} toolbar={toolbar} home>
       <form
         data-testid="login-form"
         method="post"
@@ -192,7 +210,7 @@ export function LoginScreen({
               setResetState((await onRequestReset(address, secret)) ? "sent" : "failed");
               return;
             }
-            setFailed(!(await onSignIn(address, secret)));
+            setFailed(!(await onSignIn(address, secret, remember)));
           })();
         }}
       >
@@ -213,7 +231,7 @@ export function LoginScreen({
             autoComplete="username"
             placeholder="name@email.com"
             className={authField}
-            defaultValue={email}
+            value={email}
             onInput={(event) => setEmail(event.currentTarget.value)}
           />
         </label>
@@ -230,6 +248,22 @@ export function LoginScreen({
             hideLabel={t.hidePassword}
           />
         </label>
+        {!forgot ? (
+          <label className="mt-5 flex items-start gap-3">
+            <input
+              id="remember-me"
+              data-testid="remember-me"
+              type="checkbox"
+              checked={remember}
+              className="mt-0.5 h-6 w-6 shrink-0"
+              onChange={(event) => setRemember(event.target.checked)}
+            />
+            <span className="text-sm leading-6 text-ink">
+              <span className="font-semibold">{t.rememberMe}</span>
+              <span className="mt-0.5 block font-normal text-muted">{t.rememberMeHint}</span>
+            </span>
+          </label>
+        ) : null}
         {failed && !forgot ? (
           <p role="alert" data-testid="login-error" className="mt-4 text-sm text-danger-text">
             {t.signInFailed}
@@ -344,7 +378,7 @@ export function SignupScreen({
   const [adult, setAdult] = useState(false);
   const [consentMissing, setConsentMissing] = useState(false);
   return (
-    <AuthSplit lang={lang} toolbar={toolbar}>
+    <AuthSplit lang={lang} toolbar={toolbar} home>
       <form
         data-testid="signup-form"
         method="post"

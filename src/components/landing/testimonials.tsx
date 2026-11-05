@@ -4,6 +4,7 @@ import { Reveal, revealDelay } from "./reveal";
 
 export function Testimonials() {
   const testimonials = config.testimonials;
+  if (testimonials.items.length === 0) return null;
   return (
     <Section className="bg-paper">
       <SectionHeading eyebrow={testimonials.eyebrow} title={testimonials.title} text={testimonials.text} />

@@ -9,7 +9,7 @@ import { FinalCta } from "./final-cta";
 import { Footer } from "./footer";
 import { Hero } from "./hero";
 import { Navbar, useLandingTheme } from "./navbar";
-import { Pricing } from "./pricing";
+import { Meeting } from "./meeting";
 import { Problem } from "./problem";
 import { Proof } from "./proof";
 import { Roi } from "./roi";
@@ -40,7 +40,7 @@ export function Landing() {
         <Roi />
         <Compare />
         <Testimonials />
-        <Pricing />
+        <Meeting />
         <Faq />
         <FinalCta />
       </main>

@@ -94,7 +94,7 @@ import type { AbsenceRequest } from "../db/absences";
 import { IssuesPanel } from "./issues-panel";
 import { ApprovalsScreen, type SignupApproval, type TenantRow } from "./approvals-screen";
 import { CreateOrgScreen, CreateSiteScreen, LoginScreen, Logo, NewPasswordScreen, SignupScreen } from "./login-screen";
-import { browserClient } from "../supabase/browser";
+import { browserClient, setRememberedLogin } from "../supabase/browser";
 import { remoteConfigured } from "../supabase/public-env";
 import { RailIcon } from "./rail-icon";
 import { WeekBoard } from "./schedule-board";
@@ -899,7 +899,8 @@ export function ScheduleApp() {
     });
   }
 
-  async function signIn(email: string, password: string): Promise<boolean> {
+  async function signIn(email: string, password: string, remember = true): Promise<boolean> {
+    setRememberedLogin(remember, email);
     const { data, error } = await browserClient().auth.signInWithPassword({ email: email.trim(), password });
     if (error || !data.session || !data.user) return false;
     await adopt(data.session.access_token, data.user.id, data.user.email ?? email);
