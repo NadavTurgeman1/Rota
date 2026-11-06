@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { landingConfig as config } from "../../landing/config";
 import { schedulingSavings, shekel } from "../../landing/roi";
-import { PrimaryLink, Section, SectionHeading } from "./chrome";
+import { Section, SectionHeading } from "./chrome";
 
 export function Roi() {
   const roi = config.roi;
@@ -31,20 +31,17 @@ export function Roi() {
         <div className="flex flex-col justify-between rounded-2xl bg-brand p-6 text-on-brand" aria-live="polite">
           <div>
             <p className="text-sm font-medium">{roi.monthly}</p>
-            <p dir="ltr" className="mt-2 text-start text-4xl font-bold tracking-tight">
+            <p dir="ltr" className="mt-2 text-end text-4xl font-bold tracking-tight">
               {shekel(result.monthly)}
             </p>
           </div>
           <div className="mt-8 border-t border-white/30 pt-6">
             <p className="text-sm font-medium">{roi.yearly}</p>
-            <p dir="ltr" className="mt-2 text-start text-3xl font-bold tracking-tight">
+            <p dir="ltr" className="mt-2 text-end text-3xl font-bold tracking-tight">
               {shekel(result.yearly)}
             </p>
           </div>
         </div>
-      </div>
-      <div className="mt-8">
-        <PrimaryLink href={config.startUrl}>{roi.cta}</PrimaryLink>
       </div>
     </Section>
   );

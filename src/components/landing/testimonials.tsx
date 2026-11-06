@@ -1,5 +1,5 @@
 import { landingConfig as config } from "../../landing/config";
-import { PrimaryLink, Section, SectionHeading } from "./chrome";
+import { Section, SectionHeading } from "./chrome";
 import { Reveal, revealDelay } from "./reveal";
 
 export function Testimonials() {
@@ -25,9 +25,6 @@ export function Testimonials() {
             </figure>
           </Reveal>
         ))}
-      </div>
-      <div className="mt-8">
-        <PrimaryLink href={config.startUrl}>{testimonials.cta}</PrimaryLink>
       </div>
     </Section>
   );

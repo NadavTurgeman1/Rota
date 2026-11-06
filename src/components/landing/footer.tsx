@@ -6,7 +6,7 @@ export function Footer() {
     <footer className="border-t border-line px-5 py-12 sm:px-8">
       <div className="mx-auto grid w-full max-w-6xl gap-8 sm:grid-cols-2 lg:grid-cols-4">
         <div>
-          <p className="text-lg font-semibold text-ink" dir="ltr">
+          <p className="text-right text-lg font-semibold text-ink" dir="ltr">
             {config.name}
           </p>
           <p className="mt-2 text-sm leading-6 text-muted">{footer.blurb}</p>
@@ -32,8 +32,8 @@ export function Footer() {
               </a>
             </li>
             <li>
-              <a href={config.startUrl} className="text-sm text-muted hover:text-ink">
-                {config.startLabel}
+              <a href={config.meetingUrl} className="text-sm text-muted hover:text-ink">
+                {config.meeting.cta}
               </a>
             </li>
           </ul>
@@ -50,20 +50,6 @@ export function Footer() {
             ))}
           </ul>
         </nav>
-      </div>
-      <div className="mx-auto mt-10 flex w-full max-w-6xl flex-col gap-3 border-t border-line pt-6 sm:flex-row sm:items-center sm:justify-between">
-        <p className="text-sm text-muted">
-          <span dir="ltr">{config.name}</span>
-        </p>
-        <ul className="flex flex-wrap gap-4" aria-label={footer.socialLabel}>
-          {footer.social.map((item) => (
-            <li key={item.label}>
-              <a href={item.href} className="text-sm font-medium text-ink underline decoration-1 underline-offset-4" rel="noreferrer">
-                {item.label}
-              </a>
-            </li>
-          ))}
-        </ul>
       </div>
     </footer>
   );

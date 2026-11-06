@@ -71,8 +71,8 @@ export function Navbar({ theme, onToggle }: { theme: "light" | "dark"; onToggle:
           <a href={config.loginUrl} className="inline-flex h-10 shrink-0 items-center justify-center rounded-full border border-line bg-card px-2.5 text-xs font-semibold text-ink hover:bg-well sm:px-4 sm:text-sm">
             {config.loginLabel}
           </a>
-          <a href={config.startUrl} className="hidden h-10 items-center justify-center rounded-full bg-brand px-4 text-sm font-semibold text-on-brand hover:bg-brand-hover sm:inline-flex">
-            {config.startLabel}
+          <a href={config.meetingUrl} className="hidden h-10 items-center justify-center rounded-full bg-brand px-4 text-sm font-semibold text-on-brand hover:bg-brand-hover sm:inline-flex">
+            {config.meeting.cta}
           </a>
           <button
             type="button"
@@ -97,8 +97,8 @@ export function Navbar({ theme, onToggle }: { theme: "light" | "dark"; onToggle:
               </li>
             ))}
           </ul>
-          <a href={config.startUrl} className="mt-3 inline-flex h-12 w-full items-center justify-center rounded-full bg-brand text-sm font-semibold text-on-brand">
-            {config.startLabel}
+          <a href={config.meetingUrl} className="mt-3 inline-flex h-12 w-full items-center justify-center rounded-full bg-brand text-sm font-semibold text-on-brand" onClick={() => setOpen(false)}>
+            {config.meeting.cta}
           </a>
         </nav>
       ) : null}

@@ -1,5 +1,5 @@
 import { landingConfig as config } from "../../landing/config";
-import { PrimaryLink, QuietLink, RichText } from "./chrome";
+import { PrimaryLink, RichText } from "./chrome";
 
 const tone = {
   morning: "bg-slot-m",
@@ -22,9 +22,8 @@ export function Hero() {
           <p className="landing-rise mt-5 max-w-xl text-lg leading-8 text-muted" style={{ animationDelay: "160ms" }}>
             <RichText text={hero.subtitle} />
           </p>
-          <div className="landing-rise mt-8 flex flex-col gap-3 sm:flex-row" style={{ animationDelay: "240ms" }}>
-            <PrimaryLink href={config.startUrl}>{hero.primary}</PrimaryLink>
-            <QuietLink href={config.demoUrl}>{hero.secondary}</QuietLink>
+          <div className="landing-rise mt-8" style={{ animationDelay: "240ms" }}>
+            <PrimaryLink href={config.meetingUrl}>{hero.primary}</PrimaryLink>
           </div>
         </div>
         <figure id="product" aria-label={hero.mockupLabel} className="landing-rise scroll-mt-28" style={{ animationDelay: "320ms" }}>

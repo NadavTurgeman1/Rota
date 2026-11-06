@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { landingConfig as config } from "../../landing/config";
-import { PrimaryLink, RichText, Section, SectionHeading } from "./chrome";
+import { RichText, Section, SectionHeading } from "./chrome";
 
 export function Faq() {
   const faq = config.faq;
@@ -40,9 +40,6 @@ export function Faq() {
             </div>
           );
         })}
-      </div>
-      <div className="mt-8">
-        <PrimaryLink href={config.startUrl}>{faq.cta}</PrimaryLink>
       </div>
     </Section>
   );

@@ -132,7 +132,7 @@ function Field({
         autoComplete={autoComplete}
         min={min}
         value={value}
-        className={fieldClass}
+        className={type === "date" ? `${fieldClass} landing-date` : dir === "ltr" ? `${fieldClass} text-end` : fieldClass}
         onChange={(event) => onChange(event.target.value)}
       />
     </label>

@@ -1,5 +1,5 @@
 import { landingConfig as config } from "../../landing/config";
-import { PrimaryLink, RichText, Section, SectionHeading } from "./chrome";
+import { RichText, Section, SectionHeading } from "./chrome";
 import { Reveal, revealDelay } from "./reveal";
 
 export function Steps() {
@@ -22,9 +22,6 @@ export function Steps() {
           </Reveal>
         ))}
       </ol>
-      <div className="mt-8">
-        <PrimaryLink href={config.startUrl}>{steps.cta}</PrimaryLink>
-      </div>
     </Section>
   );
 }
