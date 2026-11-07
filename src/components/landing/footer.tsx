@@ -32,6 +32,11 @@ export function Footer() {
               </a>
             </li>
             <li>
+              <a href={`mailto:${footer.contactEmail}`} className="text-sm text-muted hover:text-ink" dir="ltr">
+                {footer.contact}
+              </a>
+            </li>
+            <li>
               <a href={config.meetingUrl} className="text-sm text-muted hover:text-ink">
                 {config.meeting.cta}
               </a>

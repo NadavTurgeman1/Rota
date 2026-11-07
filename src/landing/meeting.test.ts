@@ -21,7 +21,8 @@ describe("meeting request", () => {
   it("puts the request in a mail link", () => {
     const body = meetingBody({ ...ready, note: "שני אתרים" });
     expect(body).toContain("עסק: מלון כרמל");
-    expect(body).toContain("הערה: שני אתרים");
+    expect(body).toContain("מה חשוב להתאים:");
+    expect(body).toContain("שני אתרים");
     expect(meetingMailto("hello@example.com", "פגישה", body)).toContain("mailto:hello@example.com?subject=");
     expect(meetingMailto("", "פגישה", body).startsWith("mailto:?subject=")).toBe(true);
   });

@@ -15,14 +15,18 @@ export function meetingReady(input: MeetingRequest): boolean {
 
 export function meetingBody(input: MeetingRequest): string {
   const lines = [
+    "בקשה לקביעת פגישה",
+    "",
     `שם: ${input.name.trim()}`,
     `עסק: ${input.business.trim()}`,
     `טלפון: ${input.phone.trim()}`,
     `אימייל: ${input.email.trim()}`,
-    `יום: ${input.day}`,
+    `יום מועדף: ${input.day}`,
     `חלון: ${input.windowLabel}`,
   ];
-  if (input.note.trim()) lines.push(`הערה: ${input.note.trim()}`);
+  if (input.note.trim()) {
+    lines.push("", "מה חשוב להתאים:", input.note.trim());
+  }
   return lines.join("\n");
 }
 

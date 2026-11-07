@@ -1,5 +1,7 @@
 /** Swap the product by editing this object. The landing components only read it. */
 
+export const BUSINESS_EMAIL = "rota.ai.schedule@gmail.com";
+
 export const landingConfig = {
   name: "Rota",
   loginUrl: "/app",
@@ -135,8 +137,7 @@ export const landingConfig = {
     eyebrow: "פגישה",
     title: "התאמה לעסק שלך.",
     text: "אין מחירון. בפגישה קצרה מתאימים אתרים, תפקידים וגודל צוות, ואז פותחים את המערכת.",
-    /** Fill with the address that should receive meeting requests. Empty opens the mail app without a recipient. */
-    to: "",
+    to: BUSINESS_EMAIL,
     subject: "פגישת התאמה ל-{name}",
     name: "שם",
     business: "שם העסק",
@@ -153,7 +154,7 @@ export const landingConfig = {
     notePlaceholder: "כמה אתרים, כמה אנשים, אילו משמרות",
     cta: "קביעת פגישה",
     missing: "חסרים שם, עסק, טלפון, אימייל, יום וחלון.",
-    sent: "נפתח מייל עם פרטי הפגישה. שולחים אותו, וחוזרים לתיאום.",
+    sent: "נפתח מייל מסודר אל rota.ai.schedule@gmail.com. שולחים אותו, וחוזרים לתיאום.",
     sentNoInbox: "נפתח מייל עם פרטי הפגישה. בוחרים נמען ושולחים, וחוזרים לתיאום.",
   },
   faq: {
@@ -181,6 +182,8 @@ export const landingConfig = {
     account: "חשבון",
     legal: "מסמכים",
     login: "כניסה למערכת",
+    contact: "יצירת קשר",
+    contactEmail: BUSINESS_EMAIL,
     links: [
       { href: "/legal/privacy?lang=he", label: "מדיניות פרטיות" },
       { href: "/legal/terms?lang=he", label: "תנאי שימוש" },
