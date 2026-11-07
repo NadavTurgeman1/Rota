@@ -343,7 +343,7 @@ export async function openApprovalName(sql: SqlClient): Promise<string | null> {
 export async function listFounderApprovals(sql: SqlClient): Promise<{ id: string; email: string; fullName: string; consumed: boolean }[]> {
   if (!(await platformAdmin(sql))) throw new SaveError("forbidden");
   const rows = await sql.query<{ id: string; email: string; full_name: string; consumed_at: string | null }>(
-    `select id, email, full_name, consumed_at from public.founder_approvals order by created_at desc`,
+    `select id, email, full_name, consumed_at from public.list_owner_approvals()`,
   );
   return rows.map((row) => ({ id: row.id, email: row.email, fullName: row.full_name, consumed: row.consumed_at != null }));
 }

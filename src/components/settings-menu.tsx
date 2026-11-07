@@ -14,6 +14,7 @@ export function SettingsMenu({
   lang,
   theme,
   calendars,
+  showCalendars = true,
   onLang,
   onTheme,
   onCalendar,
@@ -23,6 +24,8 @@ export function SettingsMenu({
   lang: Lang;
   theme: Theme;
   calendars: CalendarPrefs;
+  /** Super admin approval has no schedule, so the calendar switches stay out of that screen. */
+  showCalendars?: boolean;
   onLang: (lang: Lang) => void;
   onTheme: (theme: Theme) => void;
   onCalendar: (key: keyof CalendarPrefs, on: boolean) => void;
@@ -97,13 +100,15 @@ export function SettingsMenu({
               value={lang}
               onChange={(value) => onLang(value as Lang)}
             />
-            <div className="mt-3 border-t border-line pt-3">
-              <p className="text-xs font-semibold text-muted">{t.calendars}</p>
-              <p className="mt-1 text-xs leading-5 text-muted">{t.calendarsHint}</p>
-              <Switch testId="calendar-hebrew" label={t.hebrewCalendar} on={calendars.hebrew} onChange={(on) => onCalendar("hebrew", on)} />
-              <Switch testId="calendar-christian" label={t.christianHolidays} on={calendars.christian} onChange={(on) => onCalendar("christian", on)} />
-              <Switch testId="calendar-muslim" label={t.muslimHolidays} on={calendars.muslim} onChange={(on) => onCalendar("muslim", on)} />
-            </div>
+            {showCalendars ? (
+              <div className="mt-3 border-t border-line pt-3">
+                <p className="text-xs font-semibold text-muted">{t.calendars}</p>
+                <p className="mt-1 text-xs leading-5 text-muted">{t.calendarsHint}</p>
+                <Switch testId="calendar-hebrew" label={t.hebrewCalendar} on={calendars.hebrew} onChange={(on) => onCalendar("hebrew", on)} />
+                <Switch testId="calendar-christian" label={t.christianHolidays} on={calendars.christian} onChange={(on) => onCalendar("christian", on)} />
+                <Switch testId="calendar-muslim" label={t.muslimHolidays} on={calendars.muslim} onChange={(on) => onCalendar("muslim", on)} />
+              </div>
+            ) : null}
           </Group>
           <div className="mt-3 border-t border-line pt-3">
             <LegalLinks lang={lang} />

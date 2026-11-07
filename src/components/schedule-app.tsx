@@ -1448,6 +1448,7 @@ export function ScheduleApp() {
       lang={lang}
       theme={theme}
       calendars={calendars}
+      showCalendars={screen !== "approvals" && !(operator && !live.org.id && live.sites.length === 0)}
       onLang={setLang}
       onTheme={setTheme}
       onCalendar={(key, on) => setCalendars((current) => ({ ...current, [key]: on }))}
