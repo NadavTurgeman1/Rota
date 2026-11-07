@@ -5,6 +5,7 @@ import { landingConfig as config } from "../../landing/config";
 import { Benefits } from "./benefits";
 import { Compare } from "./compare";
 import { Faq } from "./faq";
+import { Features } from "./features";
 import { FinalCta } from "./final-cta";
 import { Footer } from "./footer";
 import { Hero } from "./hero";
@@ -36,6 +37,7 @@ export function Landing() {
         <Proof />
         <Problem />
         <Steps />
+        <Features />
         <Benefits />
         <Roi />
         <Compare />
