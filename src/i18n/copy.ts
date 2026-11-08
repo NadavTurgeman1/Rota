@@ -459,6 +459,10 @@ export interface Copy {
   selectAll: string;
   clearAll: string;
   navDashboard: string;
+  phoneMore: string;
+  phoneTabSchedule: string;
+  phoneTabTeam: string;
+  phoneTabReports: string;
   navInsights: string;
   navReports: string;
   navMessages: string;
@@ -1128,6 +1132,10 @@ export const copy: Record<Lang, Copy> = {
     selectAll: "בחר הכל",
     clearAll: "נקה",
     navDashboard: "דשבורד",
+    phoneMore: "עוד",
+    phoneTabSchedule: "סידור",
+    phoneTabTeam: "עובדים",
+    phoneTabReports: "דוחות",
     navInsights: "תובנות",
     navReports: "הפקת דוחות",
     navMessages: "הודעות",
@@ -1808,6 +1816,10 @@ export const copy: Record<Lang, Copy> = {
     selectAll: "Select all",
     clearAll: "Clear",
     navDashboard: "Dashboard",
+    phoneMore: "More",
+    phoneTabSchedule: "Schedule",
+    phoneTabTeam: "People",
+    phoneTabReports: "Reports",
     navInsights: "Insights",
     navReports: "Reports",
     navMessages: "Messages",

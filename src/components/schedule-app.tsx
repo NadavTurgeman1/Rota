@@ -109,6 +109,8 @@ import { useAiEnabled } from "./use-ai";
 import { CALENDARS_OFF, type CalendarPrefs } from "../schedule/shown-calendars";
 import { CookieNotice } from "./cookie-notice";
 import { DeleteAccount } from "./delete-account";
+import { startNativeChrome } from "../native/chrome";
+import { PhoneTabBar } from "./phone-tab-bar";
 import { SettingsMenu, type Theme } from "./settings-menu";
 import { VersionsPanel } from "./versions-panel";
 import { closeExtraSubmissionWindow, millisUntilConstraintWindowChange, settleClosedConstraintWindow, staffCanSubmitConstraints, withConstraintExtension } from "../schedule/constraint-window";
@@ -270,6 +272,7 @@ export function ScheduleApp() {
   const [theme, setTheme] = useState<Theme>("light");
   const [calendars, setCalendars] = useState<CalendarPrefs>(CALENDARS_OFF);
   const [hydrated, setHydrated] = useState(false);
+  useEffect(() => startNativeChrome(), []);
   const [userId, setUserId] = useState<string | null>(null);
   const [operator, setOperator] = useState(false);
   const [canCreate, setCanCreate] = useState(false);
@@ -1708,7 +1711,7 @@ export function ScheduleApp() {
             <Logo className="h-7" />
           </div>
           <p className="hidden px-5 pb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-muted md:block">{t.railLabel}</p>
-          <nav role="tablist" aria-label="Rota" className="flex gap-0.5 overflow-x-auto px-2 pb-2 md:min-h-0 md:flex-1 md:flex-col md:overflow-y-auto md:px-3 md:pb-4">
+          <nav role="tablist" aria-label="Rota" className="hidden gap-0.5 px-2 pb-2 md:flex md:min-h-0 md:flex-1 md:flex-col md:overflow-y-auto md:px-3 md:pb-4">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -1748,7 +1751,7 @@ export function ScheduleApp() {
       <div className="px-6 sm:px-8">
         <CookieNotice lang={lang} />
       </div>
-      <main className={`flex min-w-0 flex-col gap-8 px-6 py-6 sm:px-8 ${selection ? "pb-28" : ""}`}>
+      <main className={`flex min-w-0 flex-col gap-8 px-4 py-4 sm:px-8 sm:py-6 max-md:pb-32 ${selection ? "md:pb-28" : ""}`}>
         {draftDirty ? (
           <div className="sticky top-0 z-20 -mx-6 flex flex-wrap items-center gap-2 border-b border-line bg-paper px-6 py-3 sm:-mx-8 sm:px-8">
             <button type="button" className={button.primary} data-testid="save-changes" onClick={() => draftRef.current?.save()}>
@@ -2296,8 +2299,28 @@ export function ScheduleApp() {
       </main>
         </div>
       </div>
+      <PhoneTabBar
+        tabs={tabs.map((tab) => ({
+          id: tab.id,
+          label: tab.label,
+          short:
+            tab.id === "schedule"
+              ? t.phoneTabSchedule
+              : tab.id === "team"
+                ? t.phoneTabTeam
+                : tab.id === "reports"
+                  ? t.phoneTabReports
+                  : undefined,
+        }))}
+        active={shown}
+        moreLabel={t.phoneMore}
+        onSelect={(id) => {
+          setSelection(null);
+          guardLeave(() => setScreen(id as Screen));
+        }}
+      />
       {selectedName ? (
-        <div className="fixed bottom-0 end-0 start-0 z-20 border-t border-line bg-card px-6 py-3 sm:px-8 md:start-56">
+        <div className="fixed end-0 start-0 z-20 border-t border-line bg-card px-4 py-3 max-md:bottom-[5.6rem] sm:px-8 md:bottom-0 md:start-56">
           <div className="mx-auto flex max-w-[1440px] items-center justify-between gap-3">
             <p className="text-sm font-medium">{selectionHint(lang, selectedName)}</p>
             <button type="button" className={button.quiet} onClick={() => setSelection(null)}>

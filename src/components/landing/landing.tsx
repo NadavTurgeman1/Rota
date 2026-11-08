@@ -23,7 +23,13 @@ export function Landing() {
   useEffect(() => {
     const { hash, search } = window.location;
     const recovery = `${hash} ${search}`.includes("type=recovery") || hash.includes("access_token");
-    if (recovery) window.location.replace(`${config.loginUrl}${search}${hash}`);
+    if (recovery) {
+      window.location.replace(`${config.loginUrl}${search}${hash}`);
+      return;
+    }
+    void import("@capacitor/core").then(({ Capacitor }) => {
+      if (Capacitor.isNativePlatform()) window.location.replace(config.loginUrl);
+    });
   }, []);
 
   return (

@@ -13,6 +13,8 @@ import { AttendanceScreen, type AttendanceApi } from "./attendance";
 import { WeekGrid } from "./team-screen";
 import { WeekBoard } from "./schedule-board";
 import { Logo } from "./login-screen";
+import { startNativeChrome } from "../native/chrome";
+import { PhoneTabBar } from "./phone-tab-bar";
 import { RailIcon } from "./rail-icon";
 import { downloadBlob, downloadWeekPng } from "./week-png";
 import { useCalendars } from "./day-dates";
@@ -358,6 +360,7 @@ export function StaffHome({
 }) {
   const t = copy[lang];
   const calendars = useCalendars();
+  useEffect(() => startNativeChrome(), []);
   const [tab, setTab] = useState<"attendance" | "schedule" | "constraints" | "absences">("attendance");
   const activeNav = useRef<HTMLButtonElement>(null);
   const [copied, setCopied] = useState(false);
@@ -419,7 +422,7 @@ export function StaffHome({
             <Logo className="h-7" />
           </div>
           <p className="hidden px-5 pb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-muted md:block">{t.staffRail}</p>
-          <nav role="tablist" aria-label="Rota" className="flex gap-0.5 overflow-x-auto px-2 pb-2 md:min-h-0 md:flex-1 md:flex-col md:overflow-y-auto md:px-3 md:pb-4">
+          <nav role="tablist" aria-label="Rota" className="hidden gap-0.5 px-2 pb-2 md:flex md:min-h-0 md:flex-1 md:flex-col md:overflow-y-auto md:px-3 md:pb-4">
             {tabs.map((item) => (
               <button
                 key={item.id}
@@ -455,7 +458,7 @@ export function StaffHome({
                     : t.saveFailed}
         </p>
       ) : null}
-      <main className="flex flex-col gap-8 px-6 py-6 sm:px-8">
+      <main className="flex min-w-0 flex-col gap-8 px-4 py-4 sm:px-8 sm:py-6 max-md:pb-32">
         <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
           <div className="min-w-0">
             <h1 className="text-[2rem] font-semibold leading-none tracking-[-0.03em] text-ink">{pageTitle}</h1>
@@ -673,6 +676,16 @@ export function StaffHome({
       </main>
         </div>
       </div>
+      <PhoneTabBar
+        tabs={tabs.map((item) => ({
+          id: item.id,
+          label: item.label,
+          short: item.id === "schedule" ? t.phoneTabSchedule : undefined,
+        }))}
+        active={tab}
+        moreLabel={t.phoneMore}
+        onSelect={(id) => openTab(id as "attendance" | "schedule" | "constraints" | "absences")}
+      />
       {decision ? <DecisionNotice key={decision.id} decision={decision} lang={lang} onClose={() => onAcknowledge(decision.id)} /> : null}
       {inboxOpen ? <StaffMessageInbox lang={lang} messages={messages} onClose={() => setInboxOpen(false)} /> : null}
       {!inboxOpen && !decision

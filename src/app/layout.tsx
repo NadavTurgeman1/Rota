@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Heebo, Inter } from "next/font/google";
 import type { ReactNode } from "react";
 import "./globals.css";
@@ -18,6 +18,12 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Rota",
   description: "סידור משמרות",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
