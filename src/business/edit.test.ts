@@ -3,7 +3,7 @@ import { slots } from "../domain";
 import { SENTINEL, sentinelState } from "../demo/sentinel";
 import { MANAGER } from "../people/edit";
 import { generateWeek, toggleLock } from "../schedule/edit";
-import { addJobRole, addShift, removeJobRole, removeShift, setShiftRequirement, updateBusiness, updateShift } from "./edit";
+import { addJobRole, addShift, removeJobRole, renameJobRole, removeShift, setShiftRequirement, updateBusiness, updateShift } from "./edit";
 
 const dana = { kind: "employee" as const, employeeId: SENTINEL.dana };
 
@@ -95,5 +95,23 @@ describe("business edits", () => {
       secondaryRoles: ["סיור"],
     });
     expect(removeJobRole(removed, dana, "סיור")).toBe(removed);
+  });
+
+  it("renames a role on the catalog, the shifts, and the people who hold it", () => {
+    const state = sentinelState("2026-10-11");
+    const added = addJobRole(addJobRole(state, MANAGER, "סיור"), MANAGER, "חמוש");
+    const morning = updateShift(added, MANAGER, SENTINEL.morning, { role: "חמוש" });
+    const person = morning.emps.find((employee) => employee.id === SENTINEL.dana)!;
+    person.role = "חמוש";
+    person.secondaryRoles = ["סיור"];
+    const renamed = renameJobRole(morning, MANAGER, "חמוש", "  מאבטח  ");
+    expect(renamed.biz.roles).toEqual(["סיור", "מאבטח"]);
+    expect(renamed.biz.shifts.find((shift) => shift.id === SENTINEL.morning)?.role).toBe("מאבטח");
+    expect(renamed.emps.find((employee) => employee.id === SENTINEL.dana)).toMatchObject({
+      role: "מאבטח",
+      secondaryRoles: ["סיור"],
+    });
+    expect(renameJobRole(renamed, MANAGER, "מאבטח", "סיור")).toBe(renamed);
+    expect(renameJobRole(renamed, dana, "מאבטח", "קופאי")).toBe(renamed);
   });
 });

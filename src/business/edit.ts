@@ -158,6 +158,30 @@ export function addJobRole(state: RotaState, actor: Actor, name: string): RotaSt
   return { ...state, biz: { ...state.biz, roles: [...roles, role] } };
 }
 
+/** Renames a role in the catalog, on shifts, and on every person who holds it. */
+export function renameJobRole(state: RotaState, actor: Actor, from: string, to: string): RotaState {
+  if (actor.kind !== "manager") return state;
+  const next = to.trim().replace(/\s+/g, " ");
+  if (!next) return state;
+  const roles = roleNames(state.biz.roles);
+  const current = roles.find((item) => sameRole(item, from));
+  if (!current || current === next) return state;
+  if (roles.some((item) => sameRole(item, next) && !sameRole(item, current))) return state;
+  const draft = structuredClone(state);
+  draft.biz.roles = roles.map((item) => (sameRole(item, current) ? next : item));
+  for (const shift of draft.biz.shifts) {
+    if (sameRole(shift.role, current)) shift.role = next;
+  }
+  for (const employee of draft.emps) {
+    const secondary = secondaryRoles(employee).map((item) => (sameRole(item, current) ? next : item));
+    if (sameRole(employee.role, current)) employee.role = next;
+    const kept = roleNames(secondary).filter((item) => item.toLowerCase() !== employee.role.trim().toLowerCase());
+    if (kept.length > 0) employee.secondaryRoles = kept;
+    else delete employee.secondaryRoles;
+  }
+  return draft;
+}
+
 /** Removes a role from the catalog, from shifts, and from every person who held it. */
 export function removeJobRole(state: RotaState, actor: Actor, name: string): RotaState {
   if (actor.kind !== "manager") return state;

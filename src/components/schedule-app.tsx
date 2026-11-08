@@ -6,7 +6,7 @@ import { addDays, analyze, applyTrade, slots, sundayOnOrBefore, type Analysis, t
 import type { VersionStamp } from "../domain/versions";
 import { peerDuties } from "../domain/peers";
 import { isRelief } from "../domain/relief";
-import { addJobRole, addShift, removeJobRole, removeShift, setShiftRequirement, updateBusiness, updateShift } from "../business/edit";
+import { addJobRole, addShift, removeJobRole, removeShift, renameJobRole, setShiftRequirement, updateBusiness, updateShift } from "../business/edit";
 import { constraintBlocked, copy, deleteEmployeeBlocked, publishWillAsk, selectionHint } from "../i18n/copy";
 import { exportFileName, formatWeekRange, orgTypeLabel, pngFileName, siteLabel } from "../schedule/display";
 import { backupJson, parseBackupJson, siteShiftsIcs, weekCsv, weekExcelXml, weekExport, weekText } from "../schedule/export";
@@ -2239,6 +2239,7 @@ export function ScheduleApp() {
             onAddShift={(name) => change((current) => addShift(current, actor, { id: crypto.randomUUID(), name }))}
             onRemoveShift={(shiftId) => change((current) => removeShift(current, actor, shiftId))}
             onAddRole={(name) => change((current) => addJobRole(current, actor, name))}
+            onRenameRole={(from, to) => change((current) => renameJobRole(current, actor, from, to))}
             onRemoveRole={(name) => change((current) => removeJobRole(current, actor, name))}
             onBackupJson={operator ? exportJson : undefined}
             onRestoreJson={operator ? restoreJson : undefined}

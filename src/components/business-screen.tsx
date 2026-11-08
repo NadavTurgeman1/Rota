@@ -195,6 +195,7 @@ export function BusinessScreen({
   onAddShift,
   onRemoveShift,
   onAddRole,
+  onRenameRole,
   onRemoveRole,
   onBackupJson,
   onRestoreJson,
@@ -218,6 +219,7 @@ export function BusinessScreen({
   onAddShift: (name: string) => void;
   onRemoveShift: (shiftId: string) => void;
   onAddRole: (name: string) => void;
+  onRenameRole: (from: string, to: string) => void;
   onRemoveRole: (name: string) => void;
   onBackupJson?: () => void;
   onRestoreJson?: (raw: string) => boolean;
@@ -528,10 +530,17 @@ export function BusinessScreen({
         <p className={cardHint}>{t.rolesHint}</p>
         <ul className="mt-4 flex flex-col">
           {(biz.roles ?? []).map((role) => (
-            <li key={role} className="flex items-center justify-between gap-3 border-t border-line py-2">
-              <span className="text-sm font-medium text-ink">{role}</span>
+            <li key={role} className="flex items-center gap-3 border-t border-line py-2">
+              <CommitInput
+                shown={role}
+                label={t.roleName}
+                testId={`role-${role}`}
+                readOnly={!canWrite}
+                className={`${field} min-w-0 flex-1`}
+                onCommit={(name) => onRenameRole(role, name)}
+              />
               {canWrite ? (
-                <button type="button" data-testid={`delete-role-${role}`} className={`${button.small} text-danger-text`} onClick={() => onRemoveRole(role)}>
+                <button type="button" data-testid={`delete-role-${role}`} className={`${button.small} shrink-0 text-danger-text`} onClick={() => onRemoveRole(role)}>
                   {t.deleteRole}
                 </button>
               ) : null}
