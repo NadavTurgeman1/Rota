@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadEmployeeAttendance, loadOwnAttendance, loadRosterAttendance, recordAttendancePunch } from "./attendance";
+import { correctAttendance, loadEmployeeAttendance, loadOwnAttendance, loadRosterAttendance, recordAttendancePunch } from "./attendance";
 import { SaveError } from "./save";
 import { asRole, client, openTestDatabase } from "./test-db";
 
@@ -151,5 +151,92 @@ describe("attendance punches", () => {
     expect(roster.employees.find((person) => person.id === dana.employee)?.punches).toHaveLength(1);
     expect(roster.employees.find((person) => person.id === noa.employee)?.punches).toEqual([]);
     await db.exec("reset role");
+  });
+
+  it("lets the person's manager add and correct a time, and keeps the first time", async () => {
+    const { db, sql, as, clock } = await setup();
+    const lead = "77777777-7777-4777-8777-777777777773";
+    await db.exec(`
+      insert into public.employees (id, org_id, name, user_id, home_site_id)
+      values ('${lead}', '${org}', 'Lead', '${manager}', '${site}');
+      update public.employees set reports_to = '${lead}' where id = '${dana.employee}';
+    `);
+    const missed = new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString();
+    const left = new Date(Date.now() - 18 * 60 * 60 * 1000).toISOString();
+    const moved = new Date(Date.now() - 25 * 60 * 60 * 1000).toISOString();
+
+    await as(dana.user);
+    await expect(correctAttendance(sql, { employeeId: dana.employee, action: "add", siteId: site, kind: "in", at: missed })).rejects.toThrow(/forbidden/);
+    await as(noa.user);
+    await expect(correctAttendance(sql, { employeeId: dana.employee, action: "add", siteId: site, kind: "in", at: missed })).rejects.toThrow(/forbidden/);
+
+    await as(manager);
+    await expect(correctAttendance(sql, { employeeId: dana.employee, action: "add", siteId: site, kind: "out", at: left })).rejects.toThrow(/closed/);
+    await expect(correctAttendance(sql, { employeeId: dana.employee, action: "add", siteId: site, kind: "in", at: new Date(Date.now() + 86_400_000).toISOString() })).rejects.toThrow(/future/);
+    await expect(correctAttendance(sql, { employeeId: dana.employee, action: "add", siteId: site, kind: "in", at: new Date(Date.now() - 100 * 86_400_000).toISOString() })).rejects.toThrow(/old/);
+    await correctAttendance(sql, { employeeId: dana.employee, action: "add", siteId: site, kind: "in", at: missed });
+    await correctAttendance(sql, { employeeId: dana.employee, action: "add", siteId: site, kind: "out", at: left });
+
+    await db.exec("reset role");
+    const added = await sql.query<{ id: string; kind: string; source: string; original_punched_at: string | null; latitude: number | null }>(
+      `select id, kind, source, original_punched_at::text as original_punched_at, latitude
+       from public.attendance_punches where employee_id = $1 order by punched_at`,
+      [dana.employee],
+    );
+    expect(added.map((row) => row.kind)).toEqual(["in", "out"]);
+    expect(added.every((row) => row.source === "manager" && row.original_punched_at == null && row.latitude == null)).toBe(true);
+
+    await as(owner);
+    await correctAttendance(sql, { employeeId: dana.employee, action: "adjust", punchId: added[0]!.id, at: moved });
+    await db.exec("reset role");
+    const once = await sql.query<{ punched_at: string; original_punched_at: string }>(
+      `select punched_at::text as punched_at, original_punched_at::text as original_punched_at
+       from public.attendance_punches where id = $1`,
+      [added[0]!.id],
+    );
+    expect(new Date(once[0]!.punched_at).toISOString()).toBe(new Date(moved).toISOString());
+    expect(new Date(once[0]!.original_punched_at).toISOString()).toBe(new Date(missed).toISOString());
+
+    await as(owner);
+    await correctAttendance(sql, { employeeId: dana.employee, action: "adjust", punchId: added[0]!.id, at: missed });
+    await db.exec("reset role");
+    const restored = await sql.query<{ punched_at: string; original_punched_at: string | null }>(
+      `select punched_at::text as punched_at, original_punched_at::text as original_punched_at
+       from public.attendance_punches where id = $1`,
+      [added[0]!.id],
+    );
+    expect(restored[0]!.original_punched_at).toBeNull();
+    expect(new Date(restored[0]!.punched_at).toISOString()).toBe(new Date(missed).toISOString());
+
+    await as(manager);
+    await expect(correctAttendance(sql, { employeeId: dana.employee, action: "remove", punchId: added[0]!.id })).rejects.toThrow(/closed/);
+    await correctAttendance(sql, { employeeId: dana.employee, action: "remove", punchId: added[0]!.id, punchIdB: added[1]!.id });
+
+    const stamp = await clock();
+    await as(dana.user);
+    await recordAttendancePunch(sql, { siteId: site, kind: "in", ...stamp, ...here });
+    await db.exec("reset role");
+    const phone = await sql.query<{ id: string; punched_at: string }>(
+      `select id, punched_at::text as punched_at from public.attendance_punches
+       where employee_id = $1 and source = 'device'`,
+      [dana.employee],
+    );
+    await as(dana.user);
+    await expect(correctAttendance(sql, { employeeId: dana.employee, action: "remove", punchId: phone[0]!.id })).rejects.toThrow(/forbidden/);
+    await as(owner);
+    await correctAttendance(sql, { employeeId: dana.employee, action: "adjust", punchId: phone[0]!.id, at: new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString() });
+    await db.exec("reset role");
+    const corrected = await sql.query<{ original_punched_at: string; latitude: number }>(
+      `select original_punched_at::text as original_punched_at, latitude from public.attendance_punches where id = $1`,
+      [phone[0]!.id],
+    );
+    expect(new Date(corrected[0]!.original_punched_at).toISOString()).toBe(new Date(phone[0]!.punched_at).toISOString());
+    expect(Number(corrected[0]!.latitude)).toBeCloseTo(here.latitude);
+
+    await as(owner);
+    await correctAttendance(sql, { employeeId: dana.employee, action: "remove", punchId: phone[0]!.id });
+    await db.exec("reset role");
+    const gone = await sql.query<{ id: string }>(`select id from public.attendance_punches where id = $1`, [phone[0]!.id]);
+    expect(gone).toEqual([]);
   });
 });

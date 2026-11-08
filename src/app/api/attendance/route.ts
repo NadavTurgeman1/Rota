@@ -1,4 +1,4 @@
-import { loadEmployeeAttendance, loadOwnAttendance, loadRosterAttendance, recordAttendancePunch } from "../../../db/attendance";
+import { correctAttendance, loadEmployeeAttendance, loadOwnAttendance, loadRosterAttendance, recordAttendancePunch } from "../../../db/attendance";
 import { SaveError } from "../../../db/save";
 import { RequestClosed, supportOrgFrom, withUserDb } from "../../../supabase/database";
 import { userIdFromAuthorization } from "../../../supabase/user";
@@ -70,6 +70,34 @@ export async function POST(request: Request) {
       async (sql) => {
         await recordAttendancePunch(sql, { siteId, kind, deviceAt, deviceOffsetMinutes, latitude, longitude, accuracyMeters });
         return loadOwnAttendance(sql, siteId);
+      },
+      supportOrgFrom(request),
+      request.signal,
+    );
+    return Response.json(snapshot);
+  } catch (error) {
+    return failed(error);
+  }
+}
+
+export async function PATCH(request: Request) {
+  const userId = await userIdFromAuthorization(request.headers.get("authorization"));
+  if (!userId) return Response.json({ error: "unauthorized" }, { status: 401 });
+  const body = (await request.json().catch(() => null)) as Record<string, unknown> | null;
+  const employeeId = typeof body?.employeeId === "string" ? body.employeeId : "";
+  const action = body?.action === "add" || body?.action === "adjust" || body?.action === "remove" ? body.action : "";
+  const siteId = typeof body?.siteId === "string" ? body.siteId : null;
+  const kind = body?.kind === "in" || body?.kind === "out" ? body.kind : null;
+  const punchId = typeof body?.punchId === "string" ? body.punchId : null;
+  const punchIdB = typeof body?.punchIdB === "string" ? body.punchIdB : null;
+  const at = typeof body?.at === "string" ? body.at : null;
+  if (!UUID.test(employeeId) || !action) return Response.json({ error: "attendance" }, { status: 400 });
+  try {
+    const snapshot = await withUserDb(
+      userId,
+      async (sql) => {
+        await correctAttendance(sql, { employeeId, action, siteId, kind, punchId, punchIdB, at });
+        return loadEmployeeAttendance(sql, employeeId);
       },
       supportOrgFrom(request),
       request.signal,

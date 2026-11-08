@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { GPS_WAIT_MS, TARGET_ACCURACY_METERS, clockProblem, deviceOffsetMinutes } from "../attendance/clock";
 import { followFix, type Fix, type LockState } from "../attendance/locate";
-import { formatDuration, formatLiveDuration, formatPunchStamp, formatWhen, pairPunches, type AttendancePunch } from "../attendance/sessions";
+import { formatDuration, formatLiveDuration, formatPunchStamp, formatWhen, pairPunches, zonedFields, type AttendancePunch, type AttendanceSession } from "../attendance/sessions";
 import { localeOf, type Lang } from "../domain";
+import { wallInstant } from "../domain/messages";
 import { copy, type Copy } from "../i18n/copy";
-import { button, card, cardHint, cardTitle, pill } from "./ui";
+import { button, card, cardHint, cardTitle, field, label, labelText, pill, select } from "./ui";
 
 export type AttendanceSnapshot = {
   serverNow: string;
@@ -96,7 +97,10 @@ function dayKey(iso: string, timeZone: string): string {
   return `${value("year")}-${value("month")}-${value("day")}`;
 }
 
-function MapLink({ punch, label }: { punch: AttendancePunch; label: string }) {
+function MapLink({ punch, label, added }: { punch: AttendancePunch; label: string; added: string }) {
+  if (punch.latitude == null || punch.longitude == null || punch.accuracyMeters == null) {
+    return <span className="text-muted">{added}</span>;
+  }
   const href = `https://maps.google.com/maps?q=${punch.latitude},${punch.longitude}`;
   return (
     <a href={href} target="_blank" rel="noreferrer" className="text-brand-text underline-offset-2 hover:underline">
@@ -106,17 +110,52 @@ function MapLink({ punch, label }: { punch: AttendancePunch; label: string }) {
   );
 }
 
+function PunchTime({
+  punch,
+  timeZone,
+  lang,
+  original,
+  onEdit,
+  editLabel,
+}: {
+  punch: AttendancePunch;
+  timeZone: string;
+  lang: Lang;
+  original: (time: string) => string;
+  onEdit?: (punch: AttendancePunch) => void;
+  editLabel: string;
+}) {
+  const when = formatWhen(punch.punchedAt, timeZone, lang);
+  const first = punch.originalPunchedAt ? formatWhen(punch.originalPunchedAt, timeZone, lang).time : null;
+  return (
+    <span className="flex flex-col items-start gap-1">
+      <span dir="ltr" className="tabular-nums">{when.time}</span>
+      {first ? <span className="text-xs text-muted">{original(first)}</span> : null}
+      {onEdit ? (
+        <button type="button" data-testid={`attendance-edit-${punch.kind}`} className={button.small} onClick={() => onEdit(punch)}>
+          {editLabel}
+        </button>
+      ) : null}
+    </span>
+  );
+}
+
 export function AttendanceTable({
   lang,
   timeZone,
   punches,
   recentDays,
+  onEdit,
+  onRemove,
 }: {
   lang: Lang;
   timeZone: string;
   punches: AttendancePunch[];
   /** When set, only this many latest days are shown until the list is opened. */
   recentDays?: number;
+  onEdit?: (punch: AttendancePunch) => void;
+  /** Deletes the whole session: its clock-in and clock-out together. */
+  onRemove?: (session: AttendanceSession) => void;
 }) {
   const t = copy[lang];
   const [opened, setOpened] = useState(false);
@@ -153,6 +192,7 @@ export function AttendanceTable({
             <th className="pb-2 text-start font-medium">{t.attendanceOutAt}</th>
             <th className="pb-2 text-start font-medium">{t.attendanceDuration}</th>
             <th className="pb-2 text-start font-medium">{t.attendancePlace}</th>
+            {onRemove ? <th className="pb-2 text-start font-medium"><span className="sr-only">{t.attendanceRemove}</span></th> : null}
           </tr>
         </thead>
         <tbody>
@@ -164,19 +204,34 @@ export function AttendanceTable({
               <tr key={anchor.id} className="border-t border-line">
                 <td className="py-2 pe-3 whitespace-nowrap">{when.date}</td>
                 {/* The time is isolated. Direction on the cell itself pushes it into the duration column. */}
-                <td className="py-2 pe-3 whitespace-nowrap text-start">
-                  {session.in ? <span dir="ltr" className="tabular-nums">{formatWhen(session.in.punchedAt, timeZone, lang).time}</span> : "—"}
+                <td className="py-2 pe-3 text-start align-top">
+                  {session.in ? (
+                    <PunchTime punch={session.in} timeZone={timeZone} lang={lang} original={t.attendanceOriginal} onEdit={onEdit} editLabel={t.attendanceEditTime} />
+                  ) : (
+                    "—"
+                  )}
                 </td>
-                <td className="py-2 pe-3 whitespace-nowrap text-start">
-                  {session.out ? <span dir="ltr" className="tabular-nums">{formatWhen(session.out.punchedAt, timeZone, lang).time}</span> : t.attendanceOpen}
+                <td className="py-2 pe-3 text-start align-top">
+                  {session.out ? (
+                    <PunchTime punch={session.out} timeZone={timeZone} lang={lang} original={t.attendanceOriginal} onEdit={onEdit} editLabel={t.attendanceEditTime} />
+                  ) : (
+                    t.attendanceOpen
+                  )}
                 </td>
                 <td className="py-2 pe-3 whitespace-nowrap text-start">{session.in && session.out ? formatDuration(session.in.punchedAt, session.out.punchedAt, lang) : "—"}</td>
                 <td className="py-2">
                   <span className="flex flex-col gap-1">
-                    {session.in ? <MapLink punch={session.in} label={t.attendanceInAt} /> : null}
-                    {session.out ? <MapLink punch={session.out} label={t.attendanceOutAt} /> : null}
+                    {session.in ? <MapLink punch={session.in} label={t.attendanceInAt} added={t.attendanceAdded} /> : null}
+                    {session.out ? <MapLink punch={session.out} label={t.attendanceOutAt} added={t.attendanceAdded} /> : null}
                   </span>
                 </td>
+                {onRemove ? (
+                  <td className="py-2 text-start align-top">
+                    <button type="button" data-testid="attendance-remove-session" className={button.small} onClick={() => onRemove(session)}>
+                      {t.attendanceRemove}
+                    </button>
+                  </td>
+                ) : null}
               </tr>
             );
           })}
@@ -377,23 +432,66 @@ export function AttendanceScreen({
   );
 }
 
-/** The same log, on the employee card, for an owner or a shift manager. */
+export type AttendanceCorrection =
+  | { action: "add"; employeeId: string; siteId: string; kind: "in" | "out"; at: string }
+  | { action: "adjust"; employeeId: string; punchId: string; at: string }
+  | { action: "remove"; employeeId: string; punchId: string; punchIdB?: string | null };
+
+function correctionText(code: string, t: Copy): string {
+  if (code === "future") return t.attendanceFuture;
+  if (code === "old") return t.attendanceOld;
+  if (code === "duplicate") return t.attendanceDuplicate;
+  if (code === "open" || code === "closed") return t.attendanceSequence;
+  if (code === "clock" || code === "kind") return t.attendanceBadTime;
+  return problemText(code, t);
+}
+
+function nextKind(punches: AttendancePunch[]): "in" | "out" {
+  const last = [...punches].sort((left, right) => left.punchedAt.localeCompare(right.punchedAt)).at(-1);
+  return last?.kind === "in" ? "out" : "in";
+}
+
+/** The same log, on the employee card. A manager above this person can add a missed punch and correct a time. */
 export function EmployeeAttendance({
   employeeId,
   lang,
   load,
   shared,
+  canCorrect = false,
+  sites = [],
+  onCorrect,
 }: {
   employeeId: string;
   lang: Lang;
   load: AttendanceApi["employee"];
   /** A roster already loaded for this screen. `null` is still loading. Omit it to load this person. */
   shared?: AttendanceSnapshot | null;
+  canCorrect?: boolean;
+  sites?: { id: string; name: string }[];
+  onCorrect?: (input: AttendanceCorrection) => Promise<AttendanceSnapshot | string>;
 }) {
   const t = copy[lang];
   const [snapshot, setSnapshot] = useState<AttendanceSnapshot | null>(null);
+  const [local, setLocal] = useState<AttendanceSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [editing, setEditing] = useState<AttendancePunch | null>(null);
+  const [date, setDate] = useState("");
+  const [time, setTime] = useState("");
+  const [kind, setKind] = useState<"in" | "out">("in");
+  const [siteId, setSiteId] = useState(sites[0]?.id ?? "");
+  const view = local ?? (shared === undefined ? snapshot : shared);
+  const zone = view?.timeZone || "Asia/Jerusalem";
+  const chosenSite = sites.some((site) => site.id === siteId) ? siteId : (sites[0]?.id ?? "");
+
   useEffect(() => {
+    setLocal(null);
+    setEditing(null);
+    setNotice(null);
+    setDate("");
+    setTime("");
+    setSiteId(sites[0]?.id ?? "");
     if (shared !== undefined) return;
     const controller = new AbortController();
     let live = true;
@@ -402,7 +500,13 @@ export function EmployeeAttendance({
     void load(employeeId, controller.signal).then((result) => {
       if (!live) return;
       if (typeof result === "string") setError(problemText(result, t));
-      else setSnapshot(result);
+      else {
+        setSnapshot(result);
+        const fields = zonedFields(result.serverNow, result.timeZone);
+        setDate(fields.date);
+        setTime(fields.time);
+        setKind(nextKind(result.punches));
+      }
     });
     return () => {
       live = false;
@@ -411,17 +515,153 @@ export function EmployeeAttendance({
     // `load` reads the current session token. Reloading follows the selected person.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [employeeId]);
+
+  useEffect(() => {
+    if (!view || date) return;
+    const fields = zonedFields(view.serverNow, view.timeZone);
+    setDate(fields.date);
+    setTime(fields.time);
+    setKind(nextKind(view.punches));
+  }, [view, date]);
+
+  function beginEdit(punch: AttendancePunch) {
+    const fields = zonedFields(punch.punchedAt, zone);
+    setEditing(punch);
+    setDate(fields.date);
+    setTime(fields.time);
+    setNotice(null);
+  }
+
+  function cancelEdit() {
+    setEditing(null);
+    setNotice(null);
+    if (!view) return;
+    const fields = zonedFields(view.serverNow, view.timeZone);
+    setDate(fields.date);
+    setTime(fields.time);
+    setKind(nextKind(view.punches));
+  }
+
+  async function save(event: { preventDefault(): void }) {
+    event.preventDefault();
+    if (!onCorrect || !canCorrect) return;
+    let at = "";
+    try {
+      at = wallInstant(date, time, zone);
+    } catch {
+      setNotice(t.attendanceBadTime);
+      return;
+    }
+    if (!editing && !chosenSite) {
+      setNotice(t.attendanceNoSite);
+      return;
+    }
+    setSaving(true);
+    setNotice(null);
+    const result = editing
+      ? await onCorrect({ action: "adjust", employeeId, punchId: editing.id, at })
+      : await onCorrect({ action: "add", employeeId, siteId: chosenSite, kind, at });
+    setSaving(false);
+    if (typeof result === "string") {
+      setNotice(correctionText(result, t));
+      return;
+    }
+    setLocal(result);
+    setEditing(null);
+    const fields = zonedFields(result.serverNow, result.timeZone);
+    setDate(fields.date);
+    setTime(fields.time);
+    setKind(nextKind(result.punches));
+  }
+
+  async function remove(session: AttendanceSession) {
+    const punchId = session.in?.id ?? session.out?.id;
+    if (!onCorrect || !punchId) return;
+    if (!window.confirm(t.attendanceRemoveConfirm)) return;
+    setSaving(true);
+    setNotice(null);
+    const result = await onCorrect({
+      action: "remove",
+      employeeId,
+      punchId,
+      punchIdB: session.in && session.out ? session.out.id : null,
+    });
+    setSaving(false);
+    if (typeof result === "string") {
+      setNotice(correctionText(result, t));
+      return;
+    }
+    setLocal(result);
+    if (editing && (editing.id === session.in?.id || editing.id === session.out?.id)) cancelEdit();
+  }
+
   return (
     <section data-testid="attendance-log" className={card}>
       <h2 className={cardTitle}>{t.attendanceLog}</h2>
-      <p className={cardHint}>{t.attendanceLogHint}</p>
+      <p className={cardHint}>{canCorrect ? t.attendanceCorrectHint : t.attendanceLogHint}</p>
+      {canCorrect && onCorrect ? (
+        <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(event) => void save(event)}>
+          <h3 className="text-sm font-medium text-ink sm:col-span-2">{editing ? t.attendanceEditTime : t.attendanceAddTitle}</h3>
+          <label className={label}>
+            <span className={labelText}>{t.attendanceDate}</span>
+            <input type="date" required dir="ltr" className={field} value={date} onChange={(event) => setDate(event.target.value)} />
+          </label>
+          <label className={label}>
+            <span className={labelText}>{t.attendanceTime}</span>
+            <input type="time" required dir="ltr" className={field} value={time} onChange={(event) => setTime(event.target.value)} />
+          </label>
+          {editing ? null : (
+            <label className={label}>
+              <span className={labelText}>{t.attendanceKind}</span>
+              <select className={select} value={kind} onChange={(event) => setKind(event.target.value === "out" ? "out" : "in")}>
+                <option value="in">{t.attendanceInAt}</option>
+                <option value="out">{t.attendanceOutAt}</option>
+              </select>
+            </label>
+          )}
+          {editing || sites.length < 2 ? null : (
+            <label className={label}>
+              <span className={labelText}>{t.site}</span>
+              <select className={select} value={chosenSite} onChange={(event) => setSiteId(event.target.value)}>
+                {sites.map((site) => (
+                  <option key={site.id} value={site.id}>
+                    {site.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <div className="flex flex-wrap items-center gap-2 sm:col-span-2">
+            <button type="submit" data-testid="attendance-save" className={button.primary} disabled={saving}>
+              {editing ? t.attendanceSaveTime : t.attendanceAddSave}
+            </button>
+            {editing ? (
+              <button type="button" className={button.quiet} onClick={cancelEdit}>
+                {t.cancelEdit}
+              </button>
+            ) : null}
+          </div>
+          {notice ? (
+            <p role="alert" className="text-sm text-danger-text sm:col-span-2">
+              {notice}
+            </p>
+          ) : null}
+        </form>
+      ) : null}
       <div className="mt-4">
         {error ? (
           <p role="alert" className="text-sm text-danger-text">
             {error}
           </p>
-        ) : (shared ?? snapshot) ? (
-          <AttendanceTable lang={lang} timeZone={(shared ?? snapshot)!.timeZone} punches={(shared ?? snapshot)!.punches} recentDays={3} />
+        ) : view ? (
+          <AttendanceTable
+            lang={lang}
+            timeZone={view.timeZone}
+            punches={view.punches}
+            recentDays={3}
+            onEdit={canCorrect ? beginEdit : undefined}
+            onRemove={canCorrect ? (punch) => void remove(punch) : undefined}
+          />
         ) : (
           <p className="text-sm text-muted">{t.attendanceLoading}</p>
         )}

@@ -8,14 +8,14 @@ import { absenceOnWeekDay } from "../domain/absence";
 import { MANAGER, agreementCell, availabilityCell, updateEmployee, type EmployeePatch } from "../people/edit";
 import { blockSplitOf, customFromSite } from "../people/blocks";
 import { BlockNumberFields } from "./block-limit";
-import { EmployeeAttendance, type AttendanceApi, type AttendanceSnapshot } from "./attendance";
+import { EmployeeAttendance, type AttendanceApi, type AttendanceCorrection, type AttendanceSnapshot } from "./attendance";
 import { EmployeeForms, type EmployeeFormsApi } from "./employee-forms";
 import { DayDates } from "./day-dates";
 import { NameRail } from "./name-rail";
 import type { Capabilities } from "../domain";
 import { EmployeeAuthority } from "./employee-authority";
 import { CreatePerson, type NewPerson } from "./create-person";
-import { isSchedulable, isSiteManager, withoutShiftCapabilities, capabilitiesOf, type ReportNode } from "../access/hierarchy";
+import { isAncestor, isSchedulable, isSiteManager, withoutShiftCapabilities, capabilitiesOf, type ReportNode } from "../access/hierarchy";
 import { RoleChoice } from "./business-screen";
 import { button, card, cardHint, cardTitle, field, label as labelClass, labelText, select, surface } from "./ui";
 
@@ -45,6 +45,7 @@ export function TeamScreen({
   owner,
   directory,
   onDraft,
+  onCorrect,
 }: {
   state: RotaState;
   lang: Lang;
@@ -73,6 +74,7 @@ export function TeamScreen({
   owner: boolean;
   directory: (ReportNode & { name: string })[];
   onDraft?: (draft: { dirty: boolean; save: () => void; discard: () => void } | null) => void;
+  onCorrect?: (input: AttendanceCorrection) => Promise<AttendanceSnapshot | string>;
 }) {
   const t = copy[lang];
   const [creating, setCreating] = useState(false);
@@ -147,6 +149,7 @@ export function TeamScreen({
           owner={owner}
           directory={directory}
           onDraft={onDraft}
+          onCorrect={onCorrect}
         />
       ) : (
         <p className={`${card} text-sm text-muted`}>{t.pickEmployee}</p>
@@ -154,6 +157,21 @@ export function TeamScreen({
       </div>
     </div>
   );
+}
+
+function correctionSites(
+  sites: { id: string; name: string }[],
+  assigned: string[],
+  homeSiteId: string | null,
+  managed: string[],
+  siteId: string,
+  lang: Lang,
+) {
+  const ids = new Set(assigned);
+  if (homeSiteId) ids.add(homeSiteId);
+  for (const id of managed) ids.add(id);
+  if (ids.size === 0) ids.add(siteId);
+  return sites.filter((site) => ids.has(site.id)).map((site) => ({ id: site.id, name: siteLabel(site.name, lang) }));
 }
 
 function EmployeeCard({
@@ -181,6 +199,7 @@ function EmployeeCard({
   owner,
   directory,
   onDraft,
+  onCorrect,
 }: {
   state: RotaState;
   lang: Lang;
@@ -206,6 +225,7 @@ function EmployeeCard({
   owner: boolean;
   directory: (ReportNode & { name: string })[];
   onDraft?: (draft: { dirty: boolean; save: () => void; discard: () => void } | null) => void;
+  onCorrect?: (input: AttendanceCorrection) => Promise<AttendanceSnapshot | string>;
 }) {
   const t = copy[lang];
   const employee = state.emps.find((item) => item.id === employeeId)!;
@@ -351,7 +371,15 @@ function EmployeeCard({
 
       <EmployeeForms employeeId={employeeId} lang={lang} canWrite={canEditAgreement} api={forms} />
 
-      <EmployeeAttendance employeeId={employeeId} lang={lang} load={loadAttendance} shared={sharedAttendance?.(employeeId)} />
+      <EmployeeAttendance
+        employeeId={employeeId}
+        lang={lang}
+        load={loadAttendance}
+        shared={sharedAttendance?.(employeeId)}
+        canCorrect={Boolean(onCorrect) && (owner || isAncestor(directory, editorId, employeeId))}
+        sites={correctionSites(sites, assignedSiteIds, homeSiteId, employee.managedSiteIds ?? [], siteId, lang)}
+        onCorrect={onCorrect}
+      />
 
       {employee.schedulable === false ? null : (
       <section className={card}>

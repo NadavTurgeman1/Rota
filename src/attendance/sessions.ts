@@ -6,9 +6,13 @@ export type AttendancePunch = {
   siteName: string;
   kind: "in" | "out";
   punchedAt: string;
-  latitude: number;
-  longitude: number;
-  accuracyMeters: number;
+  /** Null on a punch a manager added. A phone punch keeps its GPS fix. */
+  latitude: number | null;
+  longitude: number | null;
+  accuracyMeters: number | null;
+  /** The first time that counted, once a manager has changed `punchedAt`. */
+  originalPunchedAt?: string | null;
+  source?: "device" | "manager";
 };
 
 export type AttendanceSession = {
@@ -52,6 +56,22 @@ export function formatLiveDuration(fromIso: string, now: Date, lang: Lang): stri
   const minutes = Math.floor((total % 3600) / 60);
   const seconds = total % 60;
   return tx(lang, `${hours} שעות ${minutes} דקות ${seconds} שניות`, `${hours}h ${minutes}m ${seconds}s`, `${hours} ч ${minutes} мин ${seconds} с`);
+}
+
+/** `YYYY-MM-DD` and `HH:MM` in `timeZone`, for a time input. */
+export function zonedFields(iso: string, timeZone: string): { date: string; time: string } {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(iso));
+  const value = (type: Intl.DateTimeFormatPartTypes) => parts.find((part) => part.type === type)?.value ?? "";
+  const hour = value("hour") === "24" ? "00" : value("hour");
+  return { date: `${value("year")}-${value("month")}-${value("day")}`, time: `${hour}:${value("minute")}` };
 }
 
 export function formatPunchStamp(iso: string, timeZone: string, lang: Lang): string {

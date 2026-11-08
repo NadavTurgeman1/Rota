@@ -630,12 +630,18 @@ export function ScheduleApp() {
     return result.ok;
   }
 
-  async function attendanceRequest(path: string, body?: object, signal?: AbortSignal): Promise<AttendanceSnapshot | string> {
+  async function attendanceRequest(
+    path: string,
+    body?: object,
+    signal?: AbortSignal,
+    method?: "GET" | "POST" | "PATCH",
+  ): Promise<AttendanceSnapshot | string> {
     if (!tokenRef.current) return "forbidden";
+    const verb = method ?? (body ? "POST" : "GET");
     const response = await fetch(path, {
-      method: body ? "POST" : "GET",
-      headers: authHeaders(Boolean(body)),
-      body: body ? JSON.stringify(body) : undefined,
+      method: verb,
+      headers: authHeaders(verb !== "GET"),
+      body: verb === "GET" ? undefined : JSON.stringify(body ?? {}),
       signal,
     }).catch(() => null);
     const data = (await response?.json().catch(() => null)) as (AttendanceSnapshot & { error?: string }) | null;
@@ -2106,6 +2112,28 @@ export function ScheduleApp() {
               changeWorkspace((current) => setEmployeeSites(current, employeeId, siteIds, currentWeek, homeSiteId))
             }
             loadAttendance={attendanceApi.employee}
+            onCorrect={
+              remote
+                ? async (input) => {
+                    const result = await attendanceRequest("/api/attendance", input, undefined, "PATCH");
+                    if (typeof result !== "string") {
+                      setRosterLog((current) => {
+                        if (!current) return current;
+                        return {
+                          ...current,
+                          serverNow: result.serverNow,
+                          employees: current.employees.some((person) => person.id === input.employeeId)
+                            ? current.employees.map((person) =>
+                                person.id === input.employeeId ? { ...person, timeZone: result.timeZone, punches: result.punches } : person,
+                              )
+                            : current.employees,
+                        };
+                      });
+                    }
+                    return result;
+                  }
+                : undefined
+            }
             forms={employeeForms}
             editorId={live.selfEmployeeId ?? null}
             editorCapabilities={editorCapabilities}

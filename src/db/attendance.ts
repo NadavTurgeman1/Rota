@@ -3,7 +3,7 @@ import { SaveError } from "./save";
 import type { SqlClient } from "./types";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const CODES = ["clock", "timezone", "accuracy", "location", "open", "closed", "forbidden", "kind"] as const;
+const CODES = ["clock", "timezone", "accuracy", "location", "open", "closed", "forbidden", "kind", "future", "old", "duplicate"] as const;
 
 export type AttendanceSnapshot = {
   serverNow: string;
@@ -25,29 +25,36 @@ async function serverNow(sql: SqlClient): Promise<string> {
 }
 
 const PUNCHES = `select p.id, p.site_id, coalesce(s.name, '') as site_name, p.kind,
-    p.punched_at::text as punched_at, p.latitude, p.longitude, p.accuracy_meters
+    p.punched_at::text as punched_at, p.original_punched_at::text as original_punched_at, p.source,
+    p.latitude, p.longitude, p.accuracy_meters
   from public.attendance_punches p
   left join public.sites s on s.id = p.site_id and s.org_id = p.org_id`;
 
-function mapPunch(row: {
+type PunchRow = {
   id: string;
   site_id: string;
   site_name: string;
   kind: string;
   punched_at: string;
-  latitude: number;
-  longitude: number;
-  accuracy_meters: number;
-}): AttendancePunch {
+  original_punched_at: string | null;
+  source: string | null;
+  latitude: number | null;
+  longitude: number | null;
+  accuracy_meters: number | null;
+};
+
+function mapPunch(row: PunchRow): AttendancePunch {
   return {
     id: row.id,
     siteId: row.site_id,
     siteName: row.site_name,
     kind: row.kind === "out" ? "out" : "in",
     punchedAt: new Date(row.punched_at).toISOString(),
-    latitude: Number(row.latitude),
-    longitude: Number(row.longitude),
-    accuracyMeters: Number(row.accuracy_meters),
+    originalPunchedAt: row.original_punched_at ? new Date(row.original_punched_at).toISOString() : null,
+    source: row.source === "manager" ? "manager" : "device",
+    latitude: row.latitude == null ? null : Number(row.latitude),
+    longitude: row.longitude == null ? null : Number(row.longitude),
+    accuracyMeters: row.accuracy_meters == null ? null : Number(row.accuracy_meters),
   };
 }
 
@@ -57,16 +64,7 @@ export async function loadOwnAttendance(sql: SqlClient, siteId: string): Promise
   const site = await sql.query<{ timezone: string }>(`select timezone from public.sites where id = $1`, [siteId]);
   const actor = await sql.query<{ id: string | null }>(`select private.attendance_employee($1) as id`, [siteId]);
   if (!site[0] || !actor[0]?.id) throw new SaveError("forbidden");
-  const rows = await sql.query<{
-    id: string;
-    site_id: string;
-    site_name: string;
-    kind: string;
-    punched_at: string;
-    latitude: number;
-    longitude: number;
-    accuracy_meters: number;
-  }>(`${PUNCHES} where p.employee_id = $1 order by p.punched_at desc limit 200`, [actor[0].id]);
+  const rows = await sql.query<PunchRow>(`${PUNCHES} where p.employee_id = $1 order by p.punched_at desc limit 200`, [actor[0].id]);
   return { serverNow: await serverNow(sql), timeZone: site[0].timezone, punches: rows.map(mapPunch) };
 }
 
@@ -93,16 +91,7 @@ export async function loadEmployeeAttendance(sql: SqlClient, employeeId: string)
     [employeeId],
   );
   if (!allowed[0]?.ok) throw new SaveError("forbidden");
-  const rows = await sql.query<{
-    id: string;
-    site_id: string;
-    site_name: string;
-    kind: string;
-    punched_at: string;
-    latitude: number;
-    longitude: number;
-    accuracy_meters: number;
-  }>(`${PUNCHES} where p.employee_id = $1 order by p.punched_at desc limit 200`, [employeeId]);
+  const rows = await sql.query<PunchRow>(`${PUNCHES} where p.employee_id = $1 order by p.punched_at desc limit 200`, [employeeId]);
   return {
     serverNow: await serverNow(sql),
     timeZone: allowed[0].timezone || "Asia/Jerusalem",
@@ -143,21 +132,12 @@ export async function loadRosterAttendance(
   );
   const punches = new Map<string, AttendancePunch[]>();
   if (people.length > 0) {
-    const rows = await sql.query<{
-      employee_id: string;
-      id: string;
-      site_id: string;
-      site_name: string;
-      kind: string;
-      punched_at: string;
-      latitude: number;
-      longitude: number;
-      accuracy_meters: number;
-    }>(
-      `select employee_id, id, site_id, site_name, kind, punched_at, latitude, longitude, accuracy_meters
+    const rows = await sql.query<PunchRow & { employee_id: string }>(
+      `select employee_id, id, site_id, site_name, kind, punched_at, original_punched_at, source, latitude, longitude, accuracy_meters
        from (
          select p.employee_id, p.id, p.site_id, coalesce(s.name, '') as site_name, p.kind,
-           p.punched_at::text as punched_at, p.latitude, p.longitude, p.accuracy_meters,
+           p.punched_at::text as punched_at, p.original_punched_at::text as original_punched_at, p.source,
+           p.latitude, p.longitude, p.accuracy_meters,
            row_number() over (partition by p.employee_id order by p.punched_at desc, p.id desc) as n
          from public.attendance_punches p
          left join public.sites s on s.id = p.site_id and s.org_id = p.org_id
@@ -212,6 +192,49 @@ export async function recordAttendancePunch(
       `select private.record_attendance_punch($1, $2, $3, $4, $5, $6, $7)`,
       [input.siteId, input.kind, deviceAt.toISOString(), input.deviceOffsetMinutes, input.latitude, input.longitude, input.accuracyMeters],
     );
+  } catch (error) {
+    throw failed(error);
+  }
+}
+
+/** A manager above this employee adds a missed punch, changes its time, or deletes a whole clock session. */
+export async function correctAttendance(
+  sql: SqlClient,
+  input: {
+    employeeId: string;
+    action: "add" | "adjust" | "remove";
+    siteId?: string | null;
+    kind?: "in" | "out" | null;
+    punchId?: string | null;
+    punchIdB?: string | null;
+    at?: string | null;
+  },
+): Promise<void> {
+  if (!UUID.test(input.employeeId)) throw new SaveError("forbidden");
+  if (input.action === "add" && (!input.siteId || !UUID.test(input.siteId) || (input.kind !== "in" && input.kind !== "out"))) {
+    throw new SaveError("kind");
+  }
+  if (input.action !== "add" && (!input.punchId || !UUID.test(input.punchId))) throw new SaveError("forbidden");
+  if (input.punchIdB && !UUID.test(input.punchIdB)) throw new SaveError("forbidden");
+  const at = input.at ? new Date(input.at) : null;
+  if (input.action !== "remove" && (!at || Number.isNaN(at.getTime()))) throw new SaveError("clock");
+  try {
+    if (input.action === "remove") {
+      await sql.query(`select private.remove_attendance_session($1, $2, $3)`, [
+        input.employeeId,
+        input.punchId,
+        input.punchIdB && UUID.test(input.punchIdB) ? input.punchIdB : null,
+      ]);
+      return;
+    }
+    await sql.query(`select private.correct_attendance($1, $2, $3, $4, $5, $6)`, [
+      input.employeeId,
+      input.action,
+      input.siteId && UUID.test(input.siteId) ? input.siteId : null,
+      input.kind === "in" || input.kind === "out" ? input.kind : null,
+      input.punchId && UUID.test(input.punchId) ? input.punchId : null,
+      at ? at.toISOString() : null,
+    ]);
   } catch (error) {
     throw failed(error);
   }

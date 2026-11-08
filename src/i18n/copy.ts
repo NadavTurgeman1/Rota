@@ -579,6 +579,23 @@ export interface Copy {
   attendanceShowMore: string;
   attendanceShowLess: string;
   attendanceLoading: string;
+  attendanceCorrectHint: string;
+  attendanceAddTitle: string;
+  attendanceAddSave: string;
+  attendanceEditTime: string;
+  attendanceSaveTime: string;
+  attendanceTime: string;
+  attendanceKind: string;
+  attendanceOriginal: (time: string) => string;
+  attendanceAdded: string;
+  attendanceFuture: string;
+  attendanceOld: string;
+  attendanceSequence: string;
+  attendanceDuplicate: string;
+  attendanceBadTime: string;
+  attendanceRemove: string;
+  attendanceRemoveConfirm: string;
+  attendanceNoSite: string;
   staffConstraintsHint: string;
   staffUnpublished: string;
   staffUnlinked: string;
@@ -1234,6 +1251,23 @@ export const copy: Record<Lang, Copy> = {
     attendanceShowMore: "הצג עוד",
     attendanceShowLess: "הצג פחות",
     attendanceLoading: "טוען…",
+    attendanceCorrectHint: "אפשר להוסיף כניסה או יציאה ששכחו, ולתקן את השעה עד 90 יום אחורה. השעה המקורית נשמרת. מחיקה מוחקת את כל הדיווח, כניסה ויציאה יחד.",
+    attendanceAddTitle: "הוספת כניסה או יציאה",
+    attendanceAddSave: "הוספה",
+    attendanceEditTime: "עריכת שעה",
+    attendanceSaveTime: "שמירת השעה",
+    attendanceTime: "שעה",
+    attendanceKind: "סוג",
+    attendanceOriginal: (time) => `שעה מקורית: ${time}`,
+    attendanceAdded: "נוסף בניהול",
+    attendanceFuture: "אי אפשר לשמור שעה שעוד לא הגיעה.",
+    attendanceOld: "אפשר לתקן רק 90 יום אחורה.",
+    attendanceSequence: "השעה הזו שוברת את הסדר: כניסה, ואז יציאה.",
+    attendanceDuplicate: "כבר יש דיווח באותה דקה.",
+    attendanceBadTime: "השעה לא תקינה.",
+    attendanceRemove: "מחיקת דיווח",
+    attendanceRemoveConfirm: "למחוק את כל הדיווח הזה? כניסה ויציאה נמחקות יחד.",
+    attendanceNoSite: "אין אתר לשמירה.",
     staffConstraintsHint: "בלי מגבלת חסימות, השליחה יוצרת בקשה למנהל המשמרות. האילוצים השבועיים משתנים רק אחרי אישור.",
     staffUnpublished: "הסידור לשבוע הזה עוד לא פורסם.",
     staffUnlinked: "החשבון הזה עדיין לא מקושר לעובד בסידור.",
@@ -1900,6 +1934,23 @@ export const copy: Record<Lang, Copy> = {
     attendanceShowMore: "Show more",
     attendanceShowLess: "Show less",
     attendanceLoading: "Loading…",
+    attendanceCorrectHint: "Add a missed clock-in or clock-out, or change a time, up to 90 days back. The original time stays. Deleting removes the whole report, clock-in and clock-out together.",
+    attendanceAddTitle: "Add a clock-in or clock-out",
+    attendanceAddSave: "Add",
+    attendanceEditTime: "Edit time",
+    attendanceSaveTime: "Save time",
+    attendanceTime: "Time",
+    attendanceKind: "Type",
+    attendanceOriginal: (time) => `Original time: ${time}`,
+    attendanceAdded: "Added by a manager",
+    attendanceFuture: "A time that has not arrived yet cannot be saved.",
+    attendanceOld: "A correction can go back only 90 days.",
+    attendanceSequence: "This time breaks the order: clock in, then clock out.",
+    attendanceDuplicate: "There is already a report at that minute.",
+    attendanceBadTime: "That time is not valid.",
+    attendanceRemove: "Delete report",
+    attendanceRemoveConfirm: "Delete this whole report? The clock-in and clock-out are deleted together.",
+    attendanceNoSite: "There is no site to save to.",
     staffConstraintsHint: "Without a block cap, sending creates a request for the shift manager. Weekly constraints change only after it is approved.",
     staffUnpublished: "This week's schedule is not published yet.",
     staffUnlinked: "This account is not linked to anyone on the schedule yet.",
