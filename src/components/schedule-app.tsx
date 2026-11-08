@@ -1670,9 +1670,9 @@ export function ScheduleApp() {
     [
       { id: "dashboard", label: t.navDashboard },
       { id: "schedule", label: t.navSchedule },
-      { id: "team", label: t.navTeam },
       { id: "constraints", label: t.navConstraints },
       { id: "insights", label: t.navInsights },
+      { id: "team", label: t.navTeam },
       { id: "reports", label: t.navReports },
       { id: "messages", label: t.navMessages },
       { id: "absences", label: t.navAbsences },
