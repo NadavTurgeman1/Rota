@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { addDays, slots, type Business, type Lang, type RotaState } from "../domain";
 import type { Capabilities } from "../domain";
 import { copy } from "../i18n/copy";
@@ -15,6 +16,7 @@ import { WeekBoard } from "./schedule-board";
 import { Logo } from "./login-screen";
 import { startNativeChrome } from "../native/chrome";
 import { PhoneTabBar } from "./phone-tab-bar";
+import { usePhoneSlot } from "./use-phone-host";
 import { RailIcon } from "./rail-icon";
 import { downloadBlob, downloadWeekPng } from "./week-png";
 import { useCalendars } from "./day-dates";
@@ -358,6 +360,7 @@ export function StaffHome({
   capabilities: Capabilities;
   schedulable: boolean;
 }) {
+  const { slotRef: phoneSlot, host: phoneHost } = usePhoneSlot();
   const t = copy[lang];
   const calendars = useCalendars();
   useEffect(() => startNativeChrome(), []);
@@ -418,8 +421,9 @@ export function StaffHome({
     <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang} className="shell min-h-dvh bg-page text-ink">
       <div className="flex min-h-dvh flex-col md:flex-row">
         <aside className="sticky top-0 z-30 flex w-full shrink-0 flex-col border-b border-line bg-paper md:h-dvh md:w-56 md:self-start md:border-e md:border-b-0">
-          <div className="flex h-14 shrink-0 items-center px-4 md:h-16 md:px-5">
+          <div className="phone-logo flex h-14 shrink-0 items-center px-4 md:h-16 md:px-5">
             <Logo className="h-7" />
+            <div ref={phoneSlot} className="phone-actions md:hidden" />
           </div>
           <p className="hidden px-5 pb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-muted md:block">{t.staffRail}</p>
           <nav role="tablist" aria-label="Rota" className="hidden gap-0.5 px-2 pb-2 md:flex md:min-h-0 md:flex-1 md:flex-col md:overflow-y-auto md:px-3 md:pb-4">
@@ -458,44 +462,90 @@ export function StaffHome({
                     : t.saveFailed}
         </p>
       ) : null}
-      <main className="flex min-w-0 flex-col gap-8 px-4 py-4 sm:px-8 sm:py-6 max-md:pb-32">
-        <div className="flex flex-wrap items-start justify-between gap-x-6 gap-y-4">
-          <div className="min-w-0">
+      <main className="flex min-w-0 flex-col gap-8 px-4 py-4 sm:px-8 sm:py-6 max-md:gap-3 max-md:px-3 max-md:py-2 max-md:pb-28">
+        <div className={`phone-toolbar flex shrink-0 flex-wrap items-center justify-between gap-2 md:items-start md:gap-x-6 md:gap-y-4 ${phoneHost ? "max-md:hidden" : ""}`}>
+          <div className="hidden min-w-0 md:block">
             <h1 className="text-[2rem] font-semibold leading-none tracking-[-0.03em] text-ink">{pageTitle}</h1>
             <p className="mt-2 text-sm text-muted">{siteName}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            {selfId ? (
-              <StaffEnvelopeButton
-                lang={lang}
-                unread={messages.filter((row) => !row.readAt).length}
-                open={inboxOpen}
-                onToggle={() => {
-                  const next = !inboxOpen;
-                  setInboxOpen(next);
-                  if (next && onMessageAck) {
-                    void Promise.all(messages.filter((row) => !row.readAt).map((row) => onMessageAck(row.id, "read")));
-                  }
-                }}
-              />
-            ) : null}
-            {sites.length > 1 ? (
-              <select
-                data-testid="site-select"
-                aria-label={t.site}
-                className={`${button.quiet} max-w-44 px-3`}
-                value={activeSiteId}
-                onChange={(event) => onSelectSite(event.target.value)}
-              >
-                {sites.map((site) => (
-                  <option key={site.id} value={site.id}>
-                    {siteLabel(site.name, lang)}
-                  </option>
-                ))}
-              </select>
-            ) : null}
-            {toolbar}
-          </div>
+          {phoneHost ? (
+            createPortal(
+              <>
+                {selfId ? (
+                  <span className="shrink-0">
+                    <StaffEnvelopeButton
+                      lang={lang}
+                      unread={messages.filter((row) => !row.readAt).length}
+                      open={inboxOpen}
+                      onToggle={() => {
+                        const next = !inboxOpen;
+                        setInboxOpen(next);
+                        if (next && onMessageAck) {
+                          void Promise.all(messages.filter((row) => !row.readAt).map((row) => onMessageAck(row.id, "read")));
+                        }
+                      }}
+                    />
+                  </span>
+                ) : null}
+                {sites.length > 1 ? (
+                  <span className="flex min-w-0">
+                    <select
+                      data-testid="site-select"
+                      aria-label={t.site}
+                      className={`${button.quiet} min-w-0 max-w-none px-3 md:max-w-44`}
+                      value={activeSiteId}
+                      onChange={(event) => onSelectSite(event.target.value)}
+                    >
+                      {sites.map((site) => (
+                        <option key={site.id} value={site.id}>
+                          {siteLabel(site.name, lang)}
+                        </option>
+                      ))}
+                    </select>
+                  </span>
+                ) : null}
+                <span className="shrink-0">{toolbar}</span>
+              </>,
+              phoneHost,
+            )
+          ) : (
+            <div className="flex min-w-0 flex-1 items-center gap-2 md:flex-none md:flex-wrap">
+              {selfId ? (
+                <span className="shrink-0">
+                  <StaffEnvelopeButton
+                    lang={lang}
+                    unread={messages.filter((row) => !row.readAt).length}
+                    open={inboxOpen}
+                    onToggle={() => {
+                      const next = !inboxOpen;
+                      setInboxOpen(next);
+                      if (next && onMessageAck) {
+                        void Promise.all(messages.filter((row) => !row.readAt).map((row) => onMessageAck(row.id, "read")));
+                      }
+                    }}
+                  />
+                </span>
+              ) : null}
+              {sites.length > 1 ? (
+                <span className="flex min-w-0 md:flex-none">
+                  <select
+                    data-testid="site-select"
+                    aria-label={t.site}
+                    className={`${button.quiet} min-w-0 max-w-none px-3 md:max-w-44 md:flex-none`}
+                    value={activeSiteId}
+                    onChange={(event) => onSelectSite(event.target.value)}
+                  >
+                    {sites.map((site) => (
+                      <option key={site.id} value={site.id}>
+                        {siteLabel(site.name, lang)}
+                      </option>
+                    ))}
+                  </select>
+                </span>
+              ) : null}
+              <span className="shrink-0">{toolbar}</span>
+            </div>
+          )}
         </div>
         {tab === "attendance" || tab === "absences" ? null : (
           <section className="flex flex-wrap items-center gap-2">

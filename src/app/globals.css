@@ -697,6 +697,101 @@ input[type="time"]::-webkit-datetime-edit-fields-wrapper {
 
 /* Phone chrome. Liquid Glass is a SwiftUI material; a WebView cannot call it.
    This is the same material in CSS: translucent fill, saturated blur, continuous corner. */
+@media (max-width: 767px) {
+  .shell {
+    min-height: 100dvh;
+  }
+
+  .shell aside {
+    position: sticky;
+    top: 0;
+    z-index: 30;
+    border: 0;
+    background: var(--page);
+    padding-bottom: 0.15rem;
+  }
+
+  .phone-logo {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    box-sizing: border-box;
+    height: auto;
+    min-height: 3.25rem;
+    margin: 0.35rem 0.7rem 0.2rem;
+    margin-top: max(0.4rem, env(safe-area-inset-top));
+    border-radius: 999px;
+    border: 1px solid color-mix(in srgb, white 64%, transparent);
+    background: color-mix(in srgb, var(--card) 62%, transparent);
+    padding: 0.3rem 0.85rem;
+    box-shadow: 0 8px 24px rgb(28 25 23 / 0.1);
+    backdrop-filter: blur(24px) saturate(1.8);
+    -webkit-backdrop-filter: blur(24px) saturate(1.8);
+  }
+
+  .phone-actions {
+    display: flex;
+    min-width: 0;
+    flex: 1;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.35rem;
+    margin-inline-start: auto;
+  }
+
+  .phone-actions label,
+  .phone-actions select {
+    flex: none;
+    width: auto;
+    min-width: 0;
+    max-width: 7.5rem;
+  }
+
+  .phone-actions button,
+  .phone-actions select {
+    border-radius: 999px;
+  }
+
+  :root.dark .phone-logo,
+  :root.dark .phone-menu {
+    border-color: color-mix(in srgb, white 18%, transparent);
+    background: color-mix(in srgb, var(--card) 70%, transparent);
+  }
+
+  .phone-toolbar button,
+  .phone-toolbar select {
+    border-radius: 999px;
+  }
+
+  .shell main .sticky {
+    top: calc(max(0.4rem, env(safe-area-inset-top)) + 3.8rem);
+  }
+
+  .shell main .rounded-xl,
+  .shell main .rounded-lg,
+  .shell main .rounded-2xl,
+  .phone-menu {
+    border-radius: 1.45rem;
+  }
+
+  .shell main section.rounded-xl,
+  .shell main [data-testid="week-board"] {
+    background: color-mix(in srgb, var(--card) 74%, transparent);
+    backdrop-filter: blur(18px) saturate(1.6);
+    -webkit-backdrop-filter: blur(18px) saturate(1.6);
+  }
+}
+
+.phone-menu {
+  border-radius: 1.35rem;
+  border: 1px solid color-mix(in srgb, white 64%, transparent);
+  background: color-mix(in srgb, var(--card) 78%, transparent);
+  box-shadow: 0 12px 32px rgb(28 25 23 / 0.16);
+  backdrop-filter: blur(28px) saturate(1.8);
+  -webkit-backdrop-filter: blur(28px) saturate(1.8);
+}
+
 .phone-tabbar {
   position: fixed;
   z-index: 40;

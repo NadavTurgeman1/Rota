@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { allCapabilities, grantable, holdsPeople, isSiteManager, managerCapabilities, staffCapabilities, transferTargets, type ReportNode } from "../access/hierarchy";
 import { addDays, analyze, applyTrade, slots, sundayOnOrBefore, type Analysis, type Capabilities, type Lang, type RotaState, type Schedule, type TradeMove, type TradeSeat } from "../domain";
 import type { VersionStamp } from "../domain/versions";
@@ -111,6 +112,7 @@ import { CookieNotice } from "./cookie-notice";
 import { DeleteAccount } from "./delete-account";
 import { startNativeChrome } from "../native/chrome";
 import { PhoneTabBar } from "./phone-tab-bar";
+import { usePhoneSlot } from "./use-phone-host";
 import { SettingsMenu, type Theme } from "./settings-menu";
 import { VersionsPanel } from "./versions-panel";
 import { closeExtraSubmissionWindow, millisUntilConstraintWindowChange, settleClosedConstraintWindow, staffCanSubmitConstraints, withConstraintExtension } from "../schedule/constraint-window";
@@ -266,6 +268,7 @@ function useHistory(initial: RotaState) {
 }
 
 export function ScheduleApp() {
+  const { slotRef: phoneSlot, host: phoneHost } = usePhoneSlot();
   const [workspace, setWorkspace] = useState<Workspace>(() => blankWorkspace("", ""));
   const { state, setHistory, update, undoHistory, redoHistory, canUndo, canRedo } = useHistory(emptyState());
   const [lang, setLang] = useState<Lang>("he");
@@ -1702,13 +1705,54 @@ export function ScheduleApp() {
         ? "missing"
         : "loading";
 
+  const headerActions = (
+    <>
+      <label className="flex min-w-0 flex-1 items-center md:flex-none">
+        <span className="sr-only">{t.site}</span>
+        <select
+          data-testid="site-select"
+          aria-label={t.site}
+          className={`${button.quiet} min-w-0 max-w-none flex-1 px-3 md:max-w-44 md:flex-none`}
+          value={live.activeSiteId}
+          onChange={(event) => guardLeave(() => switchSite(event.target.value))}
+        >
+          {live.sites.map((site) => (
+            <option key={site.id} value={site.id}>
+              {siteLabel(site.state.biz.name, lang)}
+            </option>
+          ))}
+        </select>
+      </label>
+      {reviewable.length > 0 ? (
+        <button type="button" data-testid="trade-queue" className={button.quiet} onClick={() => tradeLater.clear()}>
+          {t.tradeManagerQueue(reviewable.length)}
+        </button>
+      ) : null}
+      {supportOrg ? (
+        <button type="button" className={button.quiet} onClick={() => void leaveSupport()}>
+          {t.leaveSupport}
+        </button>
+      ) : operator ? (
+        <button
+          type="button"
+          className={button.quiet}
+          onClick={() => setScreen(screen === "approvals" ? (allowedScreens.includes("dashboard") ? "dashboard" : "schedule") : "approvals")}
+        >
+          {t.approvalsTitle}
+        </button>
+      ) : null}
+      {settings}
+    </>
+  );
+
   return (
     <HebrewCalendarContext.Provider value={calendars}>
     <div dir={lang === "he" ? "rtl" : "ltr"} lang={lang} className="shell min-h-dvh bg-page text-ink">
       <div className="flex min-h-dvh flex-col md:flex-row">
         <aside className="sticky top-0 z-30 flex w-full shrink-0 flex-col border-b border-line bg-paper md:h-dvh md:w-56 md:self-start md:border-e md:border-b-0">
-          <div className="flex h-14 shrink-0 items-center px-4 md:h-16 md:px-5">
+          <div className="phone-logo flex h-14 shrink-0 items-center px-4 md:h-16 md:px-5">
             <Logo className="h-7" />
+            <div ref={phoneSlot} className="phone-actions md:hidden" />
           </div>
           <p className="hidden px-5 pb-2 text-[11px] font-medium uppercase tracking-[0.06em] text-muted md:block">{t.railLabel}</p>
           <nav role="tablist" aria-label="Rota" className="hidden gap-0.5 px-2 pb-2 md:flex md:min-h-0 md:flex-1 md:flex-col md:overflow-y-auto md:px-3 md:pb-4">
@@ -1734,7 +1778,7 @@ export function ScheduleApp() {
             ))}
           </nav>
           {live.org.name ? (
-            <p className="px-4 pb-3 text-xs leading-5 text-muted md:mt-auto md:px-5 md:pb-5">
+            <p className="hidden px-4 pb-3 text-xs leading-5 text-muted md:mt-auto md:block md:px-5 md:pb-5">
               <span className="sr-only">{t.businessDetails}</span>
               <span className="font-medium text-ink">{live.org.name}</span>
               {live.org.type ? <span className="ms-2 md:ms-0 md:mt-0.5 md:block">{orgTypeLabel(live.org.type, lang)}</span> : null}
@@ -1751,7 +1795,7 @@ export function ScheduleApp() {
       <div className="px-6 sm:px-8">
         <CookieNotice lang={lang} />
       </div>
-      <main className={`flex min-w-0 flex-col gap-8 px-4 py-4 sm:px-8 sm:py-6 max-md:pb-32 ${selection ? "md:pb-28" : ""}`}>
+      <main className={`flex min-w-0 flex-col gap-8 px-4 py-4 sm:px-8 sm:py-6 max-md:gap-3 max-md:px-3 max-md:py-2 max-md:pb-28 ${selection ? "md:pb-28" : ""}`}>
         {draftDirty ? (
           <div className="sticky top-0 z-20 -mx-6 flex flex-wrap items-center gap-2 border-b border-line bg-paper px-6 py-3 sm:-mx-8 sm:px-8">
             <button type="button" className={button.primary} data-testid="save-changes" onClick={() => draftRef.current?.save()}>
@@ -1762,50 +1806,18 @@ export function ScheduleApp() {
             </button>
           </div>
         ) : null}
-        <div className="flex shrink-0 flex-wrap items-start justify-between gap-x-6 gap-y-3">
-          <div className="min-w-0">
+        <div className={`phone-toolbar flex shrink-0 flex-wrap items-center justify-between gap-2 md:items-start md:gap-x-6 md:gap-y-3 ${phoneHost ? "max-md:hidden" : ""}`}>
+          <div className="hidden min-w-0 md:block">
             <h1 className="text-[2rem] font-semibold leading-none tracking-[-0.03em] text-ink">
               {shown === "approvals" ? t.approvalsTitle : (tabs.find((tab) => tab.id === shown)?.label ?? t.navEmpty)}
             </h1>
             <p className="mt-2 text-sm text-muted">{siteLabel(state.biz.name, lang)}</p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="flex items-center">
-              <span className="sr-only">{t.site}</span>
-              <select
-                data-testid="site-select"
-                aria-label={t.site}
-                className={`${button.quiet} max-w-44 px-3`}
-                value={live.activeSiteId}
-                onChange={(event) => guardLeave(() => switchSite(event.target.value))}
-              >
-                {live.sites.map((site) => (
-                  <option key={site.id} value={site.id}>
-                    {siteLabel(site.state.biz.name, lang)}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {reviewable.length > 0 ? (
-              <button type="button" data-testid="trade-queue" className={button.quiet} onClick={() => tradeLater.clear()}>
-                {t.tradeManagerQueue(reviewable.length)}
-              </button>
-            ) : null}
-            {supportOrg ? (
-              <button type="button" className={button.quiet} onClick={() => void leaveSupport()}>
-                {t.leaveSupport}
-              </button>
-            ) : operator ? (
-              <button
-                type="button"
-                className={button.quiet}
-                onClick={() => setScreen(screen === "approvals" ? (allowedScreens.includes("dashboard") ? "dashboard" : "schedule") : "approvals")}
-              >
-                {t.approvalsTitle}
-              </button>
-            ) : null}
-            {settings}
-          </div>
+          {phoneHost ? (
+            createPortal(headerActions, phoneHost)
+          ) : (
+            <div className="flex min-w-0 flex-1 items-center gap-2 md:flex-none md:flex-wrap">{headerActions}</div>
+          )}
         </div>
         {writer ? null : (
           <p
