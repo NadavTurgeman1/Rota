@@ -44,7 +44,6 @@ export function InsightsScreen({
   return (
     <div data-testid="insights-screen" className="flex flex-col gap-6">
       <div className="flex flex-col gap-3">
-        <p className="max-w-3xl text-sm leading-6 text-muted">{t.insightsHint}</p>
         <div role="tablist" aria-label={t.span.week} className="flex w-fit max-w-full flex-wrap gap-1 rounded-xl border border-line bg-card p-1 shadow-card">
           {SPANS.map((item) => (
             <button

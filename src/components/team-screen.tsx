@@ -757,7 +757,6 @@ function EmployeeDetails({
     <div data-testid="employee-profile" className="flex flex-col gap-6">
       <div>
         <h3 className="text-sm font-medium text-ink">{t.profilePersonal}</h3>
-        <p className="mt-1 text-sm leading-6 text-muted">{t.profileOptional}</p>
         <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <TextField label={t.employeeName} value={employee.name} readOnly={readOnly} onCommit={(name) => edit({ name })} />
           <TextField
@@ -831,7 +830,6 @@ function EmployeeDetails({
       </div>
       <div className="border-t border-line pt-6">
         <h3 className="text-sm font-medium text-ink">{t.profileBank}</h3>
-        <p className="mt-1 text-sm leading-6 text-muted">{t.bankOptional}</p>
         <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <TextField label={t.bankName} value={profile.bankName} readOnly={readOnly} onCommit={(bankName) => setProfile({ bankName })} />
           <TextField

@@ -392,9 +392,9 @@ function ShiftFloor({
             <span className={`h-2 w-2 shrink-0 rounded-full ${DOT[kind]}`} aria-hidden="true" />
             <span className="truncate">{shiftName}</span>
           </span>
-          <span dir="ltr" className="mt-0.5 block text-xs tabular-nums text-muted">
-            {start}–{end}
-            {role ? <span className="ms-2" dir="auto">{role}</span> : null}
+          <span className="mt-0.5 flex items-center gap-2 text-xs text-muted">
+            <span dir="ltr" className="tabular-nums">{start}–{end}</span>
+            {role ? <span>{role}</span> : null}
           </span>
         </span>
         <span className="text-end">

@@ -64,7 +64,7 @@ interface ScreenCopy {
 
 export const screenCopy: Record<Lang, ScreenCopy> = {
   he: {
-    dashboardHint: "הסידור למעלה לצפייה. אפשר לראות את כל המשמרות או תפקיד אחד. לחיצה על יום או משמרת מציגה למטה מי באתר, ואת הכניסות והיציאות.",
+    dashboardHint: "הסידור שפורסם זמין לצפייה. אפשר לראות את כל המשמרות או תפקיד אחד. לחיצה על יום או משמרת מציגה למטה מי באתר, ואת הכניסות והיציאות.",
     allShifts: "כל המשמרות",
     onSite: "עובדים באתר",
     onSiteEmpty: "אין כרגע עובדים באתר.",
@@ -84,11 +84,11 @@ export const screenCopy: Record<Lang, ScreenCopy> = {
     sick: "מחלה",
     vacation: "חופשה",
     loadingClocks: "ההחתמות נטענות.",
-    insightsHint: "המספרים מחושבים מהשיבוץ ומההחתמות. חריגה מדיני עבודה ומנוחה נספרת לפי השיבוץ שפורסם.",
+    insightsHint: "",
     span: { day: "יום", week: "שבוע", month: "חודש", quarter: "3 חודשים" },
     range: (from, to) => (from === to ? from : `${from} – ${to}`),
     laborTitle: "חריגות מדיני עבודה ומנוחה",
-    laborHint: "לחיצה על סוג מציגה את החריגות עצמן.",
+    laborHint: "לחיצה על סוג החריגה מציגה את החריגות עצמן.",
     laborCode: {
       consecutive_days: "שבעה ימים ברצף",
       weekly_rest: "מנוחה שבועית",
@@ -143,7 +143,7 @@ export const screenCopy: Record<Lang, ScreenCopy> = {
     more: (count) => `ועוד ${count}`,
   },
   en: {
-    dashboardHint: "The week above is view only. See every shift, or one role. Choose a day or a shift to show who is on site, and the clock-ins and clock-outs, below.",
+    dashboardHint: "The published schedule is available to view. See every shift, or one role. Choose a day or a shift to show who is on site, and the clock-ins and clock-outs, below.",
     allShifts: "All shifts",
     onSite: "On site",
     onSiteEmpty: "Nobody is on site right now.",
@@ -163,11 +163,11 @@ export const screenCopy: Record<Lang, ScreenCopy> = {
     sick: "Sick",
     vacation: "Vacation",
     loadingClocks: "Clock-ins are loading.",
-    insightsHint: "Figures come from the schedule and from clock-ins. Hours-of-work exceptions follow the published assignments.",
+    insightsHint: "",
     span: { day: "Day", week: "Week", month: "Month", quarter: "3 months" },
     range: (from, to) => (from === to ? from : `${from} – ${to}`),
     laborTitle: "Hours of work and rest",
-    laborHint: "Choose a type to see each exception.",
+    laborHint: "Choose an exception type to see the exceptions themselves.",
     laborCode: {
       consecutive_days: "Seven days in a row",
       weekly_rest: "Weekly rest",
@@ -222,7 +222,7 @@ export const screenCopy: Record<Lang, ScreenCopy> = {
     more: (count) => `${count} more`,
   },
   ru: {
-    dashboardHint: "Неделя сверху только для просмотра. Можно видеть все смены или одну роль. Нажмите день или смену, чтобы ниже увидеть, кто на объекте, и приходы с уходами.",
+    dashboardHint: "Опубликованный график доступен для просмотра. Можно видеть все смены или одну роль. Нажмите день или смену, чтобы ниже увидеть, кто на объекте, и приходы с уходами.",
     allShifts: "Все смены",
     onSite: "На объекте",
     onSiteEmpty: "Сейчас на объекте никого нет.",
@@ -242,11 +242,11 @@ export const screenCopy: Record<Lang, ScreenCopy> = {
     sick: "Больничный",
     vacation: "Отпуск",
     loadingClocks: "Отметки загружаются.",
-    insightsHint: "Цифры берутся из графика и из отметок. Замечания по часам работы идут по опубликованным назначениям.",
+    insightsHint: "",
     span: { day: "День", week: "Неделя", month: "Месяц", quarter: "3 месяца" },
     range: (from, to) => (from === to ? from : `${from} – ${to}`),
     laborTitle: "Часы работы и отдыха",
-    laborHint: "Выберите вид, чтобы увидеть каждое замечание.",
+    laborHint: "Выберите вид замечания, чтобы увидеть сами замечания.",
     laborCode: {
       consecutive_days: "Семь дней подряд",
       weekly_rest: "Недельный отдых",

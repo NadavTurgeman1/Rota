@@ -423,7 +423,6 @@ export function AttendanceScreen({
       </div>
       <div className={card}>
         <h2 className={cardTitle}>{t.attendanceLog}</h2>
-        <p className={cardHint}>{t.attendanceLogHint}</p>
         <div className="mt-4">
           {snapshot ? <AttendanceTable lang={lang} timeZone={snapshot.timeZone} punches={snapshot.punches} /> : <p className="text-sm text-muted">{t.attendanceLoading}</p>}
         </div>
@@ -598,7 +597,7 @@ export function EmployeeAttendance({
   return (
     <section data-testid="attendance-log" className={card}>
       <h2 className={cardTitle}>{t.attendanceLog}</h2>
-      <p className={cardHint}>{canCorrect ? t.attendanceCorrectHint : t.attendanceLogHint}</p>
+      {canCorrect ? <p className={cardHint}>{t.attendanceCorrectHint}</p> : null}
       {canCorrect && onCorrect ? (
         <form className="mt-4 grid gap-3 sm:grid-cols-2" onSubmit={(event) => void save(event)}>
           <h3 className="text-sm font-medium text-ink sm:col-span-2">{editing ? t.attendanceEditTime : t.attendanceAddTitle}</h3>
