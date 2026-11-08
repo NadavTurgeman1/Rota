@@ -1420,7 +1420,7 @@ export function ScheduleApp() {
           return source.week === week ? source : { ...source, week };
         })
       : [state];
-    const xml = weekExcelXml(sites, lang, live.org.name, undefined, calendars, state.biz.excelLayout === "shifts" ? "shifts" : "written");
+    const xml = weekExcelXml(sites, lang, live.org.name, undefined, calendars);
     if (!xml) return;
     downloadBlob(
       new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" }),

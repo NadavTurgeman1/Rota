@@ -574,7 +574,7 @@ export function StaffHome({
                 className={button.quiet}
                 disabled={!hasPublished}
                 onClick={() => {
-                  const xml = weekExcelXml(publishedStates, lang, orgName, selfId ?? undefined, calendars, state.biz.excelLayout === "shifts" ? "shifts" : "written");
+                  const xml = weekExcelXml(publishedStates, lang, orgName, selfId ?? undefined, calendars);
                   if (!xml) return;
                   downloadBlob(new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" }), exportFileName(siteName, state.week, "xls"));
                 }}
