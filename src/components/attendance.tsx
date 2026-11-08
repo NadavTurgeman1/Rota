@@ -183,7 +183,7 @@ export function AttendanceTable({
   const more = recentDays !== undefined && days.length > recentDays;
   return (
     <div>
-    <div className="overflow-x-auto">
+    <div className="min-w-0 max-w-full overflow-x-auto">
       <table data-testid="attendance-table" className="w-full min-w-[40rem] border-collapse text-sm">
         <thead>
           <tr className="text-xs text-muted">

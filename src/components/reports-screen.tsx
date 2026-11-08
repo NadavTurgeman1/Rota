@@ -131,7 +131,7 @@ export function ReportsScreen({
   const shown = pending ? [] : table.rows;
 
   return (
-    <div data-testid="reports-screen" className="flex flex-col gap-6">
+    <div data-testid="reports-screen" className="flex min-w-0 flex-col gap-6">
       <p className="max-w-3xl text-sm leading-6 text-muted">{t.hint}</p>
       <div role="tablist" aria-label={t.kind.hours} className="flex w-fit max-w-full flex-wrap gap-1 rounded-xl border border-line bg-card p-1 shadow-card">
         {KINDS.map((item) => (
@@ -151,7 +151,7 @@ export function ReportsScreen({
         ))}
       </div>
       <p className="max-w-3xl text-sm leading-6 text-muted">{t.kindHint[kind]}</p>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid min-w-0 gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <label className={label}>
           <span className={labelText}>{t.from}</span>
           <input type="date" className={field} dir="ltr" value={from} data-testid="report-from" onChange={(event) => setFrom(event.target.value)} />
@@ -214,7 +214,7 @@ export function ReportsScreen({
       </div>
       {shown.length === 0 && !pending ? <p className="text-sm text-muted">{t.empty}</p> : null}
       {shown.length > 0 ? (
-        <div className="max-h-[32rem] overflow-auto rounded-xl border border-line bg-card shadow-card">
+        <div className="max-h-[32rem] min-w-0 max-w-full overflow-auto rounded-xl border border-line bg-card shadow-card">
           <table className="w-full min-w-[44rem] border-collapse text-sm">
             <caption className="sr-only">{t.kind[kind]}</caption>
             <thead className="sticky top-0 bg-well">

@@ -89,7 +89,7 @@ export function TeamScreen({
     hint: isSiteManager(item) ? (isSchedulable(item) ? t.personBoth : t.personLead) : item.active ? item.role : t.inactive,
   });
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 flex-col gap-6">
       <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-[17rem_minmax(0,1fr)]">
         <section className={`${surface} p-2`}>
           <NameRail
@@ -484,7 +484,7 @@ export function WeekGrid({
   const person = state.emps.find((item) => item.id === employeeId);
   const shifts = person ? state.biz.shifts.filter((shift) => shiftVisible(person, shift)) : state.biz.shifts;
   return (
-    <div className="mt-4 overflow-x-auto">
+    <div className="mt-4 min-w-0 max-w-full overflow-x-auto">
       <table className="w-full min-w-[40rem] border-separate border-spacing-1 text-sm">
         <thead>
           <tr>
@@ -754,7 +754,7 @@ function EmployeeDetails({
   const profile = employeeProfile(employee);
   const setProfile = (patch: Partial<typeof profile>) => edit({ profile: patch });
   return (
-    <div data-testid="employee-profile" className="flex flex-col gap-6">
+    <div data-testid="employee-profile" className="flex min-w-0 flex-col gap-6">
       <div>
         <h3 className="text-sm font-medium text-ink">{t.profilePersonal}</h3>
         <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

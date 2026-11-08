@@ -272,7 +272,7 @@ export function BusinessScreen({
   useEffect(() => () => onDraft?.(null), [onDraft]);
 
   return (
-    <div data-testid="business-screen" className="flex flex-col gap-6">
+    <div data-testid="business-screen" className="flex min-w-0 flex-col gap-6">
       <section className={card}>
         <h2 className={cardTitle}>{t.businessTitle}</h2>
         {canEditOrg ? null : <p className={cardHint}>{t.orgReadOnly}</p>}
@@ -340,7 +340,7 @@ export function BusinessScreen({
                 setNewSite(event.target.value);
                 setSiteError(false);
               }}
-              className={`${field} flex-1 sm:max-w-xs`}
+              className={`${field} min-w-0 flex-1 sm:max-w-xs`}
             />
             <button type="submit" data-testid="add-site" className={button.primary} disabled={!newSite.trim()}>
               + {t.addSite}
@@ -558,7 +558,7 @@ export function BusinessScreen({
               setNewRole("");
             }}
           >
-            <label className={`${label} min-w-48 flex-1`}>
+            <label className={`${label} w-full min-w-0 flex-1 sm:w-auto sm:min-w-48`}>
               <span className={labelText}>{t.roleName}</span>
               <input
                 value={newRole}
@@ -576,7 +576,7 @@ export function BusinessScreen({
 
       <section className={card}>
         <h2 className={cardTitle}>{t.shiftsTitle}</h2>
-        <div className="-mx-1 mt-4 overflow-x-auto px-1">
+        <div className="-mx-1 mt-4 min-w-0 max-w-full overflow-x-auto px-1">
           <table className="w-max border-separate border-spacing-x-2 border-spacing-y-1 text-sm">
             <thead>
               <tr className="text-xs font-semibold text-muted">

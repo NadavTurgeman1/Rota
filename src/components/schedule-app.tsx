@@ -1748,7 +1748,7 @@ export function ScheduleApp() {
       <div className="px-6 sm:px-8">
         <CookieNotice lang={lang} />
       </div>
-      <main className={`flex flex-col gap-8 px-6 py-6 sm:px-8 ${selection ? "pb-28" : ""}`}>
+      <main className={`flex min-w-0 flex-col gap-8 px-6 py-6 sm:px-8 ${selection ? "pb-28" : ""}`}>
         {draftDirty ? (
           <div className="sticky top-0 z-20 -mx-6 flex flex-wrap items-center gap-2 border-b border-line bg-paper px-6 py-3 sm:-mx-8 sm:px-8">
             <button type="button" className={button.primary} data-testid="save-changes" onClick={() => draftRef.current?.save()}>

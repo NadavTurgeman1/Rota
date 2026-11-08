@@ -13,7 +13,7 @@ export const button = {
 };
 
 export const field =
-  "h-10 w-full min-w-0 rounded-lg border border-field-line bg-card px-3 text-sm text-ink placeholder:text-subtle hover:border-muted read-only:border-line read-only:bg-well read-only:hover:border-line";
+  "box-border block h-10 w-full min-w-0 max-w-full rounded-lg border border-field-line bg-card px-3 text-sm text-ink placeholder:text-subtle hover:border-muted read-only:border-line read-only:bg-well read-only:hover:border-line";
 
 export const select = `${field} pe-8`;
 
@@ -25,7 +25,7 @@ export const cardTitle = "text-base font-semibold tracking-tight text-ink";
 
 export const cardHint = "mt-1 text-sm leading-6 text-muted";
 
-export const label = "flex flex-col gap-1.5 text-sm";
+export const label = "flex min-w-0 max-w-full flex-col gap-1.5 text-sm";
 
 export const labelText = "font-medium text-ink-soft";
 

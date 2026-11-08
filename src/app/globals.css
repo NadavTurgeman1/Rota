@@ -337,6 +337,26 @@ input[type="time"]::-webkit-datetime-edit-text {
   unicode-bidi: isolate;
 }
 
+/* Phone browsers give date and time fields a wide intrinsic size. Keep them inside the column. */
+input[type="date"],
+input[type="time"],
+input[type="datetime-local"],
+input[type="email"],
+input[type="tel"],
+input[type="number"],
+select {
+  min-width: 0;
+  max-width: 100%;
+}
+
+input[type="date"]::-webkit-datetime-edit,
+input[type="time"]::-webkit-datetime-edit,
+input[type="date"]::-webkit-datetime-edit-fields-wrapper,
+input[type="time"]::-webkit-datetime-edit-fields-wrapper {
+  min-width: 0;
+  overflow: hidden;
+}
+
 /* The week board. On a wide screen the seven days share the width; each row stays as tall as its names. */
 .week-fit {
   display: grid;
