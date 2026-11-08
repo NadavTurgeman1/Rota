@@ -339,10 +339,8 @@ export function AbsenceScreen({
   people?: { id: string; name: string; manager?: boolean }[];
   api: AbsencesApi;
 }) {
-  const t = copy[lang];
   return (
     <div data-testid="absences-screen" className="flex flex-col gap-6">
-      {manager ? null : <p className="max-w-2xl text-sm leading-6 text-muted">{t.absencesStaffHint}</p>}
       {canWrite ? <AbsenceForm lang={lang} canWrite={canWrite} people={manager ? people : undefined} api={api} /> : null}
       <AbsenceList lang={lang} requests={requests} manager={manager} canWrite={canWrite} api={api} />
     </div>

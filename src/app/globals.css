@@ -695,6 +695,19 @@ input[type="time"]::-webkit-datetime-edit-fields-wrapper {
   }
 }
 
+/* Installed app only. 16px fields stop iOS from zooming when a box is focused. */
+html.native-app {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+html.native-app input,
+html.native-app select,
+html.native-app textarea {
+  font-size: 16px;
+}
+
 /* Phone chrome. Liquid Glass is a SwiftUI material; a WebView cannot call it.
    This is the same material in CSS: translucent fill, saturated blur, continuous corner. */
 @media (max-width: 767px) {

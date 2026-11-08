@@ -8,10 +8,21 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         guard let windowScene = scene as? UIWindowScene else { return }
 
         window = UIWindow(windowScene: windowScene)
-        window?.rootViewController = CAPBridgeViewController()
+        let bridge = CAPBridgeViewController()
+        window?.rootViewController = bridge
         window?.makeKeyAndVisible()
+        lockZoom(bridge)
+        DispatchQueue.main.async { self.lockZoom(bridge) }
 
         SceneDelegateProxy.shared.scene(scene, willConnectTo: session, options: connectionOptions)
+    }
+
+    private func lockZoom(_ bridge: CAPBridgeViewController) {
+        guard let scroll = bridge.webView?.scrollView else { return }
+        scroll.minimumZoomScale = 1
+        scroll.maximumZoomScale = 1
+        scroll.bouncesZoom = false
+        scroll.pinchGestureRecognizer?.isEnabled = false
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {

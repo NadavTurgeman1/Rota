@@ -1,3 +1,10 @@
+/** True only inside the installed iOS or Android app. The website stays false. */
+export function isNativeApp(): boolean {
+  if (typeof window === "undefined") return false;
+  const cap = (window as Window & { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+  return Boolean(cap?.isNativePlatform?.());
+}
+
 /** Native chrome for the Capacitor shell. No-op in the browser. */
 export function startNativeChrome(): void {
   void (async () => {

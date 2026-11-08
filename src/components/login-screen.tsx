@@ -4,6 +4,7 @@ import { REMEMBER_EMAIL_KEY, REMEMBER_KEY, rememberOn } from "../auth/remember";
 import { copy } from "../i18n/copy";
 import { CookieNotice } from "./cookie-notice";
 import { LegalLinks } from "./legal-links";
+import { isNativeApp } from "../native/chrome";
 import { accessLabel } from "./users-panel";
 
 /** The wordmark. Letters switch to light in the dark theme; the mark itself stays. */
@@ -103,14 +104,26 @@ function PasswordField({
 }
 
 /** Form on the start side, calendar on the other. Settings sit on the opposite edge from the wordmark. */
-function AuthSplit({ lang, toolbar, home = false, children }: { lang: Lang; toolbar: ReactNode; home?: boolean; children: ReactNode }) {
+function AuthSplit({
+  lang,
+  toolbar,
+  home = false,
+  lowerLogo = false,
+  children,
+}: {
+  lang: Lang;
+  toolbar: ReactNode;
+  home?: boolean;
+  lowerLogo?: boolean;
+  children: ReactNode;
+}) {
   const t = copy[lang];
   return (
     <div className="relative flex min-h-dvh bg-card">
       <div className="absolute end-4 top-4 z-30 sm:end-6 sm:top-6">{toolbar}</div>
       <section className="flex min-h-dvh w-full flex-col px-6 py-6 sm:px-12 lg:w-1/2 lg:px-16 lg:py-8">
         <div className="pe-14">
-          <div>
+          <div className={lowerLogo ? "pt-4" : undefined}>
             <Logo className="h-8" />
           </div>
           {home ? (
@@ -186,8 +199,9 @@ export function LoginScreen({
     if (saved) setEmail(saved);
   }, []);
 
+  const native = isNativeApp();
   return (
-    <AuthSplit lang={lang} toolbar={toolbar} home>
+    <AuthSplit lang={lang} toolbar={toolbar} home={!native} lowerLogo={native}>
       <form
         data-testid="login-form"
         method="post"

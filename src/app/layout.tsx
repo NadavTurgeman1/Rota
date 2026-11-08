@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Heebo, Inter } from "next/font/google";
 import type { ReactNode } from "react";
+import { NativeZoomLock } from "../native/zoom-lock";
 import "./globals.css";
 
 const heebo = Heebo({
@@ -29,7 +30,10 @@ export const viewport: Viewport = {
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="he" dir="rtl" className={`${heebo.variable} ${inter.variable}`}>
-      <body>{children}</body>
+      <body>
+        <NativeZoomLock />
+        {children}
+      </body>
     </html>
   );
 }
