@@ -595,11 +595,21 @@ input[type="time"]::-webkit-datetime-edit-text {
 
 .landing-date {
   position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
   padding-right: 2.5rem;
   text-align: right;
+  -webkit-appearance: none;
+  appearance: none;
 }
 
-.landing-date::-webkit-datetime-edit {
+.landing-date::-webkit-datetime-edit,
+.landing-date::-webkit-date-and-time-value {
+  min-width: 0;
   text-align: right;
 }
 
