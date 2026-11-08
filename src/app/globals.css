@@ -698,8 +698,19 @@ input[type="time"]::-webkit-datetime-edit-fields-wrapper {
 /* Phone chrome. Liquid Glass is a SwiftUI material; a WebView cannot call it.
    This is the same material in CSS: translucent fill, saturated blur, continuous corner. */
 @media (max-width: 767px) {
+  html:has(.shell),
+  body:has(.shell) {
+    background: #f5f5f6;
+  }
+
+  :root.dark:has(.shell),
+  :root.dark:has(.shell) body {
+    background: #0c0c0e;
+  }
+
   .shell {
     min-height: 100dvh;
+    background: var(--page);
   }
 
   .shell aside {
@@ -708,6 +719,7 @@ input[type="time"]::-webkit-datetime-edit-fields-wrapper {
     z-index: 30;
     border: 0;
     background: var(--page);
+    padding-top: env(safe-area-inset-top, 0px);
     padding-bottom: 0.15rem;
   }
 
@@ -719,7 +731,6 @@ input[type="time"]::-webkit-datetime-edit-fields-wrapper {
     height: auto;
     min-height: 3.25rem;
     margin: 0.35rem 0.7rem 0.2rem;
-    margin-top: max(0.4rem, env(safe-area-inset-top));
     border-radius: 999px;
     border: 1px solid color-mix(in srgb, white 64%, transparent);
     background: color-mix(in srgb, var(--card) 62%, transparent);
@@ -764,8 +775,12 @@ input[type="time"]::-webkit-datetime-edit-fields-wrapper {
     border-radius: 999px;
   }
 
-  .shell main .sticky {
-    top: calc(max(0.4rem, env(safe-area-inset-top)) + 3.8rem);
+  .shell main > .sticky {
+    top: 4.2rem;
+  }
+
+  .week-fit .sticky {
+    top: auto;
   }
 
   .shell main .rounded-xl,

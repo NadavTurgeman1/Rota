@@ -621,38 +621,21 @@ export function StaffHome({
               >
                 {t.addToCalendar}
               </button>
-              <button
-                type="button"
-                data-testid="staff-export-excel"
-                className={button.quiet}
+              <StaffExportMenu
+                lang={lang}
                 disabled={!hasPublished}
-                onClick={() => {
+                copied={copied}
+                onExcel={() => {
                   const xml = weekExcelXml(publishedStates, lang, orgName, selfId ?? undefined, calendars);
                   if (!xml) return;
                   downloadBlob(new Blob([xml], { type: "application/vnd.ms-excel;charset=utf-8" }), exportFileName(siteName, state.week, "xls"));
                 }}
-              >
-                {t.exportExcel}
-              </button>
-              <button
-                type="button"
-                data-testid="staff-export-csv"
-                className={button.quiet}
-                disabled={!hasPublished}
-                onClick={() => {
+                onCsv={() => {
                   const csv = weekCsv(publishedStates, lang, selfId ?? undefined, calendars);
                   if (!csv) return;
                   downloadBlob(new Blob([csv], { type: "text/csv;charset=utf-8" }), exportFileName(siteName, state.week, "csv"));
                 }}
-              >
-                {t.exportCsv}
-              </button>
-              <button
-                type="button"
-                data-testid="staff-export-png"
-                className={button.quiet}
-                disabled={!hasPublished}
-                onClick={() => {
+                onPng={() => {
                   for (const view of publishedStates) {
                     const data = weekExport(view, lang, orgName, calendars);
                     if (!data) continue;
@@ -663,15 +646,7 @@ export function StaffHome({
                     );
                   }
                 }}
-              >
-                {t.exportPng}
-              </button>
-              <button
-                type="button"
-                data-testid="staff-export-text"
-                className={button.quiet}
-                disabled={!hasPublished}
-                onClick={() => {
+                onText={() => {
                   const text = weekText(publishedStates, lang, orgName, selfId ?? undefined, calendars);
                   if (!text) return;
                   if (typeof navigator !== "undefined" && navigator.clipboard?.writeText) {
@@ -683,9 +658,7 @@ export function StaffHome({
                     downloadBlob(new Blob([text], { type: "text/plain;charset=utf-8" }), exportFileName(siteName, state.week, "txt"));
                   }
                 }}
-              >
-                {copied ? t.exportTextCopied : t.exportText}
-              </button>
+              />
               {mine.length === 0 ? <p className="text-sm text-muted">{t.calendarEmpty}</p> : null}
             </div>
             {boards.map((site) => {
@@ -751,6 +724,74 @@ export function StaffHome({
               />
             ))
         : null}
+    </div>
+  );
+}
+
+function StaffExportMenu({
+  lang,
+  disabled,
+  copied,
+  onExcel,
+  onCsv,
+  onPng,
+  onText,
+}: {
+  lang: Lang;
+  disabled: boolean;
+  copied: boolean;
+  onExcel: () => void;
+  onCsv: () => void;
+  onPng: () => void;
+  onText: () => void;
+}) {
+  const t = copy[lang];
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function close(event: MouseEvent | KeyboardEvent) {
+      if (event instanceof KeyboardEvent ? event.key === "Escape" : !root.current?.contains(event.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", close);
+    document.addEventListener("keydown", close);
+    return () => {
+      document.removeEventListener("mousedown", close);
+      document.removeEventListener("keydown", close);
+    };
+  }, [open]);
+
+  const item = "block w-full rounded-lg px-3 py-2 text-start text-sm font-medium hover:bg-well";
+  return (
+    <div ref={root} className="relative">
+      <button
+        type="button"
+        data-testid="staff-export-menu"
+        className={button.quiet}
+        disabled={disabled}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((current) => !current)}
+      >
+        {t.exportMenu}
+      </button>
+      {open ? (
+        <div role="menu" className="absolute start-0 top-full z-30 mt-2 w-56 rounded-xl border border-line bg-card p-1.5 shadow-pop">
+          <button type="button" role="menuitem" data-testid="staff-export-excel" className={item} onClick={() => { setOpen(false); onExcel(); }}>
+            {t.exportExcel}
+          </button>
+          <button type="button" role="menuitem" data-testid="staff-export-csv" className={item} onClick={() => { setOpen(false); onCsv(); }}>
+            {t.exportCsv}
+          </button>
+          <button type="button" role="menuitem" data-testid="staff-export-png" className={item} onClick={() => { setOpen(false); onPng(); }}>
+            {t.exportPng}
+          </button>
+          <button type="button" role="menuitem" data-testid="staff-export-text" className={item} onClick={() => { setOpen(false); onText(); }}>
+            {copied ? t.exportTextCopied : t.exportText}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 }
