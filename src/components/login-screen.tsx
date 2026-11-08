@@ -351,7 +351,7 @@ export function LoginScreen({
   );
 }
 
-/** Name, email and password. Only an approved email can create an account. */
+/** Email and password. The name is already stored: on the employee card, or on the owner's approval. */
 export function SignupScreen({
   lang,
   toolbar,
@@ -361,7 +361,6 @@ export function SignupScreen({
   lang: Lang;
   toolbar: ReactNode;
   onCreateAccount: (
-    fullName: string,
     email: string,
     password: string,
     accepted: boolean,
@@ -387,14 +386,13 @@ export function SignupScreen({
         onSubmit={(event) => {
           event.preventDefault();
           const data = new FormData(event.currentTarget);
-          const fullName = String(data.get("name") ?? "");
           const email = String(data.get("email") ?? "");
           const password = String(data.get("password") ?? "");
           const accepted = terms && adult;
           setConsentMissing(!accepted);
           if (!accepted) return;
           void (async () => {
-            const result = await onCreateAccount(fullName, email, password, true);
+            const result = await onCreateAccount(email, password, true);
             setFailed(result === "failed" || result === "consent");
             setDenied(result === "denied");
             setShort(result === "short");
@@ -407,15 +405,6 @@ export function SignupScreen({
         <h1 className="text-[2.5rem] font-bold leading-none tracking-[-0.03em] text-ink">{t.signupTitle}</h1>
         <p className="mt-3 text-sm leading-6 text-muted">{t.signupHint}</p>
         <label className={`${authLabel} mt-8`}>
-          <span>{t.fullName}</span>
-          <input
-            data-testid="create-full-name"
-            name="name"
-            autoComplete="name"
-            className={authField}
-          />
-        </label>
-        <label className={`${authLabel} mt-5`}>
           <span>{t.email}</span>
           <input
             data-testid="signup-email"

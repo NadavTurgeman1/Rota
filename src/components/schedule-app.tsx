@@ -962,22 +962,20 @@ export function ScheduleApp() {
   }
 
   async function createAccount(
-    fullName: string,
     email: string,
     password: string,
     accepted: boolean,
   ): Promise<"signed-in" | "confirm" | "failed" | "denied" | "short" | "rate" | "consent"> {
-    const name = fullName.trim();
     const address = email.trim();
     if (!accepted) return "consent";
-    if (!name || !address) return "failed";
+    if (!address) return "failed";
     if (password.length < 6) return "short";
     const allowed = await browserClient().rpc("signup_allowed", { target_email: address });
     if (allowed.error || allowed.data !== true) return "denied";
     const { data, error } = await browserClient().auth.signUp({
       email: address,
       password,
-      options: { data: { name, terms_accepted_at: new Date().toISOString(), adult: true } },
+      options: { data: { terms_accepted_at: new Date().toISOString(), adult: true } },
     });
     if (error || !data.user) {
       const detail = `${error?.message ?? ""} ${error?.code ?? ""}`;
@@ -1033,13 +1031,13 @@ export function ScheduleApp() {
     return { companies: body.companies ?? [], approvals: body.approvals ?? [] };
   }, []);
 
-  async function approveEmail(email: string): Promise<boolean> {
+  async function approveEmail(email: string, fullName: string): Promise<boolean> {
     const token = tokenRef.current;
     if (!token) return false;
     const response = await fetch("/api/companies", {
       method: "POST",
       headers: { authorization: `Bearer ${token}`, "content-type": "application/json" },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, fullName }),
     });
     return response.ok;
   }

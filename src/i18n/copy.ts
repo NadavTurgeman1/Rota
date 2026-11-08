@@ -414,6 +414,7 @@ export interface Copy {
   supportBanner: string;
   leaveSupport: string;
   approvalsHint: string;
+  ownerName: string;
   approveFounder: string;
   approvalOpen: string;
   approvalUsed: string;
@@ -1047,7 +1048,7 @@ export const copy: Record<Lang, Copy> = {
     savePassword: "שמירת סיסמה",
     newPasswordFailed: "לא הצלחנו לעדכן את הסיסמה. נסו שוב.",
     signupTitle: "יצירת חשבון",
-    signupHint: "בוחרים כאן סיסמה של 6 תווים לפחות. אין סיסמה מוכנה. אחרי יצירת החשבון נכנסים עם אותה סיסמה.",
+    signupHint: "בוחרים כאן סיסמה של 6 תווים לפחות. אין סיסמה מוכנה. השם כבר שמור: לעובד בכרטיס, ולבעל העסק באישור. אחרי יצירת החשבון נכנסים עם אותה סיסמה.",
     passwordTooShort: "הסיסמה צריכה 6 תווים לפחות.",
     signupFailed: "יצירת החשבון נכשלה. נסו שוב.",
     signupRateLimit: "נשלחו יותר מדי אימיילי אישור, והחשבון לא נוצר. ממתינים כשעה ולוחצים שוב על יצירת חשבון עם אותו מייל ואותה סיסמה.",
@@ -1078,14 +1079,15 @@ export const copy: Record<Lang, Copy> = {
     bankOptional: "רשות. Rota לא מעבירה כסף ולא גובה עמלה.",
     businessDetails: "פרטי העסק",
     fullName: "שם מלא",
-    accountNotApproved: "המייל הזה לא מאושר. אפשר ליצור חשבון רק אחרי שמנהל המערכת פותח את העסק.",
+    accountNotApproved: "המייל הזה לא מאושר. בעל עסק צריך אישור ממנהל המערכת. עובד יכול ליצור חשבון אחרי שהמייל נשמר בכרטיס שלו.",
     approvalsTitle: "אישור מייל",
     adminTabApprove: "הוספת הרשאה",
     adminTabEnter: "כניסה לעסקים",
     enterCompany: "כניסה",
     supportBanner: "נכנסת לעסק הזה כמנהל המערכת, עם הממשק של מנהל העסק.",
     leaveSupport: "חזרה לניהול",
-    approvalsHint: "מאשרים כאן מייל בלבד. בעל המייל נרשם עם שם מלא, ואז יוצר את העסק בעצמו.",
+    approvalsHint: "מאשרים כאן את המייל ואת שם הבעלים. אחר כך הוא יוצר חשבון עם סיסמה, ופותח את העסק.",
+    ownerName: "שם הבעלים",
     approveFounder: "אישור",
     approvalOpen: "ממתין להרשמה",
     approvalUsed: "העסק נפתח",
@@ -1730,7 +1732,7 @@ export const copy: Record<Lang, Copy> = {
     savePassword: "Save password",
     newPasswordFailed: "The password could not be updated. Try again.",
     signupTitle: "Create account",
-    signupHint: "Choose a password of at least 6 characters. There is no preset password. Sign in later with that same password.",
+    signupHint: "Choose a password of at least 6 characters. There is no preset password. The name is already saved: on the employee card, or on the owner's approval. Sign in later with that same password.",
     passwordTooShort: "The password needs at least 6 characters.",
     signupFailed: "The account could not be created. Try again.",
     signupRateLimit: "Too many confirmation emails were sent, so the account was not created. Wait about an hour, then create the account again with the same email and password.",
@@ -1761,14 +1763,15 @@ export const copy: Record<Lang, Copy> = {
     bankOptional: "Optional. Rota does not move money and does not charge a fee.",
     businessDetails: "Business details",
     fullName: "Full name",
-    accountNotApproved: "This email is not approved. An account can be created only after the system owner opens the company.",
+    accountNotApproved: "This email is not approved. A business owner needs approval from the system admin. An employee can create an account after their email is saved on their card.",
     approvalsTitle: "Approve an email",
     adminTabApprove: "New approval",
     adminTabEnter: "Open a business",
     enterCompany: "Open",
     supportBanner: "You are inside this business as the platform admin, with the company admin interface.",
     leaveSupport: "Back to admin",
-    approvalsHint: "Approve an email only. That person signs up with a full name, then creates the business.",
+    approvalsHint: "Approve the email and the owner's name here. They then create an account with a password and open the business.",
+    ownerName: "Owner name",
     approveFounder: "Approve",
     approvalOpen: "Waiting for sign-up",
     approvalUsed: "Business created",

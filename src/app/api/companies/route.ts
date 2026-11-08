@@ -1,4 +1,4 @@
-import { approveSignupEmail, listFounderApprovals, listTenants, setTenantStatus } from "../../../db/workspace-store";
+import { approveFounder, listFounderApprovals, listTenants, setTenantStatus } from "../../../db/workspace-store";
 import { SaveError } from "../../../db/save";
 import { withUserDb } from "../../../supabase/database";
 import { userIdFromAuthorization } from "../../../supabase/user";
@@ -36,7 +36,8 @@ export async function POST(request: Request) {
       await withUserDb(userId, (sql) => setTenantStatus(sql, { id, status: body.status as "active" | "suspended" }));
     } else {
       const email = typeof body?.email === "string" ? body.email : "";
-      await withUserDb(userId, (sql) => approveSignupEmail(sql, email));
+      const fullName = typeof body?.fullName === "string" ? body.fullName : "";
+      await withUserDb(userId, (sql) => approveFounder(sql, { fullName, email }));
     }
     const listed = await withUserDb(userId, async (sql) => ({
       companies: await listTenants(sql),

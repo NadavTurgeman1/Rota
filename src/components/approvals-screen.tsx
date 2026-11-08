@@ -34,7 +34,7 @@ export function ApprovalsScreen({
   lang: Lang;
   toolbar: ReactNode;
   load: () => Promise<{ companies: TenantRow[]; approvals: SignupApproval[] }>;
-  onApprove: (email: string) => Promise<boolean>;
+  onApprove: (email: string, fullName: string) => Promise<boolean>;
   onStatus: (id: string, status: "active" | "suspended") => Promise<boolean>;
   onEnter: (orgId: string) => void;
   bare?: boolean;
@@ -44,6 +44,7 @@ export function ApprovalsScreen({
   const [companies, setCompanies] = useState<TenantRow[]>([]);
   const [approvals, setApprovals] = useState<SignupApproval[]>([]);
   const [email, setEmail] = useState("");
+  const [fullName, setFullName] = useState("");
   const [failed, setFailed] = useState(false);
   useEffect(() => {
     let active = true;
@@ -93,10 +94,11 @@ export function ApprovalsScreen({
             onSubmit={(event) => {
               event.preventDefault();
               void (async () => {
-                const ok = await onApprove(email);
+                const ok = await onApprove(email, fullName);
                 setFailed(!ok);
                 if (!ok) return;
                 setEmail("");
+                setFullName("");
                 await refresh();
               })();
             }}
@@ -106,23 +108,28 @@ export function ApprovalsScreen({
               <p className="mt-2 text-sm leading-6 text-muted">{t.approvalsHint}</p>
             </div>
             <label className={label}>
+              <span className={labelText}>{t.ownerName}</span>
+              <input className={field} value={fullName} autoComplete="name" onChange={(event) => setFullName(event.target.value)} />
+            </label>
+            <label className={label}>
               <span className={labelText}>{t.email}</span>
-              <input dir="ltr" type="email" className={field} value={email} onChange={(event) => setEmail(event.target.value)} />
+              <input dir="ltr" type="email" className={field} value={email} autoComplete="email" onChange={(event) => setEmail(event.target.value)} />
             </label>
             {failed ? (
               <p role="alert" className="text-sm text-danger-text">
                 {t.saveFailed}
               </p>
             ) : null}
-            <button type="submit" className={`${button.primary} h-10 w-full`} disabled={!email.trim()}>
+            <button type="submit" className={`${button.primary} h-10 w-full`} disabled={!email.trim() || !fullName.trim()}>
               {t.approveFounder}
             </button>
           </form>
           <ul className={`${card} flex flex-col gap-3 text-sm`}>
             {approvals.map((row) => (
               <li key={row.id} className="flex items-center justify-between gap-4">
-                <span dir="ltr" className="font-medium">
-                  {row.email}
+                <span className="min-w-0">
+                  <span className="block font-medium">{row.fullName}</span>
+                  <span dir="ltr" className="block text-muted">{row.email}</span>
                 </span>
                 <span className="text-muted">{row.consumed ? t.approvalUsed : t.approvalOpen}</span>
               </li>
