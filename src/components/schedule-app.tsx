@@ -238,8 +238,20 @@ function useHistory(initial: RotaState) {
   const update = useCallback((produce: (state: RotaState) => RotaState) => {
     setHistory((current) => commit(current, produce(current.present)));
   }, []);
-  const undoHistory = useCallback(() => setHistory((current) => undo(current)), []);
-  const redoHistory = useCallback(() => setHistory((current) => redo(current)), []);
+  const undoHistory = useCallback(() => {
+    setHistory((current) => {
+      const next = undo(current);
+      if (next === current || next.present.week === current.present.week) return next;
+      return { ...next, present: { ...next.present, week: current.present.week } };
+    });
+  }, []);
+  const redoHistory = useCallback(() => {
+    setHistory((current) => {
+      const next = redo(current);
+      if (next === current || next.present.week === current.present.week) return next;
+      return { ...next, present: { ...next.present, week: current.present.week } };
+    });
+  }, []);
   return {
     state: history.present,
     setHistory,
@@ -847,6 +859,7 @@ export function ScheduleApp() {
         return;
       }
       if (!(event.metaKey || event.ctrlKey) || event.key.toLowerCase() !== "z") return;
+      if (screen !== "schedule" && screen !== "constraints") return;
       event.preventDefault();
       setSelection(null);
       if (event.shiftKey) redoHistory();
@@ -854,7 +867,7 @@ export function ScheduleApp() {
     }
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [redoHistory, undoHistory]);
+  }, [redoHistory, screen, undoHistory]);
 
   function change(produce: (current: RotaState) => RotaState) {
     setSelection(null);
@@ -863,6 +876,17 @@ export function ScheduleApp() {
       const next = produce(stamped);
       if (next === stamped) return current;
       return withoutContext(next);
+    });
+  }
+
+  /** Moves the open week without recording an undo step. The arrows and the date picker are navigation. */
+  function showWeek(produce: (current: RotaState) => RotaState) {
+    setSelection(null);
+    setHistory((current) => {
+      const stamped = viewingContext(current.present, live.sites, live.activeSiteId);
+      const next = produce(stamped);
+      if (next === stamped) return current;
+      return { ...current, present: withoutContext(next) };
     });
   }
 
@@ -1564,7 +1588,7 @@ export function ScheduleApp() {
             ?.requests?.find((request) => request.employeeId === live.selfEmployeeId && request.week === state.week) ?? null
         }
         onSubmit={submitStaffRequest}
-        onWeek={(days) => change((current) => goToWeek(current, addDays(current.week, days)))}
+        onWeek={(days) => showWeek((current) => goToWeek(current, addDays(current.week, days)))}
         decisions={live.decisions ?? []}
         onAcknowledge={acknowledgeDecision}
         trades={trades.trades}
@@ -1799,17 +1823,17 @@ export function ScheduleApp() {
                 data-testid="prev-week"
                 aria-label={t.previousWeek}
                 className={stepButton}
-                onClick={() => change((current) => goToWeek(current, addDays(current.week, -7)))}
+                onClick={() => showWeek((current) => goToWeek(current, addDays(current.week, -7)))}
               >
                 <Chevron dir="prev" />
               </button>
-              <WeekPicker lang={lang} week={state.week} onPick={(sunday) => change((current) => goToWeek(current, sunday))} />
+              <WeekPicker lang={lang} week={state.week} onPick={(sunday) => showWeek((current) => goToWeek(current, sunday))} />
               <button
                 type="button"
                 data-testid="next-week"
                 aria-label={t.nextWeek}
                 className={stepButton}
-                onClick={() => change((current) => goToWeek(current, addDays(current.week, 7)))}
+                onClick={() => showWeek((current) => goToWeek(current, addDays(current.week, 7)))}
               >
                 <Chevron dir="next" />
               </button>
@@ -1882,7 +1906,7 @@ export function ScheduleApp() {
                 ) : null}
               </>
             ) : null}
-            {writer ? (
+            {writer && (shown === "schedule" || shown === "constraints") && (canUndo || canRedo) ? (
               <>
                 {canUndo ? (
                   <button
@@ -1910,15 +1934,15 @@ export function ScheduleApp() {
                     {t.redo}
                   </button>
                 ) : null}
-                {shown === "constraints" ? (
+              </>
+            ) : null}
+            {writer && shown === "constraints" ? (
                   <ExtraWindowMenu
                     lang={lang}
                     until={state.biz.constraintExtensionUntil}
                     onOpen={(minutes) => void openExtraWindow(minutes)}
                     onClose={() => void closeExtraWindow()}
                   />
-                ) : null}
-              </>
             ) : null}
             {shown === "schedule" ? (
               <p data-testid="publish-status" aria-live="polite" className="text-sm leading-6 text-ink-soft sm:ms-2">
