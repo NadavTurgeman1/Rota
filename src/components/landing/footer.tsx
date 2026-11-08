@@ -4,14 +4,14 @@ export function Footer() {
   const footer = config.footer;
   return (
     <footer className="border-t border-line px-5 py-12 sm:px-8">
-      <div className="mx-auto grid w-full max-w-6xl gap-8 sm:grid-cols-2 lg:grid-cols-4">
-        <div>
+      <div className="mx-auto grid w-full max-w-6xl grid-cols-3 gap-x-3 gap-y-8 sm:gap-x-6 lg:grid-cols-4 lg:gap-8">
+        <div className="col-span-3 lg:col-span-1">
           <p className="text-right text-lg font-semibold text-ink" dir="ltr">
             {config.name}
           </p>
           <p className="mt-2 text-sm leading-6 text-muted">{footer.blurb}</p>
         </div>
-        <nav aria-label={footer.product}>
+        <nav aria-label={footer.product} className="min-w-0">
           <h2 className="text-sm font-semibold text-ink">{footer.product}</h2>
           <ul className="mt-3 flex flex-col gap-2">
             {config.nav.map((item) => (
@@ -23,7 +23,7 @@ export function Footer() {
             ))}
           </ul>
         </nav>
-        <nav aria-label={footer.account}>
+        <nav aria-label={footer.account} className="min-w-0">
           <h2 className="text-sm font-semibold text-ink">{footer.account}</h2>
           <ul className="mt-3 flex flex-col gap-2">
             <li>
@@ -32,7 +32,7 @@ export function Footer() {
               </a>
             </li>
             <li>
-              <a href={`mailto:${footer.contactEmail}`} className="text-sm text-muted hover:text-ink" dir="ltr">
+              <a href={`mailto:${footer.contactEmail}`} className="text-sm text-muted hover:text-ink">
                 {footer.contact}
               </a>
             </li>
@@ -43,7 +43,7 @@ export function Footer() {
             </li>
           </ul>
         </nav>
-        <nav aria-label={footer.legal}>
+        <nav aria-label={footer.legal} className="min-w-0">
           <h2 className="text-sm font-semibold text-ink">{footer.legal}</h2>
           <ul className="mt-3 flex flex-col gap-2">
             {footer.links.map((item) => (
