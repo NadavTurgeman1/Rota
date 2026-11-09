@@ -110,7 +110,7 @@ import { useAiEnabled } from "./use-ai";
 import { CALENDARS_OFF, type CalendarPrefs } from "../schedule/shown-calendars";
 import { CookieNotice } from "./cookie-notice";
 import { DeleteAccount } from "./delete-account";
-import { startNativeChrome } from "../native/chrome";
+import { startNativeChrome, syncNativeStatusBar } from "../native/chrome";
 import { PhoneTabBar } from "./phone-tab-bar";
 import { usePhoneSlot } from "./use-phone-host";
 import { SettingsMenu, type Theme } from "./settings-menu";
@@ -846,6 +846,7 @@ export function ScheduleApp() {
     const root = document.documentElement;
     root.classList.add("theme-switching");
     root.classList.toggle("dark", theme === "dark");
+    syncNativeStatusBar();
     window.localStorage.setItem(THEME_KEY, theme);
     window.localStorage.setItem(CALENDARS_KEY, JSON.stringify(calendars));
     const frame = requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("theme-switching")));

@@ -777,10 +777,28 @@ html.native-app textarea {
     border-radius: 999px;
   }
 
+  :root.dark .shell aside,
+  :root.dark .shell::before {
+    background: #0c0c0e;
+  }
+
+  :root.dark .shell::before {
+    content: "";
+    position: fixed;
+    z-index: 45;
+    top: 0;
+    inset-inline: 0;
+    height: env(safe-area-inset-top, 0px);
+    pointer-events: none;
+  }
+
   :root.dark .phone-logo,
   :root.dark .phone-menu {
-    border-color: color-mix(in srgb, white 18%, transparent);
-    background: color-mix(in srgb, var(--card) 70%, transparent);
+    border-color: var(--line);
+    background: var(--card);
+    box-shadow: none;
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
   }
 
   .phone-toolbar button,

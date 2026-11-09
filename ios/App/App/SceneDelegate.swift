@@ -23,6 +23,12 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
         scroll.maximumZoomScale = 1
         scroll.bouncesZoom = false
         scroll.pinchGestureRecognizer?.isEnabled = false
+        if #available(iOS 26.0, *) {
+            scroll.topEdgeEffect.isHidden = true
+            scroll.bottomEdgeEffect.isHidden = true
+            scroll.leftEdgeEffect.isHidden = true
+            scroll.rightEdgeEffect.isHidden = true
+        }
     }
 
     func scene(_ scene: UIScene, openURLContexts URLContexts: Set<UIOpenURLContext>) {
