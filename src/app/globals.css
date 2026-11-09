@@ -740,6 +740,12 @@ html.native-app .auth-neutral button[data-testid="settings"] {
   border-radius: 999px;
 }
 
+@media (max-width: 719px) {
+  .auth-neutral button[data-testid="settings"] {
+    border-radius: 999px;
+  }
+}
+
 /* Phone chrome. Liquid Glass is a SwiftUI material; a WebView cannot call it.
    This is the same material in CSS: translucent fill, saturated blur, continuous corner. */
 @media (max-width: 719px) {
@@ -844,6 +850,42 @@ html.native-app .auth-neutral button[data-testid="settings"] {
 
   .week-fit .sticky {
     top: auto;
+  }
+
+  .shell main .grid {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .shell main .grid > * {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .shell main .grid-cols-2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .shell main .grid-cols-3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .shell main .grid-cols-7 {
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+  }
+
+  .shell input[type="date"],
+  .shell input[type="time"],
+  .shell input[type="datetime-local"] {
+    display: block;
+    box-sizing: border-box;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+    -webkit-appearance: none;
+    appearance: none;
   }
 
   .shell main .rounded-xl,
