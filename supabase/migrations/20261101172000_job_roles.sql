@@ -1,10 +1,10 @@
 -- Role names a site offers, and the extra roles a person may fill by hand.
 
 alter table public.sites
-  add column roles jsonb;
+  add column if not exists roles jsonb;
 
 alter table public.employees
-  add column secondary_roles jsonb not null default '[]'::jsonb;
+  add column if not exists secondary_roles jsonb not null default '[]'::jsonb;
 
 alter table public.sites
   drop constraint if exists sites_roles_array;
