@@ -641,7 +641,7 @@ export function StaffHome({
                     if (!data) continue;
                     downloadWeekPng(
                       data,
-                      { open: t.exportOpen, closed: t.exportClosed, covered: t.covered, overQuota: t.overQuota, legend: t.exportLegend },
+                      { open: t.exportOpen, closed: t.exportClosed, covered: t.covered, legend: t.exportLegend },
                       pngFileName(siteLabel(view.biz.name, lang), view.week),
                     );
                   }

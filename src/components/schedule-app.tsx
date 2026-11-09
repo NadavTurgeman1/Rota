@@ -1376,7 +1376,7 @@ export function ScheduleApp() {
     if (!data) return;
     downloadWeekPng(
       data,
-      { open: t.exportOpen, closed: t.exportClosed, covered: t.covered, overQuota: t.overQuota, legend: t.exportLegend },
+      { open: t.exportOpen, closed: t.exportClosed, covered: t.covered, legend: t.exportLegend },
       pngFileName(siteLabel(source.biz.name, lang), source.week),
     );
   }

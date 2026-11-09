@@ -4,7 +4,6 @@ export interface PngLabels {
   open: string;
   closed: string;
   covered: string;
-  overQuota: string;
   legend: string;
 }
 
@@ -124,7 +123,7 @@ export function drawWeek(data: WeekExport, labels: PngLabels, scale = 2): HTMLCa
       for (const person of item.people) {
         ctx.fillStyle = person.hours ? RED : "#1c1917";
         ctx.font = `${person.hours ? 600 : 500} 18px ${FONT}`;
-        ctx.fillText(person.over ? `${person.name} · ${labels.overQuota}` : person.name, middle, y);
+        ctx.fillText(person.name, middle, y);
         y += LINE;
         if (person.hours) {
           ctx.font = `400 15px ${FONT}`;

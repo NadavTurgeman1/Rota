@@ -9,7 +9,6 @@ export interface ExportPerson {
   name: string;
   /** Actual hours, only when the shift was extended. */
   hours?: string;
-  over?: boolean;
 }
 
 export interface ExportCell {
@@ -84,7 +83,6 @@ export function weekExport(state: RotaState, lang: Lang, org: string, hebrew: bo
         return {
           name: names.get(id) ?? id,
           ...(span ? { hours: `${clockLabel(span.start)}–${clockLabel(span.end)}` } : {}),
-          ...(schedule.over?.[`${slot.key}#${id}`] ? { over: true } : {}),
         };
       });
       const emergency = coveredSeats(schedule, slot.key);
