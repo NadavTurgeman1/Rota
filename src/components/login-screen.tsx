@@ -122,7 +122,7 @@ function AuthSplit({
   const t = copy[lang];
   return (
     <div className={`relative flex min-h-dvh bg-card ${neutral ? "auth-neutral" : ""}`}>
-      <div className="absolute end-4 top-4 z-30 sm:end-6 sm:top-6">{toolbar}</div>
+      <div className={`absolute end-4 z-30 sm:end-6 ${lowerLogo ? "top-20" : "top-4 sm:top-6"}`}>{toolbar}</div>
       <section className="flex min-h-dvh w-full flex-col px-6 py-6 sm:px-12 lg:w-1/2 lg:px-16 lg:py-8">
         <div className="pe-14">
           <div className={lowerLogo ? "pt-14" : undefined}>

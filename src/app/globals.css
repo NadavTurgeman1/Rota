@@ -1,5 +1,10 @@
 @import "tailwindcss";
 
+/* Phone layout starts a little below the usual tablet width, so a desktop window has to be narrower before it switches. */
+@theme {
+  --breakpoint-md: 45rem;
+}
+
 /*
  * Design tokens. Roles:
  *   background  page          surface   card (raised), paper (sunken)   wells  well, well-strong, track (segmented controls)
@@ -731,9 +736,13 @@ html.native-app textarea {
   font-size: 16px;
 }
 
+html.native-app .auth-neutral button[data-testid="settings"] {
+  border-radius: 999px;
+}
+
 /* Phone chrome. Liquid Glass is a SwiftUI material; a WebView cannot call it.
    This is the same material in CSS: translucent fill, saturated blur, continuous corner. */
-@media (max-width: 767px) {
+@media (max-width: 719px) {
   html:has(.shell),
   body:has(.shell) {
     background: #f5f5f6;
