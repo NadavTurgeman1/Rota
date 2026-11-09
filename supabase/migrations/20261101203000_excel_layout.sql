@@ -1,7 +1,7 @@
 -- How the by-employee sheet of an Excel export is laid out.
 
 alter table public.sites
-  add column excel_layout text not null default 'written';
+  add column if not exists excel_layout text not null default 'written';
 
 alter table public.sites
   drop constraint if exists sites_excel_layout;
