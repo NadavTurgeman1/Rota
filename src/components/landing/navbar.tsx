@@ -3,26 +3,32 @@
 import { useEffect, useState } from "react";
 import { landingConfig as config } from "../../landing/config";
 import { Logo } from "../login-screen";
+import { rememberTheme, resolvedTheme } from "../../theme";
 
 export function useLandingTheme() {
   const [theme, setTheme] = useState<"light" | "dark" | null>(null);
 
   useEffect(() => {
-    const saved = window.localStorage.getItem("rota.theme");
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    setTheme(saved === "dark" || (saved !== "light" && prefersDark) ? "dark" : "light");
+    setTheme(resolvedTheme());
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => setTheme(resolvedTheme());
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
   }, []);
 
   useEffect(() => {
     if (!theme) return;
     document.documentElement.classList.toggle("dark", theme === "dark");
-    window.localStorage.setItem("rota.theme", theme);
   }, [theme]);
 
   return {
     theme: theme ?? "light",
     toggle() {
-      setTheme((current) => (current === "dark" ? "light" : "dark"));
+      setTheme((current) => {
+        const next = current === "dark" ? "light" : "dark";
+        rememberTheme(next);
+        return next;
+      });
     },
   };
 }

@@ -111,6 +111,7 @@ import { CALENDARS_OFF, type CalendarPrefs } from "../schedule/shown-calendars";
 import { CookieNotice } from "./cookie-notice";
 import { DeleteAccount } from "./delete-account";
 import { startNativeChrome, syncNativeStatusBar } from "../native/chrome";
+import { THEME_EXPLICIT_KEY, rememberTheme, resolvedTheme } from "../theme";
 import { PhoneTabBar } from "./phone-tab-bar";
 import { usePhoneSlot } from "./use-phone-host";
 import { SettingsMenu, type Theme } from "./settings-menu";
@@ -123,7 +124,6 @@ import { button, card, cardHint, cardTitle } from "./ui";
 import { downloadBlob, downloadWeekPng } from "./week-png";
 
 const EMPTY: Analysis = { violations: [], labor: [], overQuota: [], unfilled: [], coverage: [], under: [], hours: {}, counts: {} };
-const THEME_KEY = "rota.theme";
 const CALENDARS_KEY = "rota.calendars";
 const SUPPORT_KEY = "rota.supportOrg";
 
@@ -276,6 +276,15 @@ export function ScheduleApp() {
   const [calendars, setCalendars] = useState<CalendarPrefs>(CALENDARS_OFF);
   const [hydrated, setHydrated] = useState(false);
   useEffect(() => startNativeChrome(), []);
+  useEffect(() => {
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => {
+      if (window.localStorage.getItem(THEME_EXPLICIT_KEY) === "1") return;
+      setTheme(media.matches ? "dark" : "light");
+    };
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, []);
   const [userId, setUserId] = useState<string | null>(null);
   const [operator, setOperator] = useState(false);
   const [canCreate, setCanCreate] = useState(false);
@@ -765,10 +774,7 @@ export function ScheduleApp() {
   }
 
   useEffect(() => {
-    const savedTheme = window.localStorage.getItem(THEME_KEY);
-    if (savedTheme === "dark" || (savedTheme === null && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
-      setTheme("dark");
-    }
+    setTheme(resolvedTheme());
     const savedCalendars = window.localStorage.getItem(CALENDARS_KEY);
     if (savedCalendars) {
       try {
@@ -847,7 +853,6 @@ export function ScheduleApp() {
     root.classList.add("theme-switching");
     root.classList.toggle("dark", theme === "dark");
     syncNativeStatusBar();
-    window.localStorage.setItem(THEME_KEY, theme);
     window.localStorage.setItem(CALENDARS_KEY, JSON.stringify(calendars));
     const frame = requestAnimationFrame(() => requestAnimationFrame(() => root.classList.remove("theme-switching")));
     return () => cancelAnimationFrame(frame);
@@ -1485,7 +1490,10 @@ export function ScheduleApp() {
       calendars={calendars}
       showCalendars={screen !== "approvals" && !(operator && !live.org.id && live.sites.length === 0)}
       onLang={setLang}
-      onTheme={setTheme}
+      onTheme={(next) => {
+        rememberTheme(next);
+        setTheme(next);
+      }}
       onCalendar={(key, on) => setCalendars((current) => ({ ...current, [key]: on }))}
       onSignOut={user ? signOut : undefined}
       onDeleteData={user ? () => setDeleteOpen(true) : undefined}

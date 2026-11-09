@@ -31,6 +31,11 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="he" dir="rtl" className={`${heebo.variable} ${inter.variable}`}>
       <body>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{var explicit=localStorage.getItem("rota.theme.explicit")==="1";var saved=localStorage.getItem("rota.theme");var dark=explicit?saved==="dark":matchMedia("(prefers-color-scheme: dark)").matches;document.documentElement.classList.toggle("dark",dark)}catch(e){}`,
+          }}
+        />
         <NativeZoomLock />
         {children}
       </body>

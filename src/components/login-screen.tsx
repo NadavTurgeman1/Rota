@@ -109,21 +109,23 @@ function AuthSplit({
   toolbar,
   home = false,
   lowerLogo = false,
+  neutral = false,
   children,
 }: {
   lang: Lang;
   toolbar: ReactNode;
   home?: boolean;
   lowerLogo?: boolean;
+  neutral?: boolean;
   children: ReactNode;
 }) {
   const t = copy[lang];
   return (
-    <div className="relative flex min-h-dvh bg-card">
+    <div className={`relative flex min-h-dvh bg-card ${neutral ? "auth-neutral" : ""}`}>
       <div className="absolute end-4 top-4 z-30 sm:end-6 sm:top-6">{toolbar}</div>
       <section className="flex min-h-dvh w-full flex-col px-6 py-6 sm:px-12 lg:w-1/2 lg:px-16 lg:py-8">
         <div className="pe-14">
-          <div className={lowerLogo ? "pt-4" : undefined}>
+          <div className={lowerLogo ? "pt-14" : undefined}>
             <Logo className="h-8" />
           </div>
           {home ? (
@@ -201,7 +203,7 @@ export function LoginScreen({
 
   const native = isNativeApp();
   return (
-    <AuthSplit lang={lang} toolbar={toolbar} home={!native} lowerLogo={native}>
+    <AuthSplit lang={lang} toolbar={toolbar} home={!native} lowerLogo={native} neutral>
       <form
         data-testid="login-form"
         method="post"
@@ -391,7 +393,7 @@ export function SignupScreen({
   const [adult, setAdult] = useState(false);
   const [consentMissing, setConsentMissing] = useState(false);
   return (
-    <AuthSplit lang={lang} toolbar={toolbar} home>
+    <AuthSplit lang={lang} toolbar={toolbar} home neutral>
       <form
         data-testid="signup-form"
         method="post"

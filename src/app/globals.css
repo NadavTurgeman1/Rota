@@ -537,6 +537,29 @@ input[type="time"]::-webkit-datetime-edit-fields-wrapper {
   color: #fafafa;
 }
 
+/* Sign-in and sign-up use the neutral dark of the app. The landing page keeps its own palette. */
+:root.dark .auth-neutral {
+  --page: #0c0c0e;
+  --paper: #111113;
+  --card: #18181b;
+  --ink: #fafafa;
+  --ink-soft: #e4e4e7;
+  --muted: #a1a1aa;
+  --subtle: #a1a1aa;
+  --line: #2a2a2e;
+  --field-line: #a1a1aa;
+  --well: #232327;
+  --well-strong: #2e2e33;
+  --track: #232327;
+  --chip: #1f1f23;
+  color-scheme: dark;
+}
+
+:root.dark:has(.auth-neutral),
+:root.dark:has(.auth-neutral) body {
+  background: #0c0c0e;
+}
+
 .shell .material-pop {
   background: var(--card);
   -webkit-backdrop-filter: none;
